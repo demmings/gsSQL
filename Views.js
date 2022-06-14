@@ -1,0 +1,1481 @@
+//  Remove comments for testing in NODE
+/*
+export { DERIVEDTABLE, SelectView, VirtualFields, VirtualField };
+import { Table } from './Table.js';
+import { Sql } from './Sql.js';
+import { sqlCondition2JsCondition } from './SimpleParser.js';
+import { Logger } from './SqlTest.js';
+*/
+
+const DERIVEDTABLE = "::DERIVEDTABLE::";
+
+class SelectView {
+    /**
+     * @param {Object} astTables
+     * @param {Object} astFields
+     * @param {Map<String,Table>} tableInfo 
+     */
+    constructor(astTables, astFields, tableInfo) {
+        this.astTables = astTables;
+        this.astFields = astFields;
+
+        /** @type {Number[]} */
+        this.recordIDs = [];
+        this.selectTables = new SelectTables(astTables[0].table, this.astFields, tableInfo);
+    }
+
+    /**
+     * 
+     * @param {Object} conditions 
+     * @returns  {Number[]}
+     */
+    selectRecordIDsWhere(conditions) {
+        return this.whereCondition(conditions);
+    }
+
+    /**
+     * 
+     * @param {Number[]} recordIDs 
+     * @returns {any[][]}
+     */
+    getViewData(recordIDs) {
+        return this.selectTables.loadData(recordIDs);
+    }
+
+    /**
+     * 
+     * @returns {String[]}
+     */
+    getTitleRow() {
+        return this.selectTables.getTitleRow();
+    }
+
+    getConglomerateFieldCount() {
+        return this.selectTables.getConglomerateFieldCount();
+    }
+
+    conglomerateRecord(groupRecords) {
+        return this.selectTables.conglomerateRecord(groupRecords);
+    }
+
+    /**
+     * 
+     * @param {any[]} astOrderby 
+     * @param {any[][]} selectedData 
+     * @returns {any[][]}
+     */
+    groupBy(astOrderby, selectedData) {
+        return this.selectTables.groupBy(astOrderby, selectedData);
+    }
+
+    /**
+      * 
+      * @param {any[]} astHaving 
+      * @param {any[][]} selectedData 
+      * @returns {any[][]}
+      */
+    having(astHaving, selectedData) {
+        return this.selectTables.having(astHaving, selectedData);
+    }
+
+    orderBy(astOrderby, selectedData) {
+        return this.selectTables.orderBy(astOrderby, selectedData);
+    }
+
+    /**
+     * 
+     * @param {Object} conditions 
+     * @returns {Number[]}
+     */
+    whereCondition(conditions) {
+        let sqlData = [];
+
+        if (typeof conditions.logic == 'undefined')
+            sqlData = this.resolveCondition("OR", [conditions]);
+        else
+            sqlData = this.resolveCondition(conditions.logic, conditions.terms);
+
+        return sqlData;
+    }
+
+    join(astJoin) {
+        this.selectTables.join(astJoin);
+    }
+
+    /**
+    * 
+    * @param {String} logic 
+    * @param {Object} terms 
+    * @returns {Number[]}
+    */
+    resolveCondition(logic, terms) {
+        let recordIDs = [];
+
+        for (let cond of terms) {
+            if (typeof cond.logic == 'undefined') {
+                recordIDs.push(this.selectTables.getRecordIDs(cond));
+            }
+            else {
+                recordIDs.push(this.resolveCondition(cond.logic, cond.terms));
+            }
+        }
+
+        let result = [];
+        if (logic == "AND") {
+            result = recordIDs.reduce((a, b) => a.filter(c => b.includes(c)));
+        }
+        if (logic == "OR") {
+            //  OR Logic
+            let tempArr = [];
+            for (let arr of recordIDs) {
+                tempArr = tempArr.concat(arr);
+            }
+            result = Array.from(new Set(tempArr));
+        }
+
+        return result;
+    }
+}
+
+
+class TableField {
+    constructor(table, field) {
+        this.table = table;
+        this.field = field;
+    }
+
+    setSortOrder(sort) {
+        this.sortOrder = sort;
+    }
+}
+
+class SelectTables {
+    /**
+     * @param {Object} astFields
+     * @param {Map<String,Table>} tableInfo 
+     */
+    constructor(primaryTable, astFields, tableInfo) {
+        this.astFields = astFields;
+        this.tableInfo = tableInfo;
+        this.joinedTablesMap = new Map();
+        this.virtualFields = new VirtualFields();
+        this.dataJoin = new JoinTables([], this.virtualFields);
+        this.masterTableInfo = tableInfo.get(primaryTable.toUpperCase());
+
+        //  Keep a list of all possible fields from all tables.
+        this.virtualFields.loadVirtualFields(tableInfo);
+
+        //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
+        this.astFields = this.virtualFields.expandWildcardFields(this.masterTableInfo, this.astFields);
+
+        //  Keep a list of fields that are SELECTED.
+        this.virtualFields.updateSelectFieldList(primaryTable, astFields);
+    }
+
+    join(astJoin) {
+        this.dataJoin = new JoinTables(astJoin, this.virtualFields);
+    }
+
+    /**
+    * 
+    * @param {Object} condition
+    * @returns {Number[]} 
+    */
+    getRecordIDs(condition) {
+        /** @type {Number[]} */
+        let recordIDs = [];
+        /** @type {String} */
+        let leftConstant = null;
+        let leftCol = -1;
+        /** @type {Table} */
+        let leftTable = null;
+        /** @type {String} */
+        let rightConstant = null;
+        let rightCol = -1;
+        /** @type {Table} */
+        let rightTable = null;
+        /** @type {String} */
+        let leftCalculatedField = "";
+        /** @type {String} */
+        let rightCalculatedField = "";
+
+        [leftTable, leftCol, leftConstant, leftCalculatedField] = this.resolveFieldCondition(condition.left);
+        [rightTable, rightCol, rightConstant, rightCalculatedField] = this.resolveFieldCondition(condition.right);
+
+        /** @type {Table} */
+        this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.masterTableInfo;
+
+        for (let masterRecordID = 1; masterRecordID < this.masterTable.tableData.length; masterRecordID++) {
+            let leftVariable = null;
+            let leftIsDate = false;
+            let rightVariable = null;
+            let rightIsDate = false;
+
+            if (leftCol >= 0) {
+                leftVariable = leftTable.tableData[masterRecordID][leftCol];
+                leftIsDate = leftVariable instanceof Date;
+            }
+            else if (leftCalculatedField != "") {
+                //  Working on a calculated field.
+                let functionString = this.sqlServerCalcFields(leftCalculatedField, masterRecordID);
+                try {
+                    leftConstant = Function(functionString)();
+                }
+                catch (ex) {
+                    Logger.log("Function() Failed: " + functionString);
+                }
+            }
+
+            if (rightCol >= 0) {
+                rightVariable = rightTable.tableData[masterRecordID][rightCol];
+                rightIsDate = rightVariable instanceof Date;
+            }
+            else if (rightCalculatedField != "") {
+                //  Working on a calculated field.
+                let functionString = this.sqlServerCalcFields(rightCalculatedField, masterRecordID);
+                try {
+                    rightConstant = Function(functionString)();
+                }
+                catch (ex) {
+                    Logger.log("Function() Failed: " + functionString);
+                }
+            }
+
+            let leftValue = (leftCol == -1) ? leftConstant : leftVariable;
+            let rightValue = (rightCol == -1) ? rightConstant : rightVariable;
+
+            if (leftValue == null || rightValue == null)
+                continue;
+
+            if (leftIsDate || rightIsDate) {
+                leftValue = this.dateToMs(leftValue);
+                rightValue = this.dateToMs(rightValue);
+            }
+
+            let keep = false;
+            switch (condition.operator.toUpperCase()) {
+                case "=":
+                    keep = leftValue == rightValue;
+                    break;
+
+                case ">":
+                    keep = leftValue > rightValue;
+                    break;
+
+                case "<":
+                    keep = leftValue < rightValue;
+                    break;
+
+                case ">=":
+                    keep = leftValue >= rightValue;
+                    break;
+
+                case "<=":
+                    keep = leftValue <= rightValue;
+                    break;
+
+                case "<>":
+                    keep = leftValue != rightValue;
+                    break;
+
+                case "!=":
+                    keep = leftValue != rightValue;
+                    break;
+
+                case "LIKE":
+                    keep = this.likeCondition(leftValue, rightValue);
+                    break;
+
+                case "NOT LIKE":
+                    keep = !(this.likeCondition(leftValue, rightValue));
+                    break;
+
+                case "IN":
+                    keep = this.inCondition(leftValue, rightValue);
+                    break;
+
+                case "NOT IN":
+                    keep = !(this.inCondition(leftValue, rightValue));
+                    break;
+
+                default:
+                    throw ("Invalid Operator: " + condition.operator);
+            }
+
+            if (keep)
+                recordIDs.push(masterRecordID);
+
+        }
+
+        return recordIDs;
+    }
+
+    /**
+     * 
+     * @param {Number[]} recordIDs 
+     * @returns {any[][]}
+     */
+    loadData(recordIDs) {
+        let virtualData = [];
+
+        let temp = this.virtualFields.selectVirtualFields;
+
+        for (let masterRecordID of recordIDs) {
+            if (this.masterTable.tableData[masterRecordID] == undefined)
+                continue;
+
+            let newRow = [];
+
+            /** @type {SelectField} */
+            let field;
+            for (field of this.virtualFields.selectVirtualFields) {
+                if (field.fieldInfo != null)
+                    newRow.push(field.fieldInfo.getData(masterRecordID));
+                else if (field.calculatedFormula != "") {
+                    //  Working on a calculated field.
+                    let functionString = this.sqlServerCalcFields(field.calculatedFormula, masterRecordID);
+                    let result;
+                    try {
+                        result = new Function(functionString)();
+                    }
+                    catch (ex) {
+                        Logger.log("Function() Failed: " + functionString);
+                        throw("Calculated Field Error: " + ex.message);
+                    }
+                    newRow.push(result);
+                }
+            }
+
+            virtualData.push(newRow);
+        }
+
+        return virtualData;
+    }
+
+    /**
+     * 
+     * @param {String} calculatedFormula 
+     * @param {Number} masterRecordID
+     * @returns {String}
+     */
+    sqlServerCalcFields(calculatedFormula, masterRecordID) {
+        //  Working on a calculated field.
+
+        let objectsDeclared = new Map();
+
+        /** @type {VirtualField} */
+        let vField;
+        let myVars = "";
+        for (vField of this.virtualFields.getAllVirtualFields()) {
+            if (vField.fieldName == "*")
+                continue;
+
+            //  Non primary table fields require full notation for column
+            if (this.masterTableInfo.tableName != vField.tableInfo.tableName) {
+                if (vField.fieldName.indexOf(".") == -1)
+                    continue;
+            }
+
+            let varData = vField.getData(masterRecordID);
+            if (typeof vField.getData(masterRecordID) == "string")
+                varData = "'" + vField.getData(masterRecordID) + "'";
+
+            if (vField.fieldName.indexOf(".") == -1)
+                myVars += "let " + vField.fieldName + " = " + varData + ";";
+            else {
+                let parts = vField.fieldName.split(".");
+                if (!objectsDeclared.has(parts[0])) {
+                    myVars += "let " + parts[0] + " = {};";
+                    objectsDeclared.set(parts[0], true);
+                }
+                myVars += vField.fieldName + " = " + varData + ";";
+            }
+        }
+
+        let functionString = this.sqlServerFunctions(calculatedFormula);
+
+        return myVars + " return " + functionString;
+    }
+
+    /**
+     * 
+     * @param {String} calculatedFormula 
+     * @returns {String}
+     */
+    sqlServerFunctions(calculatedFormula) {
+        let sqlFunctions = ["ABS", "CASE", "CEILING", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+            "LTRIM", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
+            "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER"];
+        //  TODO:
+        //  This parse fails with functions inside of functions, e.g.
+        //  TRIM(UPPER(name)) - will not work.
+        let expMatch = "%1\\s*\\(\\s*([^)]+?)\\s*\\)";
+
+        let functionString = calculatedFormula.toUpperCase();
+        let firstCase = true;
+
+        for (let func of sqlFunctions) {
+            let matchStr = new RegExp(expMatch.replace("%1", func));
+            var args = functionString.match(matchStr);
+            let originalCaseStatement = "";
+            let originalFunctionString = "";
+
+            if (args == null && func == "CASE") {
+                args = functionString.match(/CASE(.*?)END/i);
+
+                if (args != null && args.length > 1) {
+                    firstCase = true;
+                    originalFunctionString = functionString;
+                    originalCaseStatement = args[0];
+                    functionString = args[1];
+                    matchStr = new RegExp("WHEN(.*?)THEN(.*?)(?=WHEN|ELSE|$)|ELSE(.*?)(?=$)");
+                    args = args[1].match(matchStr);
+                }
+            }
+
+            while (args != null && args.length > 0) {
+                let parms = typeof args[1] == 'undefined' ? [] : args[1].split(",");
+
+                let replacement = "";
+                switch (func) {
+                    case "ABS":
+                        replacement = "Math.abs(" + parms[0] + ")";
+                        break;
+                    case "CASE":
+                        if (args.length > 2) {
+                            if (typeof args[1] == 'undefined' && typeof args[2] == 'undefined') {
+                                replacement = "else return " + args[3] + ";";
+                            }
+                            else {
+                                if (firstCase) {
+                                    replacement = "(() => {if (";
+                                    firstCase = false;
+                                }
+                                else
+                                    replacement = "else if (";
+                                replacement += sqlCondition2JsCondition(args[1]) + ") return " + args[2] + " ;";
+                            }
+                        }
+                        break;
+                    case "CEILING":
+                        replacement = "Math.ceil(" + parms[0] + ")";
+                        break;
+                    case "FLOOR":
+                        replacement = "Math.floor(" + parms[0] + ")";
+                        break;
+                    case "IF":
+                        let ifCond = sqlCondition2JsCondition(parms[0]);
+                        replacement = ifCond + " ? " + parms[1] + " : " + parms[2] + ";";
+                        break;
+                    case "LEFT":
+                        replacement = parms[0] + ".substring(0," + parms[1] + ")";
+                        break;
+                    case "LEN":
+                    case "LENGTH":
+                        replacement = parms[0] + ".length";
+                        break;
+                    case "LOG":
+                        replacement = "Math.log2(" + parms[0] + ")";
+                        break;
+                    case "LOG10":
+                        replacement = "Math.log10(" + parms[0] + ")";
+                        break;
+                    case "LOWER":
+                        replacement = parms[0] + ".toLowerCase()";
+                        break;
+                    case "LTRIM":
+                        replacement = parms[0] + ".trimStart()";
+                        break;
+                    case "POWER":
+                        replacement = "Math.pow(" + parms[0] + "," + parms[1] + ")";
+                        break;
+                    case "RAND":
+                        replacement = "Math.random()";
+                        break;
+                    case "REPLICATE":
+                        replacement = parms[0] + ".repeat(" + parms[1] + ")";
+                        break;
+                    case "REVERSE":
+                        replacement = parms[0] + '.split("").reverse().join("")';
+                        break;
+                    case "RIGHT":
+                        replacement = parms[0] + ".slice(" + parms[0] + ".length - " + parms[1] + ")";
+                        break;
+                    case "ROUND":
+                        replacement = "Math.round(" + parms[0] + ")";
+                        break;
+                    case "RTRIM":
+                        replacement = parms[0] + ".trimEnd()";
+                        break;
+                    case "SPACE":
+                        replacement = "' '.repeat(" + parms[0] + ")";
+                        break;
+                    case "STUFF":
+                        replacement = parms[0] + ".substring(0," + parms[1] + "-1" + ") + " + parms[3] + " + " + parms[0] + ".substring(" + parms[1] + " + " + parms[2] + " - 1)";
+                        break;
+                    case "SUBSTRING":
+                        replacement = parms[0] + ".substring(" + parms[1] + " - 1, " + parms[1] + " + " + parms[2] + " - 1)";
+                        break;
+                    case "SQRT":
+                        replacement = "Math.sqrt(" + parms[0] + ")";
+                        break;
+                    case "TRIM":
+                        replacement = parms[0] + ".trim()";
+                        break;
+                    case "UPPER":
+                        replacement = parms[0] + ".toUpperCase()";
+                        break;
+                }
+
+                functionString = functionString.replace(args[0], replacement);
+                args = functionString.match(matchStr);
+            }
+
+            if (originalCaseStatement != "") {
+                functionString += "})();";      //  end of lambda.
+                functionString = originalFunctionString.replace(originalCaseStatement, functionString);
+            }
+        }
+
+        return functionString;
+    }
+
+
+
+    getConglomerateFieldCount() {
+        let count = 0;
+        /** @type {SelectField} */
+        let field;
+        for (field of this.virtualFields.selectVirtualFields) {
+            if (field.aggregateFunction != "")
+                count++;
+        }
+
+        return count;
+    }
+
+    /**
+    * 
+    * @param {any[]} astGroupBy 
+    * @param {any[][]} selectedData 
+    * @returns {any[][]}
+    */
+    groupBy(astGroupBy, selectedData) {
+        if (selectedData.length == 0)
+            return;
+
+        //  Throws ERROR if not.
+        this.isGroupByExpression(astGroupBy);
+
+        //  Sort the least important first, and most important last.
+        let reverseOrderBy = astGroupBy.reverse();
+
+        for (let orderField of reverseOrderBy) {
+            let selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
+
+            if (selectColumn != -1) {
+                this.sortByColumnASC(selectedData, selectColumn);
+            }
+        }
+
+        let groupedData = [];
+        let groupRecords = [];
+        let lastKey = this.createGroupByKey(selectedData[0], astGroupBy);
+        for (let row of selectedData) {
+            let newKey = this.createGroupByKey(row, astGroupBy);
+            if (newKey != lastKey) {
+                groupedData.push(this.conglomerateRecord(groupRecords));
+
+                lastKey = newKey;
+                groupRecords = [];
+            }
+            groupRecords.push(row);
+        }
+
+        if (groupRecords.length > 0)
+            groupedData.push(this.conglomerateRecord(groupRecords));
+
+        return groupedData;
+    }
+
+    /**
+     * 
+     * @param {any[]} astGroupBy 
+     * @returns {Boolean}
+     */
+    isGroupByExpression(astGroupBy) {
+        /** @type {SelectField} */
+        let field;
+        for (field of this.virtualFields.selectVirtualFields) {
+            //  If NOT a function, must be in GROUP BY fields.
+            if (field.aggregateFunction == "") {
+                let isInGroup = false;
+
+                for (let groupByItem of astGroupBy) {
+                    if (this.virtualFields.isSameField(groupByItem.column, field.fieldInfo.fieldName)) {
+                        isInGroup = true;
+                    }
+                    else if (groupByItem.column.indexOf(".") == -1) {
+                        if (this.virtualFields.isSameField(this.masterTableInfo.tableName + "." + groupByItem.column, field.fieldInfo.fieldName)) {
+                            isInGroup = true;
+                            groupByItem.column = this.masterTableInfo.tableName + "." + groupByItem.column;
+                        }
+                    }
+                }
+
+                if (!isInGroup)
+                    throw ("Not a GROUP BY expression: " + field.fieldInfo.fieldName);
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * 
+     * @param {*} groupRecords 
+     * @returns {any[]}
+     */
+    conglomerateRecord(groupRecords) {
+        let row = [];
+        if (groupRecords.length == 0)
+            return row;
+
+        /** @type {SelectField} */
+        let field;
+        let i = 0;
+        for (field of this.virtualFields.selectVirtualFields) {
+            if (field.aggregateFunction == "")
+                row.push(groupRecords[0][i]);
+            else {
+                let groupValue = 0;
+                let first = true;
+
+                for (let groupRow of groupRecords) {
+                    let data = parseFloat(groupRow[i]);
+
+                    switch (field.aggregateFunction) {
+                        case "SUM":
+                            groupValue += data;
+                            break;
+                        case "COUNT":
+                            groupValue++;
+                            break;
+                        case "MIN":
+                            if (first)
+                                groupValue = data;
+                            if (data < groupValue)
+                                groupValue = data;
+                            break;
+                        case "MAX":
+                            if (first)
+                                groupValue = data;
+                            if (data > groupValue)
+                                groupValue = data;
+                            break;
+                        case "AVG":
+                            groupValue += data;
+                            break;
+                        default:
+                            throw ("Invalid aggregate function: " + field.aggregateFunction);
+                    }
+                    first = false;
+                }
+
+                if (field.aggregateFunction == "AVG")
+                    groupValue = groupValue / groupRecords.length;
+
+                row.push(groupValue);
+            }
+            i++;
+
+        }
+        return row;
+    }
+
+    createGroupByKey(row, astGroupBy) {
+        let key = "";
+
+        for (let orderField of astGroupBy) {
+            let selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
+            if (selectColumn != -1)
+                key += row[selectColumn].toString();
+        }
+
+        return key;
+    }
+
+    /**
+    * 
+    * @param {any[]} astHaving 
+    * @param {any[][]} selectedData 
+    * @returns {any[][]}
+    */
+    having(astHaving, selectedData) {
+        //  Add in the title row for now
+        selectedData.unshift(this.getTitleRow());
+
+        //  Create our virtual GROUP table with data already selected.
+        let groupTable = new Table("GROUPTABLE", "", selectedData);
+
+        let tableMapping = new Map();
+        tableMapping.set("GROUPTABLE", groupTable);
+
+        //  Set up for our SQL.
+        let inSQL = new Sql([], "", false).setTables(tableMapping);
+
+        //  Fudge the HAVING to look like a SELECT.
+        let astSelect = {};
+        astSelect['FROM'] = [{ table: "GROUPTABLE" }];
+        astSelect['SELECT'] = [{ name: "*" }];
+        astSelect['WHERE'] = astHaving;
+
+        let inData = inSQL.select(astSelect);
+
+        return inData;
+    }
+
+    /**
+     * 
+     * @param {any[]} astOrderby 
+     * @param {any[][]} selectedData 
+     */
+    orderBy(astOrderby, selectedData) {
+        //  Sort the least important first, and most important last.
+        let reverseOrderBy = astOrderby.reverse();
+
+        for (let orderField of reverseOrderBy) {
+            let selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
+
+            if (selectColumn != -1) {
+                if (orderField.order == "DESC")
+                    this.sortByColumnDESC(selectedData, selectColumn);
+                else
+                    this.sortByColumnASC(selectedData, selectColumn);
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {any[][]} tableData 
+     * @param {Number} colIndex 
+     * @returns 
+     */
+    sortByColumnASC(tableData, colIndex) {
+
+        tableData.sort(sortFunction);
+
+        function sortFunction(a, b) {
+            if (a[colIndex] === b[colIndex]) {
+                return 0;
+            }
+            else {
+                return (a[colIndex] < b[colIndex]) ? -1 : 1;
+            }
+        }
+
+        return tableData;
+    }
+
+    /**
+     * 
+     * @param {any[][]} tableData 
+     * @param {Number} colIndex 
+     * @returns 
+     */
+    sortByColumnDESC(tableData, colIndex) {
+
+        tableData.sort(sortFunction);
+
+        function sortFunction(a, b) {
+            if (a[colIndex] === b[colIndex]) {
+                return 0;
+            }
+            else {
+                return (a[colIndex] > b[colIndex]) ? -1 : 1;
+            }
+        }
+
+        return tableData;
+    }
+
+    /**
+     * 
+     * @param {any} fieldCondition 
+     * @returns {any[]}
+     */
+    resolveFieldCondition(fieldCondition) {
+        /** @type {String} */
+        let constantData = null;
+        /** @type {Number} */
+        let columnNumber = -1;
+        /** @type {Table} */
+        let fieldConditionTableInfo = null;
+        /** @type {String} */
+        let calculatedField = "";
+
+        //  Maybe a SELECT within...
+        if (typeof fieldCondition['SELECT'] != 'undefined') {
+            let inSQL = new Sql([], "", false).setTables(this.tableInfo);
+            let inData = inSQL.select(fieldCondition);
+            constantData = inData.join(",");
+        }
+        else if (this.isStringConstant(fieldCondition))
+            constantData = this.extractStringConstant(fieldCondition);
+        else {
+            if (isNaN(fieldCondition)) {
+                if (this.virtualFields.hasField(fieldCondition)) {
+                    columnNumber = this.virtualFields.getFieldColumn(fieldCondition)
+                    fieldConditionTableInfo = this.virtualFields.getTableInfo(fieldCondition)
+                }
+                else {
+                    //  Calculated field?
+                    calculatedField = fieldCondition;
+                }
+            }
+            else
+                constantData = fieldCondition;
+        }
+
+        //        if (fieldConditionTableInfo == null && constantData == null) {
+        //            throw "Invalid field in WHERE: " + fieldCondition;
+        //        }
+
+        return [fieldConditionTableInfo, columnNumber, constantData, calculatedField];
+    }
+
+    isStringConstant(value) {
+        return value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'");
+    }
+
+    extractStringConstant(value) {
+        if (value.startsWith('"') && value.endsWith('"'))
+            return value.replace(/"/g, '');
+
+        if (value.startsWith("'") && value.endsWith("'"))
+            return value.replace(/'/g, '');
+
+        return value;
+    }
+
+    dateToMs(value) {
+        let year = 0;
+        let month = 0;
+        let dayNum = 0;
+
+        if (value instanceof Date) {
+            year = value.getFullYear();
+            month = value.getMonth();
+            dayNum = value.getDate();
+        }
+        else if (typeof value == "string") {
+            let dateParts = value.split("/");
+            if (dateParts.length == 3) {
+                year = parseInt(dateParts[2]);
+                month = parseInt(dateParts[0]) - 1;
+                dayNum = parseInt(dateParts[1]);
+            }
+        }
+
+        let newDate = new Date(Date.UTC(year, month, dayNum, 12, 0, 0, 0));
+        return newDate.getTime();
+    }
+
+    /**
+     * 
+     * @param {String} leftValue 
+     * @param {String} rightValue 
+     * @returns {Boolean}
+     */
+    likeCondition(leftValue, rightValue) {
+        // @ts-ignore
+        let expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
+
+        let result = leftValue.search(expanded);
+        return result != -1;
+    }
+
+    /**
+     * 
+     * @param {String} leftValue 
+     * @param {String} rightValue 
+     * @returns 
+     */
+    inCondition(leftValue, rightValue) {
+        let items = rightValue.split(",");
+        for (let i = 0; i < items.length; i++)
+            items[i] = items[i].trimStart().trimEnd();
+
+        let index = items.indexOf(leftValue);
+
+        return index != -1;
+    }
+
+    getTitleRow() {
+        return this.virtualFields.getTitleRow();
+    }
+}
+
+class VirtualFields {
+    constructor() {
+        /** @type {Map<String, VirtualField>} */
+        this.virtualFieldMap = new Map();
+        /** @type {VirtualField[]} */
+        this.virtualFieldList = [];
+        /** @type {String[]} */
+        this.titleRow = [];
+        /** @type {SelectField[]} */
+        this.selectVirtualFields = [];
+    }
+
+    /**
+     * 
+     * @param {VirtualField} field 
+     */
+    add(field) {
+        this.virtualFieldMap.set(field.fieldName, field);
+        this.virtualFieldList.push(field);
+    }
+
+    /**
+     * 
+     * @param {VirtualField} originalField 
+     * @param {VirtualField} newField 
+     */
+    replaceVirtualField(originalField, newField) {
+        for (let i = 0; i < this.virtualFieldList.length; i++) {
+            if (this.virtualFieldList[i] == originalField) {
+                //  Keep field object, just replace contents.
+                this.virtualFieldList[i].tableColumn = newField.tableColumn;
+                this.virtualFieldList[i].tableInfo = newField.tableInfo;
+                break;
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {String} field 
+     * @returns {Boolean}
+     */
+    hasField(field) {
+        field = field.trim().toUpperCase();
+
+        return this.virtualFieldMap.has(field);
+    }
+
+    /**
+     * 
+     * @param {String} field
+     * @returns {Table}  
+     */
+    getTableInfo(field) {
+        field = field.trim().toUpperCase();
+        let tableInfo = null;
+
+        if (this.virtualFieldMap.has(field))
+            tableInfo = this.virtualFieldMap.get(field).tableInfo;
+
+        return tableInfo;
+    }
+
+    /**
+     * 
+     * @param {String} field 
+     * @returns {VirtualField}
+     */
+    getFieldInfo(field) {
+        field = field.trim().toUpperCase();
+        let fieldInfo = null;
+
+        let temp = this.virtualFieldMap;
+        if (this.virtualFieldMap.has(field))
+            fieldInfo = this.virtualFieldMap.get(field);
+
+        return fieldInfo;
+    }
+
+    isSameField(name1, name2) {
+        let leftVirtual = name1;
+        if (typeof name1 == "string")
+            leftVirtual = this.getFieldInfo(name1);
+
+        let rightVirtual = name2;
+        if (typeof name2 == "string")
+            rightVirtual = this.getFieldInfo(name2);
+
+        if (leftVirtual != null && rightVirtual != null &&
+            leftVirtual.tableInfo.tableName == rightVirtual.tableInfo.tableName &&
+            leftVirtual.tableColumn == rightVirtual.tableColumn) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 
+     * @returns {VirtualField[]}
+     */
+    getAllVirtualFields() {
+        return this.virtualFieldList;
+    }
+
+    /**
+     * 
+     * @param {String} field 
+     * @returns {Number}
+     */
+    getFieldColumn(field) {
+        field = field.trim().toUpperCase();
+        let fieldColumn = null;
+
+        if (this.virtualFieldMap.has(field))
+            fieldColumn = this.virtualFieldMap.get(field).tableColumn;
+
+        return fieldColumn;
+    }
+
+    /**
+     * Iterate through all table fields and create a list of these VirtualFields.
+     * @param {Map<String,Table>} tableInfo  
+     */
+    loadVirtualFields(tableInfo) {
+        /** @type {String} */
+        let tableName;
+        /** @type {Table} */
+        let tableObject;
+        // @ts-ignore
+        for ([tableName, tableObject] of tableInfo.entries()) {
+            let validFieldNames = tableObject.getAllFieldNames();
+
+            for (let field of validFieldNames) {
+                let tableColumn = tableObject.getFieldColumn(field);
+                if (tableColumn != -1) {
+                    let virtualField = new VirtualField(field, tableObject, tableColumn);
+                    this.add(virtualField);
+                }
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {DerivedTable} derivedTable 
+     */
+    updateDerivedTableVirtualFields(derivedTable) {
+        let existingVirtualFieldsList = derivedTable.tableInfo.getAllVirtualFields();;
+
+        for (let field of existingVirtualFieldsList) {
+            if (this.hasField(field.fieldName)) {
+                let originalField = this.getFieldInfo(field.fieldName);
+                this.replaceVirtualField(originalField, field);
+            }
+        }
+    }
+
+    removeNonDerivedTableVirtualFields() {
+        /** @type {VirtualField[]} */
+        let newVirtualFields = [];
+        for (let fld of this.virtualFieldList) {
+            if (fld.tableInfo.tableName == DERIVEDTABLE) {
+                newVirtualFields.push(fld);
+            }
+            else if (this.virtualFieldMap.has(fld.fieldName)) {
+                this.virtualFieldMap.delete(fld.fieldName);
+            }
+        }
+
+        this.virtualFieldList = newVirtualFields;
+    }
+
+    /**
+     * 
+     * @param {Table} masterTableInfo 
+     * @param {any[]} astFields 
+     * @returns {any[]}
+     */
+    expandWildcardFields(masterTableInfo, astFields) {
+        for (let i = 0; i < astFields.length; i++) {
+            if (astFields[i].name == "*") {
+                //  Replace wildcard will actual field names from master table.
+                let masterTableFields = [];
+                let colSet = new Set();
+
+                for (let virtualField of this.virtualFieldList) {
+                    //  The special '*' field representing ALL fields should not be expanded into list of fields.
+                    if (virtualField.tableInfo == masterTableInfo && virtualField.fieldName != "*") {
+                        if (!colSet.has(virtualField.tableColumn)) {
+                            let selField = { name: virtualField.fieldName };
+                            masterTableFields.push(selField);
+                            colSet.add(virtualField.tableColumn);
+                        }
+                    }
+                }
+
+                astFields.splice(i, 1, ...masterTableFields);
+                break;
+            }
+        }
+
+        return astFields;
+    }
+
+    /**
+     * 
+     * @param {String} primaryTable 
+     * @param {*} astFields 
+     * @returns {SelectField[]}
+     */
+    updateSelectFieldList(primaryTable, astFields) {
+        this.titleRow = [];
+        this.selectVirtualFields = [];
+        let temp = this.virtualFieldMap;
+
+        for (let selField of astFields) {
+            //  If this is a CONGLOMERATE function, extract field name so that raw data
+            //  from field is included.  The data will be accumulated by GROUP BY later.
+            let columnName = selField.name;
+            let aggregateFunctionName = "";
+            let calculatedField = (typeof selField.terms == undefined) ? null : selField.terms;
+
+            if (calculatedField == null && !this.hasField(columnName)) {
+                let regExp = /\(([^)]+)\)/;
+
+                const functionNameRegex = /[a-zA-Z]*(?=\()/
+                let matches = columnName.match(functionNameRegex)
+                if (matches != null && matches.length > 0)
+                    aggregateFunctionName = matches[0];
+
+                matches = regExp.exec(columnName);
+                if (matches != null && matches.length > 1)
+                    columnName = matches[1];
+            }
+
+            if (calculatedField == null && columnName.indexOf(".") == -1)
+                columnName = primaryTable.toUpperCase() + "." + columnName.toUpperCase();
+
+            if (calculatedField == null && this.hasField(columnName)) {
+                let fieldInfo = this.getFieldInfo(columnName);
+                let selectFieldInfo = new SelectField(fieldInfo);
+                selectFieldInfo.aggregateFunction = aggregateFunctionName;
+
+                this.selectVirtualFields.push(selectFieldInfo);
+                this.titleRow.push(selField.name);
+            }
+            else if (calculatedField != null) {
+                let selectFieldInfo = new SelectField(null);
+                selectFieldInfo.calculatedFormula = selField.name;
+                this.selectVirtualFields.push(selectFieldInfo);
+                this.titleRow.push(selField.name);
+            }
+            else {
+                Logger.log("Failed to find: " + selField.name + ".  Make sure table data range/array is specified.");
+                throw ("Failed to find: " + selField.name);
+            }
+        }
+
+        return this.selectVirtualFields;
+    }
+
+    getSelectFieldColumn(fieldName) {
+        let selectColumn = -1;
+
+        for (let i = 0; i < this.selectVirtualFields.length; i++) {
+            if (this.isSameField(this.selectVirtualFields[i].fieldInfo, fieldName) && this.selectVirtualFields[i].aggregateFunction == "")
+                return i;
+        }
+
+        return selectColumn;
+    }
+
+    getTitleRow() {
+        return this.titleRow;
+    }
+}
+
+class VirtualField {
+    /**
+     * 
+     * @param {String} fieldName 
+     * @param {Table} tableInfo 
+     * @param {Number} tableColumn 
+     */
+    constructor(fieldName, tableInfo, tableColumn) {
+        this.fieldName = fieldName;
+        this.tableInfo = tableInfo;
+        this.tableColumn = tableColumn;
+    }
+
+    getData(tableRow) {
+        if (tableRow < 0 || this.tableColumn < 0)
+            return "";
+
+        return this.tableInfo.tableData[tableRow][this.tableColumn];
+    }
+}
+
+class SelectField {
+    /**
+     * 
+     * @param {VirtualField} fieldInfo 
+     */
+    constructor(fieldInfo) {
+        this._aggregateFunction = "";
+        /** @property {SelectField[]} */
+        this._calculatedFormula = "";
+        this.fieldInfo = fieldInfo;
+    }
+
+    get aggregateFunction() {
+        return this._aggregateFunction;
+    }
+
+    set aggregateFunction(value) {
+        this._aggregateFunction = value.toUpperCase();
+    }
+
+    get calculatedFormula() {
+        return this._calculatedFormula;
+    }
+
+    set calculatedFormula(value) {
+        this._calculatedFormula = value;
+    }
+}
+
+class JoinTables {
+    /**
+     * 
+     * @param {*} astJoin 
+     * @param {VirtualFields} virtualFields 
+     */
+    constructor(astJoin, virtualFields) {
+        /** @type {DerivedTables} */
+        this.derivedTables = new DerivedTables();
+
+        astJoin = astJoin.reverse();
+
+        for (let joinTable of astJoin) {
+            /** @type {VirtualField} */
+            let leftFieldInfo = this.derivedTables.getFieldInfo(joinTable.cond.left);
+            if (leftFieldInfo == null)
+                leftFieldInfo = virtualFields.getFieldInfo(joinTable.cond.left);
+            if (leftFieldInfo == null)
+                throw ("Invalid JOIN field: " + joinTable.cond.left);
+
+            /** @type {VirtualField} */
+            let rightFieldInfo = this.derivedTables.getFieldInfo(joinTable.cond.right);
+            if (rightFieldInfo == null)
+                rightFieldInfo = virtualFields.getFieldInfo(joinTable.cond.right);
+            if (rightFieldInfo == null)
+                throw ("Invalid JOIN field: " + joinTable.cond.right);
+
+            let table = this.joinTables(leftFieldInfo, rightFieldInfo, joinTable);
+
+            //  Field locations have changed to the derived table, so update our
+            //  virtual field list with proper settings.
+            virtualFields.updateDerivedTableVirtualFields(table);
+            this.derivedTables.setTable(table);
+        }
+
+        // Don't want any references to the original NON-DERIVED tables.
+        virtualFields.removeNonDerivedTableVirtualFields();
+    }
+
+    /**
+     * 
+     * @returns {Boolean}
+     */
+    isDerivedTable() {
+        return this.derivedTables.isDerivedTable();
+    }
+
+    /**
+     * 
+     * @returns {Table}
+     */
+    getJoinedTableInfo() {
+        return this.derivedTables.getTableData();
+    }
+
+    /**
+    * 
+    * @param {VirtualField} leftFieldInfo 
+    * @param {VirtualField} rightFieldInfo 
+    * @param {Object} joinTable 
+    * @returns {DerivedTable}
+    */
+    joinTables(leftFieldInfo, rightFieldInfo, joinTable) {
+        let matchedRecordIDs = [];
+        let derivedTable = null;
+
+        switch (joinTable.type) {
+            case "left":
+                matchedRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
+                derivedTable = new DerivedTable(leftFieldInfo, rightFieldInfo, matchedRecordIDs, true);
+                break;
+
+            case "inner":
+                matchedRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
+                derivedTable = new DerivedTable(leftFieldInfo, rightFieldInfo, matchedRecordIDs, false);
+                break;
+
+            case "right":
+                matchedRecordIDs = this.leftRightJoin(rightFieldInfo, leftFieldInfo, joinTable.type);
+                derivedTable = new DerivedTable(rightFieldInfo, leftFieldInfo, matchedRecordIDs, true);
+                break;
+
+            case "full":
+                let leftJoinRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
+                derivedTable = new DerivedTable(leftFieldInfo, rightFieldInfo, leftJoinRecordIDs, true);
+
+                let rightJoinRecordIDs = this.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
+                let rightDerivedTable = new DerivedTable(rightFieldInfo, leftFieldInfo, rightJoinRecordIDs, true);
+                derivedTable.tableInfo.concat(rightDerivedTable.tableInfo);
+
+                break;
+        }
+        return derivedTable;
+    }
+
+    /**
+     * Returns array of each matching record ID from right table for every record in left table.
+     * If the right table entry could NOT be found, -1 is set for that record index.
+     * @param {VirtualField} leftField 
+     * @param {VirtualField} rightField
+     * @param {String} type
+     * @returns {Number[][][]} 
+     */
+    leftRightJoin(leftField, rightField, type) {
+        let rightRecordIDs = [];
+        let leftRecordsIDs = [];
+
+        //  First record is the column title.
+        rightRecordIDs.push([0]);
+        leftRecordsIDs.push([0]);
+
+        /** @type {any[][]} */
+        let leftTableData = leftField.tableInfo.tableData;
+        let leftTableCol = leftField.tableColumn;
+
+        rightField.tableInfo.addIndex(rightField.fieldName);
+
+        for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
+
+            let keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
+
+            let joinRows = rightField.tableInfo.search(rightField.fieldName, keyMasterJoinField);
+            //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
+            if (joinRows.length == 0) {
+                if (type == "inner")
+                    continue;
+
+                leftRecordsIDs[leftTableRecordNum] = [-1];
+            }
+            else {
+                //  Excludes all match recordgs (is outer the right word for this?)
+                if (type == "outer")
+                    continue;
+
+                leftRecordsIDs[leftTableRecordNum] = joinRows;
+            }
+
+            //  For every RIGHT TABLE record matched, we record the matching LEFT TABLE record ID.
+            for (let item of joinRows) {
+                let vals = rightRecordIDs[item];
+                if (vals == null)
+                    vals = [];
+                vals.push(leftTableRecordNum);
+                rightRecordIDs[item] = vals;
+            }
+        }
+
+        return [leftRecordsIDs, rightRecordIDs];
+    }
+}
+
+class DerivedTables {
+    constructor() {
+        /** @type {DerivedTable} */
+        this.derived = null;
+    }
+    /**
+     * 
+     * @param {DerivedTable} table 
+     */
+    setTable(table) {
+        this.derived = table;
+    }
+
+    /**
+     * 
+     * @returns {Boolean}
+     */
+    isDerivedTable() {
+        return this.derived != null;
+    }
+
+    /**
+     * 
+     * @returns {Table}
+     */
+    getTableData() {
+        return this.derived.tableInfo;
+    }
+
+    /**
+     * 
+     * @param {String} field
+     * @returns {VirtualField} 
+     */
+    getFieldInfo(field) {
+        return this.derived == null ? null : this.derived.tableInfo.getVirtualFieldInfo(field);
+    }
+
+}
+
+class DerivedTable {
+    /**
+     * 
+     * @param {VirtualField} leftField 
+     * @param {VirtualField} rightField 
+     * @param {Number[][][]} records 
+     * @param {Boolean} isOuterJoin
+     */
+    constructor(leftField, rightField, records, isOuterJoin) {
+        /** @type {Number[][]} */
+        let leftRecords;
+        /** @type {Number[][]} */
+        let rightRecords;
+        [leftRecords, rightRecords] = records;
+
+        let titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames();
+
+        let rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames();
+        titleRow = titleRow.concat(rightFieldNames);
+
+        let emptyRightRow = Array(rightFieldNames.length).fill("");
+
+        let joinedData = [];
+        joinedData.push(titleRow);
+
+        for (let i = 1; i < leftField.tableInfo.tableData.length; i++) {
+            if (typeof leftRecords[i] != "undefined") {
+                if (typeof rightField.tableInfo.tableData[leftRecords[i][0]] == "undefined")
+                    joinedData.push(leftField.tableInfo.tableData[i].concat(emptyRightRow));
+                else {
+                    let maxJoin = isOuterJoin ? leftRecords[i].length : 1;
+                    for (let j = 0; j < maxJoin; j++) {
+                        joinedData.push(leftField.tableInfo.tableData[i].concat(rightField.tableInfo.tableData[leftRecords[i][j]]));
+                    }
+                }
+            }
+        }
+        /** @type {Table} */
+        this.tableInfo = new Table(DERIVEDTABLE, "", joinedData);
+        this.leftTable = this.tableInfo.getVirtualFieldInfo(leftField.fieldName);
+        this.rightTable = this.tableInfo.getVirtualFieldInfo(rightField.fieldName);
+
+    }
+}
