@@ -41,7 +41,7 @@ NOTE:
 5.  When specifying the table name/data as a parameter, you should only specify tables referenced in the SELECT as all data from every table is loaded into memory for processing (I didn't say this was a memory optimized script).
 
 WARNING:
-I have used eval() and Function() to make my life easier.  If you believe that you will do some kind of injection attach on yourself at some later date, I urge you to modify the scripts to remove these from the program (or not use at all).
+I have used eval() and Function() to make my life easier.  If you believe that you will do some kind of injection attack on yourself at some later date, I urge you to modify the scripts to remove these from the program (or not use at all).
 
 Most of the BASIC SELECT functionality is implemented, however if you want to do anything fancy, it is most likely not going to work.  Check out the SqlTest.js to get an idea of the kind of commands that will work.  
 
