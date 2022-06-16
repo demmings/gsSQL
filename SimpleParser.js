@@ -1,8 +1,8 @@
 //  Remove comments for testing in NODE
-/*
-export {sql2ast, sqlCondition2JsCondition};
-import {Logger} from './SqlTest.js';
-*/
+//
+export { sql2ast, sqlCondition2JsCondition };
+import { Logger } from './SqlTest.js';
+//
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 
@@ -160,7 +160,7 @@ function makeSqlPartsSplitterRegEx(keywords) {
 // Parse a query
 // parseCond: (bool) parse conditions in WHERE and JOIN (default true)
 function sql2ast(query, parseCond) {
-    if (typeof parseCond == 'undefined' || parseCond === null) 
+    if (typeof parseCond == 'undefined' || parseCond === null)
         parseCond = true;
 
     // Remove semi-colons and keep only the first query
@@ -253,6 +253,23 @@ function sql2ast(query, parseCond) {
         result = result.filter(function (item) {
             return item !== '';
         }).map(function (item) {
+            //  Is there a column alias?
+            let alias = "";
+            let lastAs = item.toUpperCase().lastIndexOf(" AS ");
+            if (lastAs != -1) { 
+                //  There is a chance 'AS' is embedded within quoted string.
+                //  This is not perfect, but hopefully will do.
+                var searchStr = item.substring(lastAs + 1);
+                var fieldAlias = searchStr.split(" ");
+                if (fieldAlias.length == 2 && fieldAlias[0].toUpperCase() == "AS") {
+                    alias = fieldAlias[fieldAlias.length - 1] || '';
+                    if (alias.indexOf('"') === 0 && alias.lastIndexOf('"') == alias.length - 1)
+                        alias = alias.substring(1, alias.length - 1);
+
+                    item = item.substring(0, lastAs);
+                }
+            }
+
             let splitPattern = /[\s()*/%+-]+/g;
             let terms = item.split(splitPattern);
 
@@ -263,11 +280,12 @@ function sql2ast(query, parseCond) {
             if (item != "*" && terms != null && terms.length > 1) {
                 return {
                     name: item,
-                    terms: terms
+                    terms: terms,
+                    as: alias
                 };
             }
             else {
-                return { name: item };
+                return { name: item, as: alias };
             }
         });
         return result;
@@ -515,7 +533,7 @@ function sql2ast(query, parseCond) {
             }
         }
         */
-        
+
         if (typeof result['UNION'] == 'string') {
             result['UNION'] = [sql2ast(parseUnion(result['UNION']))];
         }
@@ -559,7 +577,7 @@ function sql2ast(query, parseCond) {
 function parseUnion(inStr) {
     let unionString = inStr;
     if (unionString.startsWith("(") && unionString.endsWith(")")) {
-        unionString = unionString.substring(1, unionString.length-1);
+        unionString = unionString.substring(1, unionString.length - 1);
     }
 
     return unionString;
@@ -731,7 +749,7 @@ CondParser.prototype = {
     // Read the next token (skip empty tokens)
     readNextToken: function () {
         this.currentToken = this.lexer.readNextToken();
-        while (this.currentToken.type == 'empty') 
+        while (this.currentToken.type == 'empty')
             this.currentToken = this.lexer.readNextToken();
         return this.currentToken;
     },
@@ -752,7 +770,7 @@ CondParser.prototype = {
             var rightNode = this.parseConditionExpression();
 
             // If we are chaining the same logical operator, add nodes to existing object instead of creating another one
-            if (typeof leftNode.logic != 'undefined' && leftNode.logic == logic && typeof leftNode.terms != 'undefined') 
+            if (typeof leftNode.logic != 'undefined' && leftNode.logic == logic && typeof leftNode.terms != 'undefined')
                 leftNode.terms.push(rightNode);
             else {
                 var terms = [leftNode, rightNode];
@@ -766,7 +784,7 @@ CondParser.prototype = {
     // Parse conditions ([word/string] [operator] [word/string])
     parseConditionExpression: function () {
         var leftNode = this.parseBaseExpression();
-        
+
         if (this.currentToken.type == 'operator') {
             var operator = this.currentToken.value;
             this.readNextToken();
@@ -795,13 +813,13 @@ CondParser.prototype = {
             astNode = this.currentToken.value;
             this.readNextToken();
 
-            if (this.currentToken.type == 'mathoperator' ) {
+            if (this.currentToken.type == 'mathoperator') {
                 astNode += " " + this.currentToken.value;
-                this.readNextToken();   
+                this.readNextToken();
                 while ((this.currentToken.type == 'mathoperator' || this.currentToken.type == 'word') && this.currentToken.type != 'eot') {
                     astNode += " " + this.currentToken.value;
-                    this.readNextToken();  
-                }  
+                    this.readNextToken();
+                }
             }
         }
         // If this is a group, skip brackets and parse the inside

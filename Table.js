@@ -1,9 +1,9 @@
 //  Remove comments for testing in NODE
-/*
+//
 export {Table, Schema};
 import {DERIVEDTABLE, VirtualFields, VirtualField} from './Views.js';
 import {Logger} from './SqlTest.js';
-*/
+//
 
 function testTable() {
     let masterTransactions = new Table("masterTransactions", "'Master Transactions'!$A$1:$I");

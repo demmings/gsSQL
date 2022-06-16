@@ -1,39 +1,10 @@
 //  Remove comments for testing in NODE
-/*
+//
 export {Sql};
 import {Table} from './Table.js';
 import {sql2ast} from './SimpleParser.js';
 import {SelectView} from './Views.js';
-*/
-
-function testSql() {
-
-    let sqlStatement = new Sql([["trades", "'Trades'!$A$1:$I"], ["accounts", "accountNamesData"], ["stocks", "'Stocks'!$A$6:$N"]],
-    "SELECT accounts.account_name, trades.date, trades.symbol, trades.quantity, stocks.price from accounts  " + 
-    "RIGHT JOIN trades ON accounts.Brokerage_Account_Holder = trades.account " +
-    "LEFT JOIN stocks on trades.symbol = stocks.symbol " +
-    "WHERE stocks.inventory = 0", true); 
-
-    /*
-let sqlStatement = new Sql([["masterTransactions", "'Master Transactions'!$A$1:$I"], ["accounts", "accountNamesData"]],
-    'SELECT Transaction_Date, Description_1, Amount, accounts.registration, accounts.Account_Name ' +
-    'FROM masterTransactions ' +
-    'JOIN accounts ON masterTransactions.Name_of_Institution = accounts.Account_Name ' +
-    'WHERE accounts.type = "Bank" ' +
-    'AND Amount < 10 ');
-    */
-
-    /*
-    let sqlStatement = new Sql([["masterTransactions", "'Master Transactions'!$A$1:$I"], ["accounts", "accountNamesData"]],
-        'SELECT masterTransactions.Transaction_Date, Description_1, Amount, Accounts.Registration FROM masterTransactions ' +
-        'JOIN accounts ON masterTransactions.Name_of_Institution = accounts.Account_Name ' +
-        'WHERE Name_of_Institution = "RBC - Margin - ****2066" ' + 
-        'AND accounts.Registration IN (SELECT Registration FROM accounts WHERE type = "Bank") ' +
-        'ORDER BY Amount');
-    */
-
-    let selectData = sqlStatement.execute();
-}
+//
 
 /**
  * 
@@ -211,7 +182,7 @@ class Sql {
             }
 
             if (this.columnTitle)
-                viewTableData.unshift(view.getTitleRow());
+                viewTableData.unshift(view.getColumnTitles());
         }
         else {
             throw("Missing keyword FROM");

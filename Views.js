@@ -1,11 +1,11 @@
 //  Remove comments for testing in NODE
-/*
+//
 export { DERIVEDTABLE, SelectView, VirtualFields, VirtualField };
 import { Table } from './Table.js';
 import { Sql } from './Sql.js';
 import { sqlCondition2JsCondition } from './SimpleParser.js';
 import { Logger } from './SqlTest.js';
-*/
+//
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
 
@@ -46,8 +46,12 @@ class SelectView {
      * 
      * @returns {String[]}
      */
-    getTitleRow() {
-        return this.selectTables.getTitleRow();
+    getColumnNames() {
+        return this.selectTables.getColumnNames();
+    }
+
+    getColumnTitles() {
+        return this.selectTables.getColumnTitles();
     }
 
     getConglomerateFieldCount() {
@@ -340,7 +344,7 @@ class SelectTables {
                     }
                     catch (ex) {
                         Logger.log("Function() Failed: " + functionString);
-                        throw("Calculated Field Error: " + ex.message);
+                        throw ("Calculated Field Error: " + ex.message);
                     }
                     newRow.push(result);
                 }
@@ -713,7 +717,7 @@ class SelectTables {
     */
     having(astHaving, selectedData) {
         //  Add in the title row for now
-        selectedData.unshift(this.getTitleRow());
+        selectedData.unshift(this.getColumnNames());
 
         //  Create our virtual GROUP table with data already selected.
         let groupTable = new Table("GROUPTABLE", "", selectedData);
@@ -912,8 +916,12 @@ class SelectTables {
         return index != -1;
     }
 
-    getTitleRow() {
-        return this.virtualFields.getTitleRow();
+    getColumnNames() {
+        return this.virtualFields.getColumnNames();
+    }
+
+    getColumnTitles() {
+        return this.virtualFields.getColumnTitles();
     }
 }
 
@@ -924,7 +932,8 @@ class VirtualFields {
         /** @type {VirtualField[]} */
         this.virtualFieldList = [];
         /** @type {String[]} */
-        this.titleRow = [];
+        this.columnNames = [];
+        this.columnTitles = [];
         /** @type {SelectField[]} */
         this.selectVirtualFields = [];
     }
@@ -1128,7 +1137,8 @@ class VirtualFields {
      * @returns {SelectField[]}
      */
     updateSelectFieldList(primaryTable, astFields) {
-        this.titleRow = [];
+        this.columnNames = [];
+        this.columnTitles = [];
         this.selectVirtualFields = [];
         let temp = this.virtualFieldMap;
 
@@ -1155,19 +1165,21 @@ class VirtualFields {
             if (calculatedField == null && columnName.indexOf(".") == -1)
                 columnName = primaryTable.toUpperCase() + "." + columnName.toUpperCase();
 
+            this.columnTitles.push(typeof selField.as != 'undefined' && selField.as != "" ? selField.as : selField.name);
+
             if (calculatedField == null && this.hasField(columnName)) {
                 let fieldInfo = this.getFieldInfo(columnName);
                 let selectFieldInfo = new SelectField(fieldInfo);
                 selectFieldInfo.aggregateFunction = aggregateFunctionName;
 
                 this.selectVirtualFields.push(selectFieldInfo);
-                this.titleRow.push(selField.name);
+                this.columnNames.push(selField.name);
             }
             else if (calculatedField != null) {
                 let selectFieldInfo = new SelectField(null);
                 selectFieldInfo.calculatedFormula = selField.name;
                 this.selectVirtualFields.push(selectFieldInfo);
-                this.titleRow.push(selField.name);
+                this.columnNames.push(selField.name);
             }
             else {
                 Logger.log("Failed to find: " + selField.name + ".  Make sure table data range/array is specified.");
@@ -1189,8 +1201,12 @@ class VirtualFields {
         return selectColumn;
     }
 
-    getTitleRow() {
-        return this.titleRow;
+    getColumnNames() {
+        return this.columnNames;
+    }
+
+    getColumnTitles() {
+        return this.columnTitles;
     }
 }
 

@@ -1,5 +1,5 @@
 //  Remove comments for testing in NODE
-/*
+//
 import { Sql } from './Sql.js';
 export { Logger };
 
@@ -8,7 +8,7 @@ class Logger {
         console.log(msg);
     }
 }
-*/
+//
 
 function SQLselfTest() {
     testerSql();
@@ -839,6 +839,26 @@ class SqlTester {
         return this.isEqual("selectFuncs4", data, expected);
     }
 
+    selectFuncInFunc1() {
+        let stmt = "select upper(substring(email, 5, 5)), trim(upper(email)) from customer";
+
+        let testSQL = new Sql([["bookSales", "",
+            this.bookSalesTable()], ["customer", "", this.customerTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["space(5)", "email", "stuff(email, 2, 3, 'CJD')", "substring(email, 5, 5)"],
+        ["     ", "bigOne@gmail.com", "bCJDne@gmail.com", "ne@gm"],
+        ["     ", "twoguys@gmail.com", "tCJDuys@gmail.com", "uys@g"],
+        ["     ", "thrice@hotmail.com", "tCJDce@hotmail.com", "ce@ho"],
+        ["     ", "fourtimes@hotmail.com", "fCJDtimes@hotmail.com", "times"],
+        ["     ", "   fiver@gmail.com", " CJDiver@gmail.com", "iver@"],
+        ["     ", "gotyourSix@hotmail.com   ", "gCJDourSix@hotmail.com   ", "ourSi"],
+        ["     ", " timesAcharm@gmail.com ", " CJDesAcharm@gmail.com ", "esAch"]];
+
+        return this.isEqual("selectFuncs4", data, expected);
+    }
+
     selectIF1() {
         let stmt = "SELECT IF(authors.id = '', 'MISSING AUTHOR', authors.id), authors.last_name, IF(editors.id = '', 'MISSING EDITOR', editors.id), editors.last_name " +
             "FROM authors " +
@@ -1016,7 +1036,7 @@ class SqlTester {
             "WHEN quantity = 100 or quantity = 150 THEN '100 or 150' " +
             "WHEN quantity * price = 90 THEN '$90, ka ching.'   " +
             "ELSE quantity + ' items sold. ID=' + lower(customer_id) " +
-            "END " +
+            "END as summary" +
             "from booksales";
 
         let testSQL = new Sql([["booksales", "", this.bookSalesTable()],
@@ -1024,20 +1044,39 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["quantity","price","'Invoice=' + substring(invoice,2,4) + ' ' + CASE WHEN quantity > 1 and quantity <= 5 THEN 'Low Volume ' + quantity * price WHEN quantity > 5 and quantity < 10 THEN 'Moderate Volume' + quantity WHEN quantity = 100 or quantity = 150 THEN '100 or 150' WHEN quantity * price = 90 THEN '$90, ka ching.'   ELSE quantity + ' items sold. ID=' + lower(customer_id) END"],
-        [10,34.95,"INVOICE=7200 10 ITEMS SOLD. ID=c1"],
-        [3,29.95,"INVOICE=7201 LOW VOLUME 89.85"],
-        [5,18.99,"INVOICE=7201 LOW VOLUME 94.94999999999999"],
-        [1,59.99,"INVOICE=7202 1 ITEMS SOLD. ID=c3"],
-        [1,90,"INVOICE=7203 $90, KA CHING."],
-        [100,65.49,"INVOICE=7204 100 OR 150"],
-        [150,24.95,"INVOICE=7204 100 OR 150"],
-        [50,19.99,"INVOICE=7204 50 ITEMS SOLD. ID=c4"],
-        [1,33.97,"INVOICE=7205 1 ITEMS SOLD. ID=c1"],
-        [100,17.99,"INVOICE=7206 100 OR 150"]];
+        let expected = [["quantity", "price", "summary"],
+        [10, 34.95, "INVOICE=7200 10 ITEMS SOLD. ID=c1"],
+        [3, 29.95, "INVOICE=7201 LOW VOLUME 89.85"],
+        [5, 18.99, "INVOICE=7201 LOW VOLUME 94.94999999999999"],
+        [1, 59.99, "INVOICE=7202 1 ITEMS SOLD. ID=c3"],
+        [1, 90, "INVOICE=7203 $90, KA CHING."],
+        [100, 65.49, "INVOICE=7204 100 OR 150"],
+        [150, 24.95, "INVOICE=7204 100 OR 150"],
+        [50, 19.99, "INVOICE=7204 50 ITEMS SOLD. ID=c4"],
+        [1, 33.97, "INVOICE=7205 1 ITEMS SOLD. ID=c1"],
+        [100, 17.99, "INVOICE=7206 100 OR 150"]];
 
         return this.isEqual("selectCase2", data, expected);
     }
+
+    selectAlias1() {
+        let stmt = "SELECT quantity as QTY, price as Pricing,  round(quantity * price) as Money from booksales where price * quantity > 100";
+
+        let testSQL = new Sql([["booksales", "", this.bookSalesTable()],
+        ["editors", "", this.editorsTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["QTY","Pricing","Money"],
+        [10,34.95,350],
+        [100,65.49,6549],
+        [150,24.95,3743],
+        [50,19.99,999],
+        [100,17.99,1799]];
+
+        return this.isEqual("selectAlias1", data, expected);
+    }
+
 
     selectBadTable1() {
         let stmt = "SELECT quantity, price, quantity * price from booksail where price * quantity > 100";
@@ -1076,11 +1115,10 @@ class SqlTester {
     isFail(functionName, exceptionErr) {
         if (exceptionErr != "") {
             Logger.log(functionName + "() ***   S U C C E S S   ***");
-        }   
-        else 
-        {
-            Logger.log(functionName + "() ***   F A I L E D   ***"); 
-            Logger.log("Exception was expected !!");   
+        }
+        else {
+            Logger.log(functionName + "() ***   F A I L E D   ***");
+            Logger.log("Exception was expected !!");
         }
     }
 
@@ -1103,7 +1141,7 @@ class SqlTester {
 }
 
 //  Remove comments for testing in NODE
-// testerSql();
+testerSql();
 
 function testerSql() {
     var tester = new SqlTester();
@@ -1141,6 +1179,7 @@ function testerSql() {
     tester.selectFuncs2();
     tester.selectFuncs3();
     tester.selectFuncs4();
+    //    tester.selectFuncInFunc1();
     tester.selectIF1();
     tester.selectIF2();
     tester.selectIF3();
@@ -1149,6 +1188,7 @@ function testerSql() {
     tester.selectWhereCalc2();
     tester.selectCase1();
     tester.selectCase2();
+    tester.selectAlias1();
     tester.selectBadTable1();
     tester.selectBadMath1();
 
