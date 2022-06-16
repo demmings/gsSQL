@@ -1,11 +1,11 @@
 //  Remove comments for testing in NODE
-//
+/*
 export { DERIVEDTABLE, SelectView, VirtualFields, VirtualField };
 import { Table } from './Table.js';
 import { Sql } from './Sql.js';
 import { sqlCondition2JsCondition } from './SimpleParser.js';
 import { Logger } from './SqlTest.js';
-//
+*/
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
 

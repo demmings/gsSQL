@@ -1,8 +1,8 @@
 //  Remove comments for testing in NODE
-//
+/*
 export { sql2ast, sqlCondition2JsCondition };
 import { Logger } from './SqlTest.js';
-//
+*/
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 

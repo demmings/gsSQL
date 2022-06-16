@@ -1,5 +1,5 @@
 //  Remove comments for testing in NODE
-//
+/*
 import { Sql } from './Sql.js';
 export { Logger };
 
@@ -8,7 +8,7 @@ class Logger {
         console.log(msg);
     }
 }
-//
+*/
 
 function SQLselfTest() {
     testerSql();
@@ -1141,7 +1141,7 @@ class SqlTester {
 }
 
 //  Remove comments for testing in NODE
-testerSql();
+//testerSql();
 
 function testerSql() {
     var tester = new SqlTester();

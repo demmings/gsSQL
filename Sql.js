@@ -1,10 +1,10 @@
 //  Remove comments for testing in NODE
-//
+/*
 export {Sql};
 import {Table} from './Table.js';
 import {sql2ast} from './SimpleParser.js';
 import {SelectView} from './Views.js';
-//
+*/
 
 /**
  * 
