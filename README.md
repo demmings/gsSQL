@@ -47,7 +47,8 @@ Most of the BASIC SELECT functionality is implemented, however if you want to do
 
 Known Issues:
 1)  Calculated functions within calculated functions.  So something like "select Trim(Upper(first_name)) from customers"  will not work for now.
-2)  Field and table alias syntax is not supported.  So in a JOIN situation, you will need to use the full DOT notation to reference any field from the joined table.  e.g.:
+2)  Field and table alias syntax is not supported.  So in a JOIN situation, you will need to use the full DOT notation to reference any field from the joined table.  The column ALIAS can be used for a column title in the return data.
+3)   e.g.:
 
         SELECT books.id, books.title, authors.first_name, authors.last_name 
             FROM books 
