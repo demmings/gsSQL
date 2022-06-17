@@ -839,6 +839,33 @@ class SqlTester {
         return this.isEqual("selectFuncs4", data, expected);
     }
 
+    selectFuncs5() {
+        let stmt = "select now(), email, stuff(email, 2, 3, 'CJD'), substring(email, 5, 5) from customer limit 1";
+
+        let testSQL = new Sql([["bookSales", "",
+            this.bookSalesTable()], ["customer", "", this.customerTable()]], stmt, true);
+
+        Logger.log("NOTE:  selectFuncs5(), Test is attempted multiple times on failure (matching current time).")
+        //  NOW() is always changing, so try our test a few times.
+        let attempts = 0;
+        let success = false;
+        while (attempts < 5 && ! success) {
+            let data = testSQL.execute();
+
+            let expected = [["now()","email","stuff(email, 2, 3, 'CJD')","substring(email, 5, 5)"],
+            ["%1","bigOne@gmail.com","bCJDne@gmail.com","ne@gm"]];
+
+            for (let row of expected) {
+                let nowPos = row.indexOf("%1");
+                if (nowPos != -1)
+                    row[nowPos] = new Date().toLocaleString();
+            }
+
+            success = this.isEqual("selectFuncs5", data, expected);
+            attempts++;
+        }
+    }
+
     selectFuncInFunc1() {
         let stmt = "select upper(substring(email, 5, 5)), trim(upper(email)) from customer";
 
@@ -856,7 +883,7 @@ class SqlTester {
         ["     ", "gotyourSix@hotmail.com   ", "gCJDourSix@hotmail.com   ", "ourSi"],
         ["     ", " timesAcharm@gmail.com ", " CJDesAcharm@gmail.com ", "esAch"]];
 
-        return this.isEqual("selectFuncs4", data, expected);
+        return this.isEqual("selectFuncInFunc1", data, expected);
     }
 
     selectIF1() {
@@ -960,7 +987,6 @@ class SqlTester {
 
         return this.isEqual("selectIF4", data, expected);
     }
-
 
     selectWhereCalc1() {
         let stmt = "SELECT quantity, price, price + quantity from booksales where (price + quantity > 100)";
@@ -1067,12 +1093,12 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["QTY","Pricing","Money"],
-        [10,34.95,350],
-        [100,65.49,6549],
-        [150,24.95,3743],
-        [50,19.99,999],
-        [100,17.99,1799]];
+        let expected = [["QTY", "Pricing", "Money"],
+        [10, 34.95, 350],
+        [100, 65.49, 6549],
+        [150, 24.95, 3743],
+        [50, 19.99, 999],
+        [100, 17.99, 1799]];
 
         return this.isEqual("selectAlias1", data, expected);
     }
@@ -1179,6 +1205,7 @@ function testerSql() {
     tester.selectFuncs2();
     tester.selectFuncs3();
     tester.selectFuncs4();
+    tester.selectFuncs5();
     //    tester.selectFuncInFunc1();
     tester.selectIF1();
     tester.selectIF2();
