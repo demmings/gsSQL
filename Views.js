@@ -408,12 +408,12 @@ class SelectTables {
      */
     sqlServerFunctions(calculatedFormula) {
         let sqlFunctions = ["ABS", "CASE", "CEILING", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
-            "LTRIM", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
+            "LTRIM", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER"];
         //  TODO:
         //  This parse fails with functions inside of functions, e.g.
         //  TRIM(UPPER(name)) - will not work.
-        let expMatch = "%1\\s*\\(\\s*([^)]+?)\\s*\\)";
+        let expMatch = "%1\\s*\\(\\s*([^)]*?)\\s*\\)";
 
         let functionString = calculatedFormula.toUpperCase();
         let firstCase = true;
@@ -489,6 +489,9 @@ class SelectTables {
                         break;
                     case "LTRIM":
                         replacement = parms[0] + ".trimStart()";
+                        break;
+                    case "NOW":
+                        replacement = "new Date().toLocaleString()";
                         break;
                     case "POWER":
                         replacement = "Math.pow(" + parms[0] + "," + parms[1] + ")";
