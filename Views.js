@@ -407,24 +407,21 @@ class SelectTables {
      * @returns {String}
      */
     sqlServerFunctions(calculatedFormula) {
-        let sqlFunctions = ["ABS", "CASE", "CEILING", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+        let sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER"];
-        //  TODO:
-        //  This parse fails with functions inside of functions, e.g.
-        //  TRIM(UPPER(name)) - will not work.
-        let expMatch = "%1\\s*\\(\\s*([^)]*?)\\s*\\)";
 
         let functionString = calculatedFormula.toUpperCase();
         let firstCase = true;
+        let matchStr;
 
         for (let func of sqlFunctions) {
-            let matchStr = new RegExp(expMatch.replace("%1", func));
-            var args = functionString.match(matchStr);
+            let args = this.parseForFunctions(functionString, func);
+
             let originalCaseStatement = "";
             let originalFunctionString = "";
 
-            if (args == null && func == "CASE") {
+            if (func == "CASE") {
                 args = functionString.match(/CASE(.*?)END/i);
 
                 if (args != null && args.length > 1) {
@@ -438,7 +435,8 @@ class SelectTables {
             }
 
             while (args != null && args.length > 0) {
-                let parms = typeof args[1] == 'undefined' ? [] : args[1].split(",");
+                // Split on COMMA, except within brackets.
+                let parms = typeof args[1] == 'undefined' ? [] : this.parseForParams(args[1]);
 
                 let replacement = "";
                 switch (func) {
@@ -463,6 +461,12 @@ class SelectTables {
                         break;
                     case "CEILING":
                         replacement = "Math.ceil(" + parms[0] + ")";
+                        break;
+                    case "CHARINDEX":
+                        if (typeof parms[2] == 'undefined')
+                            replacement = parms[1] + ".indexOf(" + parms[0] + ") + 1";
+                        else
+                            replacement = parms[1] + ".indexOf(" + parms[0] + "," + parms[2] + " -1) + 1";
                         break;
                     case "FLOOR":
                         replacement = "Math.floor(" + parms[0] + ")";
@@ -535,7 +539,12 @@ class SelectTables {
                 }
 
                 functionString = functionString.replace(args[0], replacement);
-                args = functionString.match(matchStr);
+
+                if (func == "CASE")
+                    args = functionString.match(matchStr);
+                else
+                    args = this.parseForFunctions(functionString, func);
+
             }
 
             if (originalCaseStatement != "") {
@@ -547,7 +556,68 @@ class SelectTables {
         return functionString;
     }
 
+    /**
+     * 
+     * @param {String} functionString 
+     * @param {String} func
+     * @returns {String[]} 
+     */
+    parseForFunctions(functionString, func) {
+        let args = [];
+        let expMatch = "%1\\s*\\(";
 
+        let matchStr = new RegExp(expMatch.replace("%1", func));
+        let startMatchPos = functionString.search(matchStr);
+        if (startMatchPos != -1) {
+            let searchStr = functionString.substring(startMatchPos);
+            let i = searchStr.indexOf("(");
+            let startLeft = i;
+            let leftBracket = 1;
+            for ( i = i + 1; i < searchStr.length; i++) {
+                let c = searchStr.charAt(i);
+                if (c == "(") leftBracket++;
+                if (c == ")") leftBracket--;
+
+                if (leftBracket == 0) {
+                    args.push(searchStr.substring(0, i+1));
+                    args.push(searchStr.substring(startLeft+1, i));
+                    return args;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 
+     * @param {String} paramString 
+     * @returns {String[]}
+     */
+    parseForParams(paramString) {
+        let args = [];
+        let bracketCount = 0;
+        let start = 0;
+
+        for (let i = 0; i < paramString.length; i++) {
+            let c = paramString.charAt(i);
+
+            if (c == "," && bracketCount == 0) {
+                args.push(paramString.substring(start, i));
+                start = i+1;
+            }
+            else if (c == "(")
+                bracketCount++;
+            else if (c == ")")
+                bracketCount--;
+        }
+
+        let lastStr = paramString.substring(start);
+        if (lastStr != "")
+            args.push(lastStr);
+
+        return args;
+    }
 
     getConglomerateFieldCount() {
         let count = 0;

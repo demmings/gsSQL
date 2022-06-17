@@ -849,11 +849,11 @@ class SqlTester {
         //  NOW() is always changing, so try our test a few times.
         let attempts = 0;
         let success = false;
-        while (attempts < 5 && ! success) {
+        while (attempts < 5 && !success) {
             let data = testSQL.execute();
 
-            let expected = [["now()","email","stuff(email, 2, 3, 'CJD')","substring(email, 5, 5)"],
-            ["%1","bigOne@gmail.com","bCJDne@gmail.com","ne@gm"]];
+            let expected = [["now()", "email", "stuff(email, 2, 3, 'CJD')", "substring(email, 5, 5)"],
+            ["%1", "bigOne@gmail.com", "bCJDne@gmail.com", "ne@gm"]];
 
             for (let row of expected) {
                 let nowPos = row.indexOf("%1");
@@ -867,23 +867,43 @@ class SqlTester {
     }
 
     selectFuncInFunc1() {
-        let stmt = "select upper(substring(email, 5, 5)), trim(upper(email)) from customer";
+        let stmt = "select email, upper(substring(email, 5, 5)), trim(upper(email)) from customer";
 
         let testSQL = new Sql([["bookSales", "",
             this.bookSalesTable()], ["customer", "", this.customerTable()]], stmt, true);
 
         let data = testSQL.execute();
 
-        let expected = [["space(5)", "email", "stuff(email, 2, 3, 'CJD')", "substring(email, 5, 5)"],
-        ["     ", "bigOne@gmail.com", "bCJDne@gmail.com", "ne@gm"],
-        ["     ", "twoguys@gmail.com", "tCJDuys@gmail.com", "uys@g"],
-        ["     ", "thrice@hotmail.com", "tCJDce@hotmail.com", "ce@ho"],
-        ["     ", "fourtimes@hotmail.com", "fCJDtimes@hotmail.com", "times"],
-        ["     ", "   fiver@gmail.com", " CJDiver@gmail.com", "iver@"],
-        ["     ", "gotyourSix@hotmail.com   ", "gCJDourSix@hotmail.com   ", "ourSi"],
-        ["     ", " timesAcharm@gmail.com ", " CJDesAcharm@gmail.com ", "esAch"]];
+        let expected = [["email", "upper(substring(email, 5, 5))", "trim(upper(email))"],
+        ["bigOne@gmail.com", "NE@GM", "BIGONE@GMAIL.COM"],
+        ["twoguys@gmail.com", "UYS@G", "TWOGUYS@GMAIL.COM"],
+        ["thrice@hotmail.com", "CE@HO", "THRICE@HOTMAIL.COM"],
+        ["fourtimes@hotmail.com", "TIMES", "FOURTIMES@HOTMAIL.COM"],
+        ["   fiver@gmail.com", "IVER@", "FIVER@GMAIL.COM"],
+        ["gotyourSix@hotmail.com   ", "OURSI", "GOTYOURSIX@HOTMAIL.COM"],
+        [" timesAcharm@gmail.com ", "ESACH", "TIMESACHARM@GMAIL.COM"]];
 
         return this.isEqual("selectFuncInFunc1", data, expected);
+    }
+
+    selectFuncInFunc2() {
+        let stmt = "select email,charindex('@', email), if(charindex('@', email) > 0, trim(substring(email, 1, charindex('@', email) - 1)), email) from customer";
+
+        let testSQL = new Sql([["bookSales", "",
+            this.bookSalesTable()], ["customer", "", this.customerTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["email", "charindex('@', email)", "if(charindex('@', email) > 0, trim(substring(email, 1, charindex('@', email) - 1)), email)"],
+        ["bigOne@gmail.com", 7, "bigOne"],
+        ["twoguys@gmail.com", 8, "twoguys"],
+        ["thrice@hotmail.com", 7, "thrice"],
+        ["fourtimes@hotmail.com", 10, "fourtimes"],
+        ["   fiver@gmail.com", 9, "fiver"],
+        ["gotyourSix@hotmail.com   ", 11, "gotyourSix"],
+        [" timesAcharm@gmail.com ", 13, "timesAcharm"]];
+
+        return this.isEqual("selectFuncInFunc2", data, expected);
     }
 
     selectIF1() {
@@ -1206,7 +1226,8 @@ function testerSql() {
     tester.selectFuncs3();
     tester.selectFuncs4();
     tester.selectFuncs5();
-    //    tester.selectFuncInFunc1();
+    tester.selectFuncInFunc1();
+    tester.selectFuncInFunc2();
     tester.selectIF1();
     tester.selectIF2();
     tester.selectIF3();
