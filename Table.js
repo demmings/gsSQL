@@ -5,17 +5,6 @@ import {DERIVEDTABLE, VirtualFields, VirtualField} from './Views.js';
 import {Logger} from './SqlTest.js';
 */
 
-function testTable() {
-    let masterTransactions = new Table("masterTransactions", "'Master Transactions'!$A$1:$I");
-    masterTransactions.addIndex("Name of Institution");
-
-    let rbcRows = masterTransactions.search("Name of Institution", "RBC - Margin - ****2066");
-    Logger.log(rbcRows);
-
-    let tfsaSavingsRows = masterTransactions.search("Expense Category", "Savings - TFSA");
-    Logger.log(tfsaSavingsRows);
-}
-
 class Table {
     /**
      * 
