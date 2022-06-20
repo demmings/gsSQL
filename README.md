@@ -54,3 +54,5 @@ Known Issues:
             INNER JOIN authors 
             ON books.author_id = authors.id
             ORDER BY books.id
+            
+2)  Very little error checking.  When developing your SQL SELECT statements and something is not correct or not supported, the application may just fail without giving any real indication of the problem.  This needs improvements.
