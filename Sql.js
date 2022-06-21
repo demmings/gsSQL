@@ -3,7 +3,7 @@
 export {Sql};
 import {Table} from './Table.js';
 import {sql2ast} from './SimpleParser.js';
-import {SelectView} from './Views.js';
+import {SelectView, SelectTables} from './Views.js';
 */
 
 /**
@@ -83,13 +83,15 @@ class Sql {
         let viewTableData = [];
 
         if (typeof ast['FROM'] != 'undefined') {
-            let astTables = ast['FROM'];
-            let astFields = ast['SELECT'];
-
             //  Manipulate AST to add GROUP BY if DISTINCT keyword.
             ast = this.distinctField(ast);
 
-            let view = new SelectView(astTables, astFields, this.tables);
+            if (typeof ast['PIVOT'] != 'undefined') {
+                //  Manipulate AST add pivot fields.
+                ast = this.pivotField(ast);
+            }
+
+            let view = new SelectView(ast['FROM'], ast['SELECT'], this.tables);
 
             if (typeof ast['JOIN'] != 'undefined') {
                 view.join(ast['JOIN']);
@@ -212,6 +214,69 @@ class Sql {
         }
 
         return ast;
+    }
+
+    pivotField(ast){
+        //  If we are doing a PIVOT, it then requires a GROUP BY.
+        if (typeof ast['PIVOT'] != 'undefined') {
+            if (typeof ast['GROUP BY'] == 'undefined')
+                throw("PIVOT requires GROUP BY");
+        }
+        else
+            return ast;
+
+        // These are all of the unique PIVOT field data points.
+        let pivotFieldData = this.getUniquePivotData(ast);
+
+        ast['SELECT'] = this.addCalculatedPivotFieldsToAst(ast, pivotFieldData);
+        //ast['GROUP BY'].unshift({column:ast['PIVOT'][0].name});
+
+        //  This new column needs to be 
+        //ast['SELECT'].push({name:ast['PIVOT'][0].name});
+
+        return ast;
+    }
+
+    getUniquePivotData(ast) {
+        let pivotAST = {};
+        
+        pivotAST['SELECT'] = ast['PIVOT'];
+        pivotAST['SELECT'][0].name = "DISTINCT " + pivotAST['SELECT'][0].name;
+        pivotAST['FROM'] = ast['FROM'];
+        pivotAST['WHERE'] = ast['WHERE'];
+
+        // These are all of the unique PIVOT field data points.
+        let oldSetting = this.columnTitle;
+        this.columnTitle = false;
+        let tableData = this.select(pivotAST);
+        this.columnTitle = oldSetting;
+
+        return  tableData;   
+    }
+
+    addCalculatedPivotFieldsToAst(ast, pivotFieldData) {
+        let newPivotAstFields = [];
+
+        for (let selectField of ast['SELECT']) {
+            //  If this is an aggregrate function, we will add one for every pivotFieldData item
+
+            const functionNameRegex = /[a-zA-Z]*(?=\()/
+            let matches = selectField.name.match(functionNameRegex)
+            if (matches != null && matches.length > 0)
+            {
+                let args = SelectTables.parseForFunctions(selectField.name, matches[0]);
+                
+                for (let fld of pivotFieldData) {
+                    let caseTxt = matches[0] + "(CASE WHEN " + ast['PIVOT'][0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 0 END)";
+
+                    newPivotAstFields.push({name: caseTxt, as: fld + " " + selectField.name});
+                }
+            }
+            else
+                newPivotAstFields.push(selectField);
+        }
+
+        return newPivotAstFields;
     }
 
     /**

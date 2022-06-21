@@ -14,6 +14,12 @@ function SQLselfTest() {
     testerSql();
 }
 
+function SqlLiveDataTest() {
+    let tester = new SqlTester();
+
+    tester.liveTest1();
+}
+
 
 class SqlTester {
     bookTable() {
@@ -1124,6 +1130,58 @@ class SqlTester {
     }
 
 
+    liveTest1() {
+        let stmt = "select mastertransactions.transaction_date, sum(mastertransactions.gross), sum(mastertransactions.amount) from mastertransactions inner join budgetCategories on mastertransactions.Expense_Category = budgetCategories.Income where mastertransactions.transaction_date >=  '01/01/2022' and mastertransactions.transaction_date <= '05/19/2022' group by mastertransactions.transaction_date pivot account";
+
+        let testSQL = new Sql([['mastertransactions', 'Master Transactions!$A$1:$I'], ['budgetCategories', 'budgetIncomeCategoriesTable']], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["QTY", "Pricing", "Money"],
+        [10, 34.95, 350],
+        [100, 65.49, 6549],
+        [150, 24.95, 3743],
+        [50, 19.99, 999],
+        [100, 17.99, 1799]];
+
+        return this.isEqual("liveTest1", data, expected);
+
+    }
+
+    groupPivot1() {
+        let stmt = "select bookSales.date, SUM(bookSales.Quantity) from bookSales where customer_id != '' group by date pivot customer_id";
+
+        let testSQL = new Sql([["bookSales", "",
+            this.bookSalesTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["bookSales.date", "C1 SUM(bookSales.Quantity)", "C2 SUM(bookSales.Quantity)", "C3 SUM(bookSales.Quantity)", "C4 SUM(bookSales.Quantity)"],
+        ["05/01/2022", 10, 8, 0, 0],
+        ["05/02/2022", 0, 0, 1, 0],
+        ["05/03/2022", 0, 0, 0, 300],
+        ["05/04/2022", 1, 100, 0, 0]];
+
+        return this.isEqual("groupBy1", data, expected);
+    }
+
+    groupFunc1() {
+        let stmt = "select bookSales.date, SUM(if(customer_id = 'C1', bookSales.Quantity,0)), SUM(if(customer_id = 'C2', bookSales.Quantity,0)) from bookSales where customer_id != '' group by date";
+
+        let testSQL = new Sql([["bookSales", "",
+            this.bookSalesTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["bookSales.date", "SUM(if(customer_id = 'C1', bookSales.Quantity,0))", "SUM(if(customer_id = 'C2', bookSales.Quantity,0))"],
+        ["05/01/2022", 10, 8],
+        ["05/02/2022", 0, 0],
+        ["05/03/2022", 0, 0],
+        ["05/04/2022", 1, 100]];
+
+        return this.isEqual("groupFunc1", data, expected);
+    }
+
     selectBadTable1() {
         let stmt = "SELECT quantity, price, quantity * price from booksail where price * quantity > 100";
 
@@ -1237,6 +1295,8 @@ function testerSql() {
     tester.selectCase1();
     tester.selectCase2();
     tester.selectAlias1();
+    tester.groupPivot1();
+    tester.groupFunc1();
     tester.selectBadTable1();
     tester.selectBadMath1();
 

@@ -174,7 +174,7 @@ function sql2ast(query, parseCond) {
     query = query.replace(new RegExp(semi_colon, 'g'), ';');
 
     // Define which words can act as separator
-    var keywords = ['SELECT', 'FROM', 'DELETE FROM', 'INSERT INTO', 'UPDATE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'VALUES', 'SET', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT'];
+    var keywords = ['SELECT', 'FROM', 'DELETE FROM', 'INSERT INTO', 'UPDATE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'VALUES', 'SET', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
     var parts_name = keywords.map(function (item) {
         return item + ' ';
     });
@@ -366,6 +366,23 @@ function sql2ast(query, parseCond) {
         });
         return result;
     };
+
+    analysis['PIVOT'] = function (str) {
+        str = str.split(',');
+        var result = [];
+        str.forEach(function (item, key) {
+            var pivotOn = /([A-Za-z0-9_\.]+)/gi;
+            pivotOn = pivotOn.exec(item);
+            if (pivotOn !== null) {
+                var tmp = {};
+                tmp['name'] = trim(pivotOn[1]);
+                tmp['as'] = "";
+                result.push(tmp);
+            }
+        });
+        return result;
+    };
+
     analysis['LIMIT'] = function (str) {
         var limit = /((\d+)\s*,\s*)?(\d+)/gi;
         limit = limit.exec(str);
@@ -661,9 +678,9 @@ CondLexer.prototype = {
         }
 
         if (/^(AND|OR)$/i.test(tokenValue))
-            return { type: 'logic', value: tokenValue };
+            return { type: 'logic', value: tokenValue.toUpperCase() };
         if (/^(IN|IS|NOT|LIKE)$/i.test(tokenValue))
-            return { type: 'operator', value: tokenValue };
+            return { type: 'operator', value: tokenValue.toUpperCase() };
         else
             return { type: 'word', value: tokenValue };
     },

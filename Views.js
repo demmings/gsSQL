@@ -1,6 +1,6 @@
 //  Remove comments for testing in NODE
 /*
-export { DERIVEDTABLE, SelectView, VirtualFields, VirtualField };
+export { DERIVEDTABLE, SelectView, VirtualFields, VirtualField, SelectTables };
 import { Table } from './Table.js';
 import { Sql } from './Sql.js';
 import { sqlCondition2JsCondition } from './SimpleParser.js';
@@ -167,7 +167,7 @@ class SelectTables {
         this.masterTableInfo = tableInfo.get(primaryTable.toUpperCase());
 
         //  Keep a list of all possible fields from all tables.
-        this.virtualFields.loadVirtualFields(tableInfo);
+        this.virtualFields.loadVirtualFields(primaryTable, tableInfo);
 
         //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
         this.astFields = this.virtualFields.expandWildcardFields(this.masterTableInfo, this.astFields);
@@ -322,8 +322,6 @@ class SelectTables {
     loadData(recordIDs) {
         let virtualData = [];
 
-        let temp = this.virtualFields.selectVirtualFields;
-
         for (let masterRecordID of recordIDs) {
             if (this.masterTable.tableData[masterRecordID] == undefined)
                 continue;
@@ -416,7 +414,7 @@ class SelectTables {
         let matchStr;
 
         for (let func of sqlFunctions) {
-            let args = this.parseForFunctions(functionString, func);
+            let args = SelectTables.parseForFunctions(functionString, func);
 
             let originalCaseStatement = "";
             let originalFunctionString = "";
@@ -543,7 +541,7 @@ class SelectTables {
                 if (func == "CASE")
                     args = functionString.match(matchStr);
                 else
-                    args = this.parseForFunctions(functionString, func);
+                    args = SelectTables.parseForFunctions(functionString, func);
 
             }
 
@@ -562,7 +560,7 @@ class SelectTables {
      * @param {String} func
      * @returns {String[]} 
      */
-    parseForFunctions(functionString, func) {
+    static parseForFunctions(functionString, func) {
         let args = [];
         let expMatch = "%1\\s*\\(";
 
@@ -642,7 +640,7 @@ class SelectTables {
             return;
 
         //  Throws ERROR if not.
-        this.isGroupByExpression(astGroupBy);
+        // this.isGroupByExpression(astGroupBy);
 
         //  Sort the least important first, and most important last.
         let reverseOrderBy = astGroupBy.reverse();
@@ -730,6 +728,7 @@ class SelectTables {
 
                 for (let groupRow of groupRecords) {
                     let data = parseFloat(groupRow[i]);
+                    data = (isNaN(data)) ? 0 : data;
 
                     switch (field.aggregateFunction) {
                         case "SUM":
@@ -1068,10 +1067,12 @@ class VirtualFields {
      * @returns {VirtualField}
      */
     getFieldInfo(field) {
+        if (field == null || typeof field != "string")
+            throw("SELECT syntax error.  Failed to retrieve field info.");
+
         field = field.trim().toUpperCase();
         let fieldInfo = null;
 
-        let temp = this.virtualFieldMap;
         if (this.virtualFieldMap.has(field))
             fieldInfo = this.virtualFieldMap.get(field);
 
@@ -1120,9 +1121,10 @@ class VirtualFields {
 
     /**
      * Iterate through all table fields and create a list of these VirtualFields.
+     * @param {String} primaryTable
      * @param {Map<String,Table>} tableInfo  
      */
-    loadVirtualFields(tableInfo) {
+    loadVirtualFields(primaryTable, tableInfo) {
         /** @type {String} */
         let tableName;
         /** @type {Table} */
@@ -1134,6 +1136,12 @@ class VirtualFields {
             for (let field of validFieldNames) {
                 let tableColumn = tableObject.getFieldColumn(field);
                 if (tableColumn != -1) {
+                    //  If we have the same field name more than once (without the full DOT notation)
+                    //  we only want the one for the primary table.
+                    if (this.hasField(field)) {
+                        if (tableName.toUpperCase() != primaryTable.toUpperCase())
+                            continue;
+                    }
                     let virtualField = new VirtualField(field, tableObject, tableColumn);
                     this.add(virtualField);
                 }
@@ -1213,14 +1221,13 @@ class VirtualFields {
         this.columnNames = [];
         this.columnTitles = [];
         this.selectVirtualFields = [];
-        let temp = this.virtualFieldMap;
 
         for (let selField of astFields) {
             //  If this is a CONGLOMERATE function, extract field name so that raw data
             //  from field is included.  The data will be accumulated by GROUP BY later.
             let columnName = selField.name;
             let aggregateFunctionName = "";
-            let calculatedField = (typeof selField.terms == undefined) ? null : selField.terms;
+            let calculatedField = (typeof selField.terms == 'undefined') ? null : selField.terms;
 
             if (calculatedField == null && !this.hasField(columnName)) {
                 let regExp = /\(([^)]+)\)/;
@@ -1230,13 +1237,15 @@ class VirtualFields {
                 if (matches != null && matches.length > 0)
                     aggregateFunctionName = matches[0];
 
-                matches = regExp.exec(columnName);
+                matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName)
+                // matches = regExp.exec(columnName);
                 if (matches != null && matches.length > 1)
                     columnName = matches[1];
             }
 
-            if (calculatedField == null && columnName.indexOf(".") == -1)
+            if (calculatedField == null && columnName.indexOf(".") == -1) {
                 columnName = primaryTable.toUpperCase() + "." + columnName.toUpperCase();
+            }
 
             this.columnTitles.push(typeof selField.as != 'undefined' && selField.as != "" ? selField.as : selField.name);
 
@@ -1254,9 +1263,16 @@ class VirtualFields {
                 this.selectVirtualFields.push(selectFieldInfo);
                 this.columnNames.push(selField.name);
             }
-            else {
-                Logger.log("Failed to find: " + selField.name + ".  Make sure table data range/array is specified.");
-                throw ("Failed to find: " + selField.name);
+            else if (columnName != "") {
+                //  is this a function?
+                let selectFieldInfo = new SelectField(null);
+                selectFieldInfo.calculatedFormula = columnName;
+                selectFieldInfo.aggregateFunction = aggregateFunctionName;
+                this.selectVirtualFields.push(selectFieldInfo);
+                this.columnNames.push(selField.name);
+
+                //Logger.log("Failed to find: " + selField.name + ".  Make sure table data range/array is specified.");
+                //throw ("Failed to find: " + selField.name);
             }
         }
 
