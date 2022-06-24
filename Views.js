@@ -159,6 +159,7 @@ class SelectTables {
      * @param {Map<String,Table>} tableInfo 
      */
     constructor(primaryTable, astFields, tableInfo) {
+        this.primaryTable = primaryTable;
         this.astFields = astFields;
         this.tableInfo = tableInfo;
         this.joinedTablesMap = new Map();
@@ -378,8 +379,13 @@ class SelectTables {
                     continue;
             }
 
+            //  The 'masterRecordID' is referencing masterTable, so fields from
+            //  other tables should be excluded.
+            if (this.masterTable != vField.tableInfo)
+                continue;
+
             let varData = vField.getData(masterRecordID);
-            if (typeof vField.getData(masterRecordID) == "string")
+            if (typeof vField.getData(masterRecordID) == "string" || vField.getData(masterRecordID) instanceof Date)
                 varData = "'" + vField.getData(masterRecordID) + "'";
 
             if (vField.fieldName.indexOf(".") == -1)
@@ -409,7 +415,7 @@ class SelectTables {
             "LTRIM", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER"];
 
-        let functionString = calculatedFormula.toUpperCase();
+        let functionString = this.toUpperCaseExceptQuoted(calculatedFormula);
         let firstCase = true;
         let matchStr;
 
@@ -556,6 +562,34 @@ class SelectTables {
 
     /**
      * 
+     * @param {String} srcString 
+     * @returns {String}
+     */
+    toUpperCaseExceptQuoted(srcString) {
+        let finalString = "";
+        let inQuotes = "";
+
+        for (let i = 0; i < srcString.length; i++) {
+            let c = srcString.charAt(i);
+
+            if (inQuotes == "") {
+                if (c == '"' || c == "'")
+                    inQuotes = c;
+                c = c.toUpperCase();
+            }
+            else {
+                if (c == inQuotes)
+                    inQuotes = "";
+            }
+
+            finalString += c;
+        }
+
+        return finalString;
+    }
+
+    /**
+     * 
      * @param {String} functionString 
      * @param {String} func
      * @returns {String[]} 
@@ -571,14 +605,14 @@ class SelectTables {
             let i = searchStr.indexOf("(");
             let startLeft = i;
             let leftBracket = 1;
-            for ( i = i + 1; i < searchStr.length; i++) {
+            for (i = i + 1; i < searchStr.length; i++) {
                 let c = searchStr.charAt(i);
                 if (c == "(") leftBracket++;
                 if (c == ")") leftBracket--;
 
                 if (leftBracket == 0) {
-                    args.push(searchStr.substring(0, i+1));
-                    args.push(searchStr.substring(startLeft+1, i));
+                    args.push(searchStr.substring(0, i + 1));
+                    args.push(searchStr.substring(startLeft + 1, i));
                     return args;
                 }
             }
@@ -602,7 +636,7 @@ class SelectTables {
 
             if (c == "," && bracketCount == 0) {
                 args.push(paramString.substring(start, i));
-                start = i+1;
+                start = i + 1;
             }
             else if (c == "(")
                 bracketCount++;
@@ -792,23 +826,21 @@ class SelectTables {
         selectedData.unshift(this.getColumnNames());
 
         //  Create our virtual GROUP table with data already selected.
-        let groupTable = new Table("GROUPTABLE", "", selectedData);
+        let groupTable = new Table(this.primaryTable, "", selectedData);
 
         let tableMapping = new Map();
-        tableMapping.set("GROUPTABLE", groupTable);
+        tableMapping.set(this.primaryTable.toUpperCase(), groupTable);
 
         //  Set up for our SQL.
         let inSQL = new Sql([], "", false).setTables(tableMapping);
 
         //  Fudge the HAVING to look like a SELECT.
         let astSelect = {};
-        astSelect['FROM'] = [{ table: "GROUPTABLE" }];
+        astSelect['FROM'] = [{ table: this.primaryTable }];
         astSelect['SELECT'] = [{ name: "*" }];
         astSelect['WHERE'] = astHaving;
 
-        let inData = inSQL.select(astSelect);
-
-        return inData;
+        return inSQL.select(astSelect);
     }
 
     /**
@@ -1068,7 +1100,7 @@ class VirtualFields {
      */
     getFieldInfo(field) {
         if (field == null || typeof field != "string")
-            throw("SELECT syntax error.  Failed to retrieve field info.");
+            throw ("SELECT syntax error.  Failed to retrieve field info.");
 
         field = field.trim().toUpperCase();
         let fieldInfo = null;
@@ -1190,17 +1222,11 @@ class VirtualFields {
             if (astFields[i].name == "*") {
                 //  Replace wildcard will actual field names from master table.
                 let masterTableFields = [];
-                let colSet = new Set();
+                let allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames();
 
-                for (let virtualField of this.virtualFieldList) {
-                    //  The special '*' field representing ALL fields should not be expanded into list of fields.
-                    if (virtualField.tableInfo == masterTableInfo && virtualField.fieldName != "*") {
-                        if (!colSet.has(virtualField.tableColumn)) {
-                            let selField = { name: virtualField.fieldName };
-                            masterTableFields.push(selField);
-                            colSet.add(virtualField.tableColumn);
-                        }
-                    }
+                for (let virtualField of allExpandedFields) {
+                    let selField = { name: virtualField };
+                    masterTableFields.push(selField);
                 }
 
                 astFields.splice(i, 1, ...masterTableFields);
@@ -1241,10 +1267,6 @@ class VirtualFields {
                 // matches = regExp.exec(columnName);
                 if (matches != null && matches.length > 1)
                     columnName = matches[1];
-            }
-
-            if (calculatedField == null && columnName.indexOf(".") == -1) {
-                columnName = primaryTable.toUpperCase() + "." + columnName.toUpperCase();
             }
 
             this.columnTitles.push(typeof selField.as != 'undefined' && selField.as != "" ? selField.as : selField.name);

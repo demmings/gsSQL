@@ -348,7 +348,9 @@ class Schema {
             let col;
             for (col of titleRow) {
                 col = col.trim().toUpperCase().replace(/\s/g, "_");
-                let fullColumnName = this.tableName + "." + col;
+                let fullColumnName = col;
+                if (col.indexOf(".") == -1)
+                    fullColumnName = this.tableName + "." + col;
 
                 if (col != "") {
                     this.fields.set(col, colNum);

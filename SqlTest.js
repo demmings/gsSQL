@@ -54,6 +54,23 @@ class SqlTester {
 
     }
 
+    bookReturnsTable() {
+        return [
+            ["RMA", "Book Id", "Customer ID", "Quantity", "Price", "Date"],
+            ["Rma001", "9", "c1", 10, 34.95, "05/01/2022"],
+            ["rma020", "8", "c2", 3, 29.95, "05/01/2022"],
+            ["rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
+            ["RMA040", "9", "c3", 1, 59.99, "05/02/2022"],
+            ["rma005", "1", "c1", 1, 90, "05/02/2022"],
+            ["RMA600", "2", "c4", 100, 65.49, "05/03/2022"],
+            ["Rma701", "3", "c4", 150, 24.95, "05/03/2022"],
+            ["RmA800", "4", "c4", 50, 19.99, "05/03/2022"],
+            ["RMA900", "7", "c1", 1, 33.97, "05/04/2022"],
+            ["rma1010", "7", "c2", 100, 17.99, "05/04/2022"]
+        ];
+
+    }
+
     customerTable() {
         return [
             ["ID", "Name", "Address", "City", "Phone", "eMail"],
@@ -114,7 +131,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["ID", "FIRST_NAME", "LAST_NAME"],
+        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
         ["11", "Ellen", "Writer"],
         ["12", "Olga", "Savelieva"],
         ["13", "Jack", "Smart"],
@@ -322,7 +339,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["INVOICE", "BOOK_ID", "CUSTOMER_ID", "QUANTITY", "PRICE", "DATE", "customers.address", "customers.id", "customers.name"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "customers.address", "customers.id", "customers.name"],
         ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "101 One Way", "C1", "Numereo Uno"],
         ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays"],
         ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays"],
@@ -409,7 +426,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["INVOICE", "BOOK_ID", "CUSTOMER_ID", "QUANTITY", "PRICE", "DATE"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
         ["I7202", "9", "C3", 1, 59.99, "05/02/2022"],
         ["I7203", "1", "", 1, 90, "05/02/2022"],
         ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
@@ -479,6 +496,29 @@ class SqlTester {
         return this.isEqual("groupBy3", data, expected);
     }
 
+    groupBy4() {
+        let stmt =
+            "select bookSales.customer_id, date, count(customer_id), count(date) FROM booksales " +
+            "GROUP BY customer_id, date";
+
+        let testSQL = new Sql([["bookSales", "",
+            this.bookSalesTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["bookSales.customer_id", "date", "count(customer_id)", "count(date)"],
+        ["", "05/02/2022", 1, 1],
+        ["C1", "05/01/2022", 1, 1],
+        ["C1", "05/04/2022", 1, 1],
+        ["C2", "05/01/2022", 2, 2],
+        ["C2", "05/04/2022", 1, 1],
+        ["C3", "05/02/2022", 1, 1],
+        ["C4", "05/03/2022", 3, 3]];
+
+        return this.isEqual("groupBy4", data, expected);
+    }
+
+
     avgSelect1() {
         let stmt = "select AVG(quantity) from booksales";
 
@@ -516,7 +556,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["INVOICE", "BOOK_ID", "CUSTOMER_ID", "QUANTITY", "PRICE", "DATE", "customer.name"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "customer.name"],
         ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "ForMe Resellers"],
         ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "ForMe Resellers"],
         ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "ForMe Resellers"],
@@ -542,7 +582,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["INVOICE", "BOOK_ID", "CUSTOMER_ID", "QUANTITY", "PRICE", "DATE", "books.title", "authors.first_name", "editors.first_name", "customer.name", "customer.email", "booksales.quantity"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "books.title", "authors.first_name", "editors.first_name", "customer.name", "customer.email", "booksales.quantity"],
         ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "Book with Mysterious Author", "", "Maria", "Numereo Uno", "bigOne@gmail.com", 10],
         ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "My Last Book", "Ellen", "", "Dewy Tuesdays", "twoguys@gmail.com", 3],
         ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 5],
@@ -569,7 +609,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["INVOICE", "BOOK_ID", "CUSTOMER_ID", "QUANTITY", "PRICE", "DATE", "books.title", "authors.first_name", "editors.first_name", "customer.name", "customer.email", "booksales.quantity"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "books.title", "authors.first_name", "editors.first_name", "customer.name", "customer.email", "booksales.quantity"],
         ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "Book with Mysterious Author", "", "Maria", "Tres Buon Goods", "thrice@hotmail.com", 1],
         ["I7203", "1", "", 1, 90, "05/02/2022", "Time to Grow Up!", "Ellen", "Daniel", "", "", 1],
         ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "Your Trip", "Yao", "Mark", "ForMe Resellers", "fourtimes@hotmail.com", 100],
@@ -588,7 +628,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["ID", "FIRST_NAME", "LAST_NAME"],
+        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
         ["11", "Ellen", "Writer"],
         ["12", "Olga", "Savelieva"],
         ["13", "Jack", "Smart"],
@@ -616,7 +656,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["ID", "FIRST_NAME", "LAST_NAME"],
+        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
         ["11", "Ellen", "Writer"],
         ["12", "Olga", "Savelieva"],
         ["13", "Jack", "Smart"],
@@ -645,7 +685,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["ID", "FIRST_NAME", "LAST_NAME"],
+        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
         ["11", "Ellen", "Writer"],
         ["14", "Donald", "Brain"],
         ["15", "Yao", "Dou"]];
@@ -662,7 +702,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["ID", "FIRST_NAME", "LAST_NAME"],
+        let expected = [["EDITORS.ID", "EDITORS.FIRST_NAME", "EDITORS.LAST_NAME"],
         ["13", "Jack", "Smart"]];
 
         return this.isEqual("intersect1", data, expected);
@@ -677,7 +717,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["INVOICE", "BOOK_ID", "CUSTOMER_ID", "QUANTITY", "PRICE", "DATE"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
         ["I7205", "7", "C1", 1, 33.97, "05/04/2022"],
         ["I7206", "7", "C2", 100, 17.99, "05/04/2022"],
         ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
@@ -701,7 +741,7 @@ class SqlTester {
 
         let data = testSQL.execute();
 
-        let expected = [["INVOICE", "BOOK_ID", "CUSTOMER_ID", "QUANTITY", "PRICE", "DATE"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
         ["I7206", "7", "C2", 100, 17.99, "05/04/2022"],
         ["I7205", "7", "C1", 1, 33.97, "05/04/2022"],
         ["I7204", "4", "C4", 50, 19.99, "05/03/2022"],
@@ -1065,16 +1105,16 @@ class SqlTester {
         let data = testSQL.execute();
 
         let expected = [["quantity", "price", "CASE WHEN quantity = 1 THEN 'One Sold' WHEN quantity = 2 THEN 'Two Sold' WHEN quantity = 3 THEN 'Three Sold' WHEN quantity < 100 THEN 'Up to 100 Sold' ELSE quantity + ' items sold' END"],
-        [10, 34.95, "UP TO 100 SOLD"],
-        [3, 29.95, "THREE SOLD"],
-        [5, 18.99, "UP TO 100 SOLD"],
-        [1, 59.99, "ONE SOLD"],
-        [1, 90, "ONE SOLD"],
-        [100, 65.49, "100 ITEMS SOLD"],
-        [150, 24.95, "150 ITEMS SOLD"],
-        [50, 19.99, "UP TO 100 SOLD"],
-        [1, 33.97, "ONE SOLD"],
-        [100, 17.99, "100 ITEMS SOLD"]];
+        [10, 34.95, "Up to 100 Sold"],
+        [3, 29.95, "Three Sold"],
+        [5, 18.99, "Up to 100 Sold"],
+        [1, 59.99, "One Sold"],
+        [1, 90, "One Sold"],
+        [100, 65.49, "100 items sold"],
+        [150, 24.95, "150 items sold"],
+        [50, 19.99, "Up to 100 Sold"],
+        [1, 33.97, "One Sold"],
+        [100, 17.99, "100 items sold"]];
 
         return this.isEqual("selectCase1", data, expected);
     }
@@ -1097,16 +1137,16 @@ class SqlTester {
         let data = testSQL.execute();
 
         let expected = [["quantity", "price", "summary"],
-        [10, 34.95, "INVOICE=7200 10 ITEMS SOLD. ID=c1"],
-        [3, 29.95, "INVOICE=7201 LOW VOLUME 89.85"],
-        [5, 18.99, "INVOICE=7201 LOW VOLUME 94.94999999999999"],
-        [1, 59.99, "INVOICE=7202 1 ITEMS SOLD. ID=c3"],
-        [1, 90, "INVOICE=7203 $90, KA CHING."],
-        [100, 65.49, "INVOICE=7204 100 OR 150"],
-        [150, 24.95, "INVOICE=7204 100 OR 150"],
-        [50, 19.99, "INVOICE=7204 50 ITEMS SOLD. ID=c4"],
-        [1, 33.97, "INVOICE=7205 1 ITEMS SOLD. ID=c1"],
-        [100, 17.99, "INVOICE=7206 100 OR 150"]];
+        [10, 34.95, "Invoice=7200 10 items sold. ID=c1"],
+        [3, 29.95, "Invoice=7201 Low Volume 89.85"],
+        [5, 18.99, "Invoice=7201 Low Volume 94.94999999999999"],
+        [1, 59.99, "Invoice=7202 1 items sold. ID=c3"],
+        [1, 90, "Invoice=7203 $90, ka ching."],
+        [100, 65.49, "Invoice=7204 100 or 150"],
+        [150, 24.95, "Invoice=7204 100 or 150"],
+        [50, 19.99, "Invoice=7204 50 items sold. ID=c4"],
+        [1, 33.97, "Invoice=7205 1 items sold. ID=c1"],
+        [100, 17.99, "Invoice=7206 100 or 150"]];
 
         return this.isEqual("selectCase2", data, expected);
     }
@@ -1162,8 +1202,26 @@ class SqlTester {
         ["05/03/2022", 0, 0, 0, 300],
         ["05/04/2022", 1, 100, 0, 0]];
 
-        return this.isEqual("groupBy1", data, expected);
+        return this.isEqual("groupPivot1", data, expected);
     }
+
+    groupPivot2() {
+        let stmt = "select date, sum(quantity) from bookReturns group by date pivot customer_id";
+
+        let testSQL = new Sql([["bookReturns", "",
+            this.bookReturnsTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["date", "c1 sum(quantity)", "c2 sum(quantity)", "c3 sum(quantity)", "c4 sum(quantity)"],
+        ["05/01/2022", 10, 8, 0, 0],
+        ["05/02/2022", 1, 0, 1, 0],
+        ["05/03/2022", 0, 0, 0, 300],
+        ["05/04/2022", 1, 100, 0, 0]];
+
+        return this.isEqual("groupPivot2", data, expected);
+    }
+
 
     groupFunc1() {
         let stmt = "select bookSales.date, SUM(if(customer_id = 'C1', bookSales.Quantity,0)), SUM(if(customer_id = 'C2', bookSales.Quantity,0)) from bookSales where customer_id != '' group by date";
@@ -1180,6 +1238,23 @@ class SqlTester {
         ["05/04/2022", 1, 100]];
 
         return this.isEqual("groupFunc1", data, expected);
+    }
+
+    selectInGroupByPivot() {
+        let stmt = "select bookSales.date, SUM(bookSales.Quantity) from bookSales where customer_id in (select id from customers)  group by date pivot customer_id";
+
+        let testSQL = new Sql([["bookSales", "", this.bookSalesTable()],
+        ["customers", "", this.customerTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["bookSales.date", "C1 SUM(bookSales.Quantity)", "C2 SUM(bookSales.Quantity)", "C3 SUM(bookSales.Quantity)", "C4 SUM(bookSales.Quantity)"],
+        ["05/01/2022", 10, 8, 0, 0],
+        ["05/02/2022", 0, 0, 1, 0],
+        ["05/03/2022", 0, 0, 0, 300],
+        ["05/04/2022", 1, 100, 0, 0]];
+
+        return this.isEqual("selectInGroupByPivot", data, expected);
     }
 
     selectBadTable1() {
@@ -1216,8 +1291,43 @@ class SqlTester {
         return this.isFail("selectBadMath1", ex);
     }
 
+    selectBadField1() {
+        let stmt = "SELECT quantity, prices from booksales ";
+
+        let testSQL = new Sql([["booksales", "", this.bookSalesTable()],
+        ["editors", "", this.editorsTable()]], stmt, true);
+
+        let ex = "";
+        try {
+            let data = testSQL.execute();
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadField1", ex);
+    }
+
+    selectBadField2() {
+        let stmt = "SELECT sum(quantitys) from booksales ";
+
+        let testSQL = new Sql([["booksales", "", this.bookSalesTable()],
+        ["editors", "", this.editorsTable()]], stmt, true);
+
+        let ex = "";
+        try {
+            let data = testSQL.execute();
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadField1", ex);
+    }
+
     isFail(functionName, exceptionErr) {
         if (exceptionErr != "") {
+            Logger.log(functionName + "  Captured Error:  " + exceptionErr)
             Logger.log(functionName + "() ***   S U C C E S S   ***");
         }
         else {
@@ -1266,6 +1376,7 @@ function testerSql() {
     tester.groupBy1();
     tester.groupBy2();
     tester.groupBy3();
+    tester.groupBy4();
     tester.avgSelect1();
     tester.funcsSelect2();
     tester.innerSelect1();
@@ -1296,9 +1407,13 @@ function testerSql() {
     tester.selectCase2();
     tester.selectAlias1();
     tester.groupPivot1();
+    tester.groupPivot2();
     tester.groupFunc1();
+    tester.selectInGroupByPivot();
     tester.selectBadTable1();
     tester.selectBadMath1();
+    tester.selectBadField1();
+    tester.selectBadField2()
 
     Logger.log("===  E N D   O F   T E S T S  ===");
 }
