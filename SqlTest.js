@@ -1240,7 +1240,7 @@ class SqlTester {
         return this.isEqual("groupFunc1", data, expected);
     }
 
-    selectInGroupByPivot() {
+    selectInGroupByPivot1() {
         let stmt = "select bookSales.date, SUM(bookSales.Quantity) from bookSales where customer_id in (select id from customers)  group by date pivot customer_id";
 
         let testSQL = new Sql([["bookSales", "", this.bookSalesTable()],
@@ -1254,7 +1254,41 @@ class SqlTester {
         ["05/03/2022", 0, 0, 0, 300],
         ["05/04/2022", 1, 100, 0, 0]];
 
-        return this.isEqual("selectInGroupByPivot", data, expected);
+        return this.isEqual("selectInGroupByPivot1", data, expected);
+    }
+
+    selectInGroupByPivot2() {
+        let stmt = "select bookSales.date as 'Transaction Date', SUM(bookSales.Quantity) as [ as Much Quantity], Max(price) as Maximum from bookSales where customer_id in (select id from customers)  group by date pivot customer_id";
+
+        let testSQL = new Sql([["bookSales", "", this.bookSalesTable()],
+        ["customers", "", this.customerTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["Transaction Date", "C1  as Much Quantity", "C2  as Much Quantity", "C3  as Much Quantity", "C4  as Much Quantity", "C1 Maximum", "C2 Maximum", "C3 Maximum", "C4 Maximum"],
+        ["05/01/2022", 10, 8, 0, 0, 34.95, 29.95, 0, 0],
+        ["05/02/2022", 0, 0, 1, 0, 0, 0, 59.99, 0],
+        ["05/03/2022", 0, 0, 0, 300, 0, 0, 0, 65.49],
+        ["05/04/2022", 1, 100, 0, 0, 33.97, 17.99, 0, 0]];
+
+        return this.isEqual("selectInGroupByPivot2", data, expected);
+    }
+
+    selectInGroupByPivot3() {
+        let stmt = "select bookSales.date as 'Date', SUM(bookSales.Quantity) as [Quantity], Max(price) as Maximum, min(price) as Min, avg(price) as avg, count(date) from bookSales where customer_id in (select id from customers)  group by date pivot customer_id";
+
+        let testSQL = new Sql([["bookSales", "", this.bookSalesTable()],
+        ["customers", "", this.customerTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["Date", "C1 Quantity", "C2 Quantity", "C3 Quantity", "C4 Quantity", "C1 Maximum", "C2 Maximum", "C3 Maximum", "C4 Maximum", "C1 Min", "C2 Min", "C3 Min", "C4 Min", "C1 avg", "C2 avg", "C3 avg", "C4 avg", "C1 count(date)", "C2 count(date)", "C3 count(date)", "C4 count(date)"],
+        ["05/01/2022", 10, 8, 0, 0, 34.95, 29.95, 0, 0, 34.95, 18.99, 0, 0, 34.95, 24.47, null, null, 1, 2, 0, 0],
+        ["05/02/2022", 0, 0, 1, 0, 0, 0, 59.99, 0, 0, 0, 59.99, 0, null, null, 59.99, null, 0, 0, 1, 0],
+        ["05/03/2022", 0, 0, 0, 300, 0, 0, 0, 65.49, 0, 0, 0, 19.99, null, null, null, 36.809999999999995, 0, 0, 0, 3],
+        ["05/04/2022", 1, 100, 0, 0, 33.97, 17.99, 0, 0, 33.97, 17.99, 0, 0, 33.97, 17.99, null, null, 1, 1, 0, 0]];
+
+        return this.isEqual("selectInGroupByPivot3", data, expected);
     }
 
     selectBadTable1() {
@@ -1409,7 +1443,9 @@ function testerSql() {
     tester.groupPivot1();
     tester.groupPivot2();
     tester.groupFunc1();
-    tester.selectInGroupByPivot();
+    tester.selectInGroupByPivot1();
+    tester.selectInGroupByPivot2();
+    tester.selectInGroupByPivot3();
     tester.selectBadTable1();
     tester.selectBadMath1();
     tester.selectBadField1();
