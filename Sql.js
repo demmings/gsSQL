@@ -229,10 +229,6 @@ class Sql {
         let pivotFieldData = this.getUniquePivotData(ast);
 
         ast['SELECT'] = this.addCalculatedPivotFieldsToAst(ast, pivotFieldData);
-        //ast['GROUP BY'].unshift({column:ast['PIVOT'][0].name});
-
-        //  This new column needs to be 
-        //ast['SELECT'].push({name:ast['PIVOT'][0].name});
 
         return ast;
     }
@@ -267,9 +263,9 @@ class Sql {
                 let args = SelectTables.parseForFunctions(selectField.name, matches[0]);
                 
                 for (let fld of pivotFieldData) {
-                    let caseTxt = matches[0] + "(CASE WHEN " + ast['PIVOT'][0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 0 END)";
-
-                    newPivotAstFields.push({name: caseTxt, as: fld + " " + selectField.name});
+                    let caseTxt = matches[0] + "(CASE WHEN " + ast['PIVOT'][0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 'null' END)";
+                    let asField = fld[0] + " " + (typeof selectField.as != 'undefined' && selectField.as != "" ? selectField.as : selectField.name); 
+                    newPivotAstFields.push({name: caseTxt, as: asField});
                 }
             }
             else
