@@ -255,17 +255,18 @@ function sql2ast(query, parseCond) {
         }).map(function (item) {
             //  Is there a column alias?
             let alias = "";
-            let lastAs = item.toUpperCase().lastIndexOf(" AS ");
+            let lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
             if (lastAs != -1) { 
-                //  There is a chance 'AS' is embedded within quoted string.
-                //  This is not perfect, but hopefully will do.
-                var searchStr = item.substring(lastAs + 1);
-                var fieldAlias = searchStr.split(" ");
-                if (fieldAlias.length == 2 && fieldAlias[0].toUpperCase() == "AS") {
-                    alias = fieldAlias[fieldAlias.length - 1] || '';
-                    if (alias.indexOf('"') === 0 && alias.lastIndexOf('"') == alias.length - 1)
-                        alias = alias.substring(1, alias.length - 1);
+                var s = item.substring(lastAs + 4).trim();
+                if (s.length > 0 ) {
+                    alias = s;
+                    //  Remove quotes, if any.
+                    if ((s.startsWith("'") && s.endsWith("'")) ||
+                        (s.startsWith('"') && s.endsWith('"')) ||
+                        (s.startsWith('[') && s.endsWith(']')))
+                        alias = s.substring(1, s.length-1);
 
+                    //  Remove everything after 'AS'.
                     item = item.substring(0, lastAs);
                 }
             }
@@ -540,17 +541,6 @@ function sql2ast(query, parseCond) {
             });
         }
 
-        /*
-        if (typeof result['UNION'] == 'string') {
-            result['UNION'] = [CondParser.parse(result['UNION'])];
-        }
-        else if (typeof result['UNION'] != 'undefined') {
-            for (let i = 0; i < result['UNION'].length; i++) {
-                result['UNION'][i] = CondParser.parse(result['UNION'][i]);
-            }
-        }
-        */
-
         if (typeof result['UNION'] == 'string') {
             result['UNION'] = [sql2ast(parseUnion(result['UNION']))];
         }
@@ -598,6 +588,31 @@ function parseUnion(inStr) {
     }
 
     return unionString;
+}
+
+function lastIndexOfOutsideLiteral(srcString, searchString) {
+    let index = -1;
+    let inQuote = "";
+
+    for (let i = 0; i < srcString.length; i++) {
+        let c = srcString.charAt(i);
+
+        if (inQuote != "") {
+            //  The ending quote.
+            if ((inQuote == "'" && c == "'") || (inQuote == '"' && c == '"') || (inQuote == "[" && c == "]"))
+                inQuote = "";
+        }
+        else if ("\"'[".indexOf(c) != -1) {
+            //  The starting quote.
+            inQuote = c;
+        }
+        else if (srcString.substring(i).startsWith(searchString)) {
+            //  Matched search.
+            index = i;
+        }
+    }
+
+    return index;
 }
 
 /*
