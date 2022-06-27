@@ -758,9 +758,13 @@ class SelectTables {
                 row.push(groupRecords[0][i]);
             else {
                 let groupValue = 0;
+                let avgCounter = 0;
                 let first = true;
 
                 for (let groupRow of groupRecords) {
+                    if (groupRow[i] == 'null')
+                        continue;
+
                     let data = parseFloat(groupRow[i]);
                     data = (isNaN(data)) ? 0 : data;
 
@@ -784,6 +788,7 @@ class SelectTables {
                                 groupValue = data;
                             break;
                         case "AVG":
+                            avgCounter++;
                             groupValue += data;
                             break;
                         default:
@@ -793,7 +798,7 @@ class SelectTables {
                 }
 
                 if (field.aggregateFunction == "AVG")
-                    groupValue = groupValue / groupRecords.length;
+                    groupValue = groupValue / avgCounter;
 
                 row.push(groupValue);
             }
