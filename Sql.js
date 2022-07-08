@@ -1,10 +1,10 @@
 //  Remove comments for testing in NODE
-/*
+/*  *** DEBUG START ***
 export {Sql};
 import {Table} from './Table.js';
 import {sql2ast} from './SimpleParser.js';
 import {SelectView, SelectTables} from './Views.js';
-*/
+//  *** DEBUG END  ***/
 
 /**
  * 
@@ -39,11 +39,47 @@ class Sql {
         this.tables = new Map();
         this.statement = statement;
         this.columnTitle = columnTitle;
+        this.ast = sql2ast(this.statement);
 
         //  All tables that are reference along with sheet ranges.
         for (let table of tableList) {
-            this.tables.set(table[0].toUpperCase(), new Table(table[0], table[1], table[2]));
+            let tableAlias = this.getTableAlias(table[0], this.ast);
+            this.tables.set(table[0].toUpperCase(), new Table(table[0], tableAlias, table[1], table[2]));
         }
+    }
+
+    getTableAlias(tableName, ast) {
+        let tableAlias = "";
+        tableName = tableName.toUpperCase();
+        let astTableBlocks = ['FROM', 'JOIN'];
+        let astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+        let i = 0;
+        while  (tableAlias == "" && i < astTableBlocks.length) {
+            tableAlias = this.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
+            i++;
+        }
+
+        i = 0;
+        while  (tableAlias == "" && i < astRecursiveTableBlocks.length) {
+            if (typeof ast[astRecursiveTableBlocks[i]] != 'undefined')
+                tableAlias = this.getTableAlias(tableName, ast[astRecursiveTableBlocks[i]]);
+            i++;
+        }
+        
+        return tableAlias;
+    }
+
+    locateAstTableAlias(tableName, ast, astBlock) {
+        if (typeof ast[astBlock] == 'undefined')
+            return "";
+
+        for (let i = 0; i < ast[astBlock].length; i++) {
+            if (tableName == ast[astBlock][i].table.toUpperCase() && ast[astBlock][i].as != "") {
+                return ast[astBlock][i].as;
+            }
+        } 
+        
+        return "";
     }
 
     /**
@@ -63,10 +99,8 @@ class Sql {
     execute() {
         let sqlData = [];
 
-        let ast = sql2ast(this.statement);
-
-        if (typeof ast['SELECT'] != 'undefined')
-            sqlData = this.select(ast);
+        if (typeof this.ast['SELECT'] != 'undefined')
+            sqlData = this.select(this.ast);
         else
             throw("Only SELECT statements are supported.");
 

@@ -1,8 +1,8 @@
 //  Remove comments for testing in NODE
-/*
+/*  *** DEBUG START ***
 export { sql2ast, sqlCondition2JsCondition };
 import { Logger } from './SqlTest.js';
-*/
+//  *** DEBUG END  ***/
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 
@@ -255,21 +255,7 @@ function sql2ast(query, parseCond) {
         }).map(function (item) {
             //  Is there a column alias?
             let alias = "";
-            let lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
-            if (lastAs != -1) { 
-                var s = item.substring(lastAs + 4).trim();
-                if (s.length > 0 ) {
-                    alias = s;
-                    //  Remove quotes, if any.
-                    if ((s.startsWith("'") && s.endsWith("'")) ||
-                        (s.startsWith('"') && s.endsWith('"')) ||
-                        (s.startsWith('[') && s.endsWith(']')))
-                        alias = s.substring(1, s.length-1);
-
-                    //  Remove everything after 'AS'.
-                    item = item.substring(0, lastAs);
-                }
-            }
+            [item, alias] = getNameAndAlias(item);
 
             let splitPattern = /[\s()*/%+-]+/g;
             let terms = item.split(splitPattern);
@@ -311,10 +297,8 @@ function sql2ast(query, parseCond) {
             if (item === '') result.splice(key);
         });
         result = result.map(function (item) {
-            var table = item.split(' AS ');
-            var alias = table[1] || '';
-            if (alias.indexOf('"') === 0 && alias.lastIndexOf('"') == alias.length - 1) alias = alias.substring(1, alias.length - 1);
-            return { table: table[0], as: alias };
+            var [table, alias] = getNameAndAlias(item);
+            return { table: table, as: alias };
         });
         return result;
     };
@@ -588,6 +572,32 @@ function parseUnion(inStr) {
     }
 
     return unionString;
+}
+
+/**
+ * If an ALIAS is specified after 'AS', return the field/table name and the alias.
+ * @param {String} item 
+ * @returns {[String, String]}
+ */
+function getNameAndAlias(item) {
+    let alias = "";
+    let lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
+    if (lastAs != -1) { 
+        var s = item.substring(lastAs + 4).trim();
+        if (s.length > 0 ) {
+            alias = s;
+            //  Remove quotes, if any.
+            if ((s.startsWith("'") && s.endsWith("'")) ||
+                (s.startsWith('"') && s.endsWith('"')) ||
+                (s.startsWith('[') && s.endsWith(']')))
+                alias = s.substring(1, s.length-1);
+
+            //  Remove everything after 'AS'.
+            item = item.substring(0, lastAs);
+        }
+    }
+
+    return [item, alias];
 }
 
 function lastIndexOfOutsideLiteral(srcString, searchString) {

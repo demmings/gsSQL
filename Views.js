@@ -1,11 +1,11 @@
 //  Remove comments for testing in NODE
-/*
+/*  *** DEBUG START ***
 export { DERIVEDTABLE, SelectView, VirtualFields, VirtualField, SelectTables };
 import { Table } from './Table.js';
 import { Sql } from './Sql.js';
 import { sqlCondition2JsCondition } from './SimpleParser.js';
 import { Logger } from './SqlTest.js';
-*/
+//  *** DEBUG END  ***/
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
 
@@ -831,7 +831,7 @@ class SelectTables {
         selectedData.unshift(this.getColumnNames());
 
         //  Create our virtual GROUP table with data already selected.
-        let groupTable = new Table(this.primaryTable, "", selectedData);
+        let groupTable = new Table(this.primaryTable, "", "", selectedData);
 
         let tableMapping = new Map();
         tableMapping.set(this.primaryTable.toUpperCase(), groupTable);
@@ -1062,12 +1062,16 @@ class VirtualFields {
      * @param {VirtualField} newField 
      */
     replaceVirtualField(originalField, newField) {
+        let originalCol = originalField.tableColumn;
+        let originalTable = originalField.tableInfo.tableName;
+
         for (let i = 0; i < this.virtualFieldList.length; i++) {
-            if (this.virtualFieldList[i] == originalField) {
+            if (originalCol == this.virtualFieldList[i].tableColumn && 
+                originalTable == this.virtualFieldList[i].tableInfo.tableName) {
                 //  Keep field object, just replace contents.
                 this.virtualFieldList[i].tableColumn = newField.tableColumn;
                 this.virtualFieldList[i].tableInfo = newField.tableInfo;
-                break;
+                // break;
             }
         }
     }
@@ -1191,7 +1195,7 @@ class VirtualFields {
      * @param {DerivedTable} derivedTable 
      */
     updateDerivedTableVirtualFields(derivedTable) {
-        let existingVirtualFieldsList = derivedTable.tableInfo.getAllVirtualFields();;
+        let existingVirtualFieldsList = derivedTable.tableInfo.getAllVirtualFields();
 
         for (let field of existingVirtualFieldsList) {
             if (this.hasField(field.fieldName)) {
@@ -1386,7 +1390,7 @@ class JoinTables {
         /** @type {DerivedTables} */
         this.derivedTables = new DerivedTables();
 
-        astJoin = astJoin.reverse();
+        // astJoin = astJoin.reverse();
 
         for (let joinTable of astJoin) {
             /** @type {VirtualField} */
@@ -1408,6 +1412,10 @@ class JoinTables {
             //  Field locations have changed to the derived table, so update our
             //  virtual field list with proper settings.
             virtualFields.updateDerivedTableVirtualFields(table);
+
+            table.leftTable = virtualFields.getFieldInfo(leftFieldInfo.fieldName);
+            table.rightTable = virtualFields.getFieldInfo(rightFieldInfo.fieldName);
+
             this.derivedTables.setTable(table);
         }
 
@@ -1581,6 +1589,10 @@ class DerivedTable {
         /** @type {Number[][]} */
         let rightRecords;
         [leftRecords, rightRecords] = records;
+        /** @type {VirtualField} */
+        this.leftTable = null;
+        /** @type {VirtualField} */
+        this.rightTable = null;
 
         let titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames();
 
@@ -1605,9 +1617,6 @@ class DerivedTable {
             }
         }
         /** @type {Table} */
-        this.tableInfo = new Table(DERIVEDTABLE, "", joinedData);
-        this.leftTable = this.tableInfo.getVirtualFieldInfo(leftField.fieldName);
-        this.rightTable = this.tableInfo.getVirtualFieldInfo(rightField.fieldName);
-
+        this.tableInfo = new Table(DERIVEDTABLE, "", "", joinedData);
     }
 }

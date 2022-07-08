@@ -1,5 +1,5 @@
 //  Remove comments for testing in NODE
-/*
+/*  *** DEBUG START ***  
 import { Sql } from './Sql.js';
 export { Logger };
 
@@ -8,7 +8,7 @@ class Logger {
         console.log(msg);
     }
 }
-*/
+//  *** DEBUG END  ***/
 
 function SQLselfTest() {
     testerSql();
@@ -141,12 +141,11 @@ class SqlTester {
         return this.isEqual("selectAll1", data, expected);
     }
 
-
     innerJoin1() {
         let stmt = "SELECT books.id, books.title, authors.first_name, authors.last_name " +
             "FROM books " +
             "INNER JOIN authors " +
-            "ON books.author_id = authors.id" +
+            "ON books.author_id = authors.id " +
             "ORDER BY books.id";
 
         let testSQL = new Sql([["books", "",
@@ -165,6 +164,31 @@ class SqlTester {
         ["8", "My Last Book", "Ellen", "Writer"]];
 
         return this.isEqual("innerJoin1", data, expected);
+    }
+
+    innerJoinAlias1() {
+        let stmt = "SELECT b.id, b.title, a.first_name, a.last_name " +
+            "FROM books as b " +
+            "INNER JOIN authors as a " +
+            "ON b.author_id = a.id " +
+            "ORDER BY books.id";
+
+        let testSQL = new Sql([["books", "",
+            this.bookTable()], ["authors", "", this.authorsTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["b.id","b.title","a.first_name","a.last_name"],
+        ["1", "Time to Grow Up!", "Ellen", "Writer"],
+        ["2", "Your Trip", "Yao", "Dou"],
+        ["3", "Lovely Love", "Donald", "Brain"],
+        ["4", "Dream Your Life", "Ellen", "Writer"],
+        ["5", "Oranges", "Olga", "Savelieva"],
+        ["6", "Your Happy Life", "Yao", "Dou"],
+        ["7", "Applied AI", "Jack", "Smart"],
+        ["8", "My Last Book", "Ellen", "Writer"]];
+
+        return this.isEqual("innerJoinAlias1", data, expected);
     }
 
     join2() {
@@ -583,6 +607,33 @@ class SqlTester {
         let data = testSQL.execute();
 
         let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "books.title", "authors.first_name", "editors.first_name", "customer.name", "customer.email", "booksales.quantity"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "Book with Mysterious Author", "", "Maria", "Numereo Uno", "bigOne@gmail.com", 10],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "My Last Book", "Ellen", "", "Dewy Tuesdays", "twoguys@gmail.com", 3],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 5],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "Applied AI", "Jack", "Maria", "Numereo Uno", "bigOne@gmail.com", 1],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 100]];
+
+        return this.isEqual("whereLike1", data, expected);
+    }
+
+    whereLike2() {
+        let stmt = "select *, books.title as Title, auth.first_name as [First Name], editors.first_name, customer.name, customer.email, booksales.quantity from bookSales as sale" +
+            "LEFT JOIN books as bk ON sale.book_id = bk.id " +
+            "LEFT JOIN authors as auth on books.author_id = authors.id " +
+            "LEFT JOIN editors as ed on books.editor_id = ed.id " +
+            "LEFT JOIN customer on bookSales.customer_id = customer.id " +
+            "WHERE customer.email LIKE '%gmail.com'";
+
+        let testSQL = new Sql([
+            ["bookSales", "", this.bookSalesTable()],
+            ["customer", "", this.customerTable()],
+            ["books", "", this.bookTable()],
+            ["editors", "", this.editorsTable()],
+            ["authors", "", this.authorsTable()]], stmt, true);
+
+        let data = testSQL.execute();
+
+        let expected = [["BOOKSALES.INVOICE","BOOKSALES.BOOK_ID","BOOKSALES.CUSTOMER_ID","BOOKSALES.QUANTITY","BOOKSALES.PRICE","BOOKSALES.DATE","Title","First Name","editors.first_name","customer.name","customer.email","booksales.quantity"],
         ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "Book with Mysterious Author", "", "Maria", "Numereo Uno", "bigOne@gmail.com", 10],
         ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "My Last Book", "Ellen", "", "Dewy Tuesdays", "twoguys@gmail.com", 3],
         ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 5],
@@ -1389,13 +1440,16 @@ class SqlTester {
 }
 
 //  Remove comments for testing in NODE
-//testerSql();
+/*  *** DEBUG START ***
+testerSql();
+//  *** DEBUG END  ***/
 
 function testerSql() {
     var tester = new SqlTester();
 
     tester.selectAll1();
     tester.innerJoin1();
+    tester.innerJoinAlias1();
     tester.join2();
     tester.join3();
     tester.joinLimit1();
@@ -1415,6 +1469,7 @@ function testerSql() {
     tester.funcsSelect2();
     tester.innerSelect1();
     tester.whereLike1();
+    tester.whereLike2();
     tester.whereNotLike1();
     tester.union1();
     tester.unionAll1();

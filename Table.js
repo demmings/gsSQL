@@ -1,19 +1,21 @@
 //  Remove comments for testing in NODE
-/*
-export {Table, Schema};
-import {DERIVEDTABLE, VirtualFields, VirtualField} from './Views.js';
-import {Logger} from './SqlTest.js';
-*/
+/*  *** DEBUG START ***
+export { Table, Schema };
+import { DERIVEDTABLE, VirtualFields, VirtualField } from './Views.js';
+import { Logger } from './SqlTest.js';
+//  *** DEBUG END  ***/
 
 class Table {
     /**
      * 
      * @param {String} tableName 
+     * @param {String} tableAlias
      * @param {String} namedRange - specify a RANGE to load table data FROM or...
      * @param {any[]} tableData - double array with table data.  First row MUST be column titles.
      */
-    constructor(tableName, namedRange = "", tableData = []) {
+    constructor(tableName, tableAlias, namedRange = "", tableData = []) {
         this.tableName = tableName.toUpperCase();
+        this.tableAlias = tableAlias;
         this.tableData = [];
         this.indexes = new Map();
         /** @type {Schema} */
@@ -41,14 +43,14 @@ class Table {
         let range = ss.getRangeByName(namedRange);
         if (range == null) {
             Logger.log("Table: " + this.tableName + ". Invalid Range:" + namedRange);
-            throw("Invalid TABLE Range: " + namedRange + " for table " + this.tableName);
+            throw ("Invalid TABLE Range: " + namedRange + " for table " + this.tableName);
         }
 
         let tempData = range.getValues();
         this.tableData = tempData.filter(e => e.join().replace(/,/g, "").length);
 
         Logger.log("Load Data: Range=" + namedRange + ". Items=" + this.tableData.length);
-        this.schema = new Schema(this.tableName, this.tableData, this);
+        this.schema = new Schema(this.tableName, this.tableAlias, this.tableData, this);
 
         return this;
     }
@@ -62,7 +64,7 @@ class Table {
             return this;
 
         this.tableData = tableData;
-        this.schema = new Schema(this.tableName, this.tableData, this);
+        this.schema = new Schema(this.tableName, this.tableAlias, this.tableData, this);
 
         return this;
     }
@@ -222,8 +224,8 @@ class Table {
      * @param {Table} concatTable 
      */
     concat(concatTable) {
-        let fieldsThisTable = this.schema.getAllFieldNames();   
-        let fieldColumns = concatTable.getFieldColumns(fieldsThisTable); 
+        let fieldsThisTable = this.schema.getAllFieldNames();
+        let fieldColumns = concatTable.getFieldColumns(fieldsThisTable);
         let data = concatTable.getRecords(1, -1, fieldColumns);
         this.tableData = this.tableData.concat(data);
     }
@@ -234,10 +236,12 @@ class Schema {
     /**
      * Finds table field info.
      * @param {String} tableName
+     * @param {String} tableAlias
      * @param {any[][]} tableData 
      */
-    constructor(tableName = "", tableData = [], tableInfo = null) {
+    constructor(tableName = "", tableAlias = "", tableData = [], tableInfo = null) {
         this.tableName = tableName.toUpperCase();
+        this.tableAlias = tableAlias.toUpperCase();
         this.tableData = tableData;
         this.tableInfo = tableInfo;
         this.isDerivedTable = this.tableName == DERIVEDTABLE;
@@ -278,8 +282,13 @@ class Schema {
 
         // @ts-ignore
         for (const [key, value] of this.fields.entries()) {
-            if (key.indexOf(".") != -1)
-                fieldNames.push(key);
+            if (value != null) {
+                let fieldParts = key.split(".");
+                if (fieldParts.length == 2 && (fieldParts[0] == this.tableName || this.isDerivedTable))
+                    fieldNames[value] = key;
+                else if (typeof fieldNames[value] == 'undefined')
+                    fieldNames[value] = key;
+            }
         }
 
         return fieldNames;
@@ -349,18 +358,27 @@ class Schema {
             for (col of titleRow) {
                 col = col.trim().toUpperCase().replace(/\s/g, "_");
                 let fullColumnName = col;
-                if (col.indexOf(".") == -1)
+                let fullColumnAliasName = "";
+                if (col.indexOf(".") == -1) {
                     fullColumnName = this.tableName + "." + col;
+                    if (this.tableAlias != "")
+                        fullColumnAliasName = this.tableAlias + "." + col;
+                }
 
                 if (col != "") {
                     this.fields.set(col, colNum);
-                    
+
                     let dataType = this.getColumnType(colNum);
                     this.fieldType.set(col, dataType);
 
-                    if (! this.isDerivedTable) {
+                    if (!this.isDerivedTable) {
                         this.fields.set(fullColumnName, colNum);
                         this.fieldType.set(fullColumnName, dataType);
+
+                        if (fullColumnAliasName != "") {
+                            this.fields.set(fullColumnAliasName, colNum);
+                            this.fieldType.set(fullColumnAliasName, dataType);
+                        }
                     }
 
                     let virtualField = new VirtualField(col, this.tableInfo, colNum);
