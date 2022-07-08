@@ -50,14 +50,27 @@ class SelectView {
         return this.selectTables.getColumnNames();
     }
 
+    /**
+     * 
+     * @returns {String[]}
+     */
     getColumnTitles() {
         return this.selectTables.getColumnTitles();
     }
 
+    /**
+     * 
+     * @returns {Number}
+     */
     getConglomerateFieldCount() {
         return this.selectTables.getConglomerateFieldCount();
     }
 
+    /**
+     * 
+     * @param {any[][]} groupRecords 
+     * @returns {any[]}
+     */
     conglomerateRecord(groupRecords) {
         return this.selectTables.conglomerateRecord(groupRecords);
     }
@@ -82,6 +95,11 @@ class SelectView {
         return this.selectTables.having(astHaving, selectedData);
     }
 
+    /**
+     * 
+     * @param {any[]} astOrderby 
+     * @param {any[][]} selectedData 
+     */
     orderBy(astOrderby, selectedData) {
         return this.selectTables.orderBy(astOrderby, selectedData);
     }
@@ -102,6 +120,10 @@ class SelectView {
         return sqlData;
     }
 
+    /**
+     * 
+     * @param {any[]} astJoin 
+     */
     join(astJoin) {
         this.selectTables.join(astJoin);
     }
@@ -155,6 +177,7 @@ class TableField {
 
 class SelectTables {
     /**
+     * @param {String} primaryTable
      * @param {Object} astFields
      * @param {Map<String,Table>} tableInfo 
      */
@@ -177,6 +200,10 @@ class SelectTables {
         this.virtualFields.updateSelectFieldList(primaryTable, astFields);
     }
 
+    /**
+     * 
+     * @param {any[]} astJoin 
+     */
     join(astJoin) {
         this.dataJoin = new JoinTables(astJoin, this.virtualFields);
     }
@@ -227,7 +254,8 @@ class SelectTables {
                     leftConstant = Function(functionString)();
                 }
                 catch (ex) {
-                    Logger.log("Function() Failed: " + functionString);
+                    // Logger.log("Function() Failed: " + functionString);
+                    throw(ex.message);
                 }
             }
 
@@ -242,7 +270,8 @@ class SelectTables {
                     rightConstant = Function(functionString)();
                 }
                 catch (ex) {
-                    Logger.log("Function() Failed: " + functionString);
+                    // Logger.log("Function() Failed: " + functionString);
+                    throw(ex.message);
                 }
             }
 
@@ -342,7 +371,7 @@ class SelectTables {
                         result = new Function(functionString)();
                     }
                     catch (ex) {
-                        Logger.log("Function() Failed: " + functionString);
+                        // Logger.log("Function() Failed: " + functionString);
                         throw ("Calculated Field Error: " + ex.message);
                     }
                     newRow.push(result);
@@ -651,6 +680,10 @@ class SelectTables {
         return args;
     }
 
+    /**
+     * 
+     * @returns {Number}
+     */
     getConglomerateFieldCount() {
         let count = 0;
         /** @type {SelectField} */
@@ -742,7 +775,7 @@ class SelectTables {
 
     /**
      * 
-     * @param {*} groupRecords 
+     * @param {any[][]} groupRecords 
      * @returns {any[]}
      */
     conglomerateRecord(groupRecords) {
@@ -808,6 +841,12 @@ class SelectTables {
         return row;
     }
 
+    /**
+     * 
+     * @param {any[]} row 
+     * @param {any[]} astGroupBy 
+     * @returns 
+     */
     createGroupByKey(row, astGroupBy) {
         let key = "";
 
@@ -873,7 +912,7 @@ class SelectTables {
      * 
      * @param {any[][]} tableData 
      * @param {Number} colIndex 
-     * @returns 
+     * @returns {any[][]}
      */
     sortByColumnASC(tableData, colIndex) {
 
@@ -895,7 +934,7 @@ class SelectTables {
      * 
      * @param {any[][]} tableData 
      * @param {Number} colIndex 
-     * @returns 
+     * @returns {any[][]}
      */
     sortByColumnDESC(tableData, colIndex) {
 
@@ -958,10 +997,20 @@ class SelectTables {
         return [fieldConditionTableInfo, columnNumber, constantData, calculatedField];
     }
 
+    /**
+     * 
+     * @param {String} value 
+     * @returns {Boolean}
+     */
     isStringConstant(value) {
         return value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'");
     }
 
+    /**
+     * 
+     * @param {String} value 
+     * @returns {String}
+     */
     extractStringConstant(value) {
         if (value.startsWith('"') && value.endsWith('"'))
             return value.replace(/"/g, '');
@@ -972,6 +1021,11 @@ class SelectTables {
         return value;
     }
 
+    /**
+     * 
+     * @param {any} value 
+     * @returns {Number}
+     */
     dateToMs(value) {
         let year = 0;
         let month = 0;
@@ -1025,10 +1079,18 @@ class SelectTables {
         return index != -1;
     }
 
+    /**
+     * 
+     * @returns {String[]}
+     */
     getColumnNames() {
         return this.virtualFields.getColumnNames();
     }
 
+    /**
+     * 
+     * @returns {String[]}
+     */
     getColumnTitles() {
         return this.virtualFields.getColumnTitles();
     }
@@ -1120,6 +1182,12 @@ class VirtualFields {
         return fieldInfo;
     }
 
+    /**
+     * 
+     * @param {any} name1 
+     * @param {any} name2 
+     * @returns {Boolean}
+     */
     isSameField(name1, name2) {
         let leftVirtual = name1;
         if (typeof name1 == "string")
@@ -1265,15 +1333,12 @@ class VirtualFields {
             let calculatedField = (typeof selField.terms == 'undefined') ? null : selField.terms;
 
             if (calculatedField == null && !this.hasField(columnName)) {
-                let regExp = /\(([^)]+)\)/;
-
-                const functionNameRegex = /[a-zA-Z]*(?=\()/
+                const functionNameRegex = /[a-zA-Z]*(?=\()/;
                 let matches = columnName.match(functionNameRegex)
                 if (matches != null && matches.length > 0)
                     aggregateFunctionName = matches[0];
 
-                matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName)
-                // matches = regExp.exec(columnName);
+                matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName);
                 if (matches != null && matches.length > 1)
                     columnName = matches[1];
             }
@@ -1301,30 +1366,38 @@ class VirtualFields {
                 selectFieldInfo.aggregateFunction = aggregateFunctionName;
                 this.selectVirtualFields.push(selectFieldInfo);
                 this.columnNames.push(selField.name);
-
-                //Logger.log("Failed to find: " + selField.name + ".  Make sure table data range/array is specified.");
-                //throw ("Failed to find: " + selField.name);
             }
         }
 
         return this.selectVirtualFields;
     }
 
+    /**
+     * 
+     * @param {String} fieldName 
+     * @returns {Number}
+     */
     getSelectFieldColumn(fieldName) {
-        let selectColumn = -1;
-
         for (let i = 0; i < this.selectVirtualFields.length; i++) {
             if (this.isSameField(this.selectVirtualFields[i].fieldInfo, fieldName) && this.selectVirtualFields[i].aggregateFunction == "")
                 return i;
         }
 
-        return selectColumn;
+        return -1;
     }
 
+    /**
+     * 
+     * @returns {String[]}
+     */
     getColumnNames() {
         return this.columnNames;
     }
 
+    /**
+     * 
+     * @returns {String[]}
+     */
     getColumnTitles() {
         return this.columnTitles;
     }
@@ -1343,6 +1416,11 @@ class VirtualField {
         this.tableColumn = tableColumn;
     }
 
+    /**
+     * 
+     * @param {Number} tableRow 
+     * @returns {any}
+     */
     getData(tableRow) {
         if (tableRow < 0 || this.tableColumn < 0)
             return "";
@@ -1383,7 +1461,7 @@ class SelectField {
 class JoinTables {
     /**
      * 
-     * @param {*} astJoin 
+     * @param {any[]} astJoin 
      * @param {VirtualFields} virtualFields 
      */
     constructor(astJoin, virtualFields) {

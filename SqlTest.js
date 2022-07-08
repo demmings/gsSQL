@@ -1350,7 +1350,7 @@ class SqlTester {
 
         let ex = "";
         try {
-            let data = testSQL.execute();
+            testSQL.execute();
         }
         catch (exceptionErr) {
             ex = exceptionErr;
@@ -1367,7 +1367,7 @@ class SqlTester {
 
         let ex = "";
         try {
-            let data = testSQL.execute();
+            testSQL.execute();
         }
         catch (exceptionErr) {
             ex = exceptionErr;
@@ -1384,7 +1384,7 @@ class SqlTester {
 
         let ex = "";
         try {
-            let data = testSQL.execute();
+            testSQL.execute();
         }
         catch (exceptionErr) {
             ex = exceptionErr;
@@ -1401,13 +1401,81 @@ class SqlTester {
 
         let ex = "";
         try {
-            let data = testSQL.execute();
+            testSQL.execute();
         }
         catch (exceptionErr) {
             ex = exceptionErr;
         }
 
-        return this.isFail("selectBadField1", ex);
+        return this.isFail("selectBadField2", ex);
+    }
+
+    selectBadField3() {
+        let stmt = "SELECT  quantity, Sumthing(price) from booksales ";
+
+        let testSQL = new Sql([["booksales", "", this.bookSalesTable()],
+        ["editors", "", this.editorsTable()]], stmt, true);
+
+        let ex = "";
+        try {
+            testSQL.execute();
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadField3", ex);
+    }
+
+    selectBadAs1() {
+        let stmt = "SELECT  quantity, price ASE PrIcE from booksales ";
+
+        let testSQL = new Sql([["booksales", "", this.bookSalesTable()],
+        ["editors", "", this.editorsTable()]], stmt, true);
+
+        let ex = "";
+        try {
+            testSQL.execute();
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadAs1", ex);
+    }
+
+    selectBadConstant1() {
+        let stmt = "SELECT  quantity, price AS PrIcE from booksales where invoice = 'I7200 ";
+
+        let testSQL = new Sql([["booksales", "", this.bookSalesTable()],
+        ["editors", "", this.editorsTable()]], stmt, true);
+
+        let ex = "";
+        try {
+            testSQL.execute();
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadConstant1", ex);
+    }
+
+    selectBadConstant2() {
+        let stmt = "SELECT  quantity, price AS PrIcE from booksales where price > 1O0 ";
+
+        let testSQL = new Sql([["booksales", "", this.bookSalesTable()],
+        ["editors", "", this.editorsTable()]], stmt, true);
+
+        let ex = "";
+        try {
+            testSQL.execute();
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadConstant2", ex);
     }
 
     isFail(functionName, exceptionErr) {
@@ -1504,7 +1572,11 @@ function testerSql() {
     tester.selectBadTable1();
     tester.selectBadMath1();
     tester.selectBadField1();
-    tester.selectBadField2()
+    tester.selectBadField2();
+    tester.selectBadField3();
+    tester.selectBadAs1();
+    tester.selectBadConstant1();
+    tester.selectBadConstant2();
 
     Logger.log("===  E N D   O F   T E S T S  ===");
 }

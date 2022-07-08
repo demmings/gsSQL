@@ -117,7 +117,7 @@ function sqlStatementSplitter(src) {
 
     for (let i = 1; i < matchedUnions.length; i++) {
         let match = matchedUnions[i];
-        let pos = src.search(match);
+        pos = src.search(match);
 
         parts.push(src.substring(0, pos));
         src = src.substring(pos + match.length);

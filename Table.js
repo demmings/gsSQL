@@ -27,6 +27,10 @@ class Table {
             this.loadArrayData(tableData);
     }
 
+    /**
+     * 
+     * @returns {Boolean}
+     */
     isDerivedTable() {
         return this.schema.isDerivedTable;
     }
@@ -248,7 +252,7 @@ class Schema {
 
         /** @type {Map<String,Number>} */
         this.fields = new Map();
-        this.fieldType = new Map();
+        // this.fieldType = new Map();
         /** @type {VirtualFields} */
         this.virtualFields = new VirtualFields();
 
@@ -368,16 +372,11 @@ class Schema {
                 if (col != "") {
                     this.fields.set(col, colNum);
 
-                    let dataType = this.getColumnType(colNum);
-                    this.fieldType.set(col, dataType);
-
                     if (!this.isDerivedTable) {
                         this.fields.set(fullColumnName, colNum);
-                        this.fieldType.set(fullColumnName, dataType);
 
                         if (fullColumnAliasName != "") {
                             this.fields.set(fullColumnAliasName, colNum);
-                            this.fieldType.set(fullColumnAliasName, dataType);
                         }
                     }
 
@@ -391,56 +390,6 @@ class Schema {
             //  Add special field for every table.
             //  The asterisk represents ALL fields in table.
             this.fields.set("*", null);
-            this.fieldType.set("*", null);
         }
-    }
-
-    /**
-     * Column data may have different types of data.  The column is assesed to be
-     * a certain data type based on what data is found MOST.
-     * @param {Number} columnNumber 
-     * @returns {}
-     */
-    getColumnType(columnNumber) {
-        let dateCount = 0;
-        let stringCount = 1;
-        let numberCount = 2;
-        let booleanCount = 3;
-        let counter = [];
-        for (let i = 0; i < 4; i++)
-            counter[i] = 0;
-
-        for (let i = 1; i < this.tableData.length; i++) {
-            if (typeof this.tableData[i][columnNumber] == "boolean")
-                counter[booleanCount]++;
-            else if (typeof this.tableData[i][columnNumber] == "string")
-                counter[stringCount]++;
-            else if (typeof this.tableData[i][columnNumber] == "number")
-                counter[numberCount]++;
-            else if (this.tableData[i][columnNumber] instanceof Date)
-                counter[dateCount]++;
-        }
-
-        let largest = 0;
-        let item = 0;
-        for (let i = 1; i < 4; i++) {
-            if (counter[i] > largest) {
-                largest = counter[i];
-                item = i;
-            }
-        }
-
-        switch (item) {
-            case dateCount:
-                return Date;
-            case stringCount:
-                return String;
-            case numberCount:
-                return Number;
-            case booleanCount:
-                return Boolean;
-        }
-
-        return String;
     }
 }

@@ -32,7 +32,8 @@ function gsSQL(tableArr, statement, columnTitle = false) {
 class Sql {
     /**
      * @param {any[][]} tableList - [tableName, sheetRange, tableArray], for as many tables that are used.
-     * @param {String} statement - SQL statement.  All keywords must be UPPER CASE.
+     * @param {String} statement - SQL statement.
+     * @param {Boolean} columnTitle - Add a column title in the output (default=false)
      */
     constructor(tableList, statement, columnTitle = false) {
         /** @type {Map<String,Table>} */
@@ -48,6 +49,12 @@ class Sql {
         }
     }
 
+    /**
+     * Find table alias name (if any) for input actual table name.
+     * @param {String} tableName - Actual table name.
+     * @param {Object} ast - Abstract Syntax Tree for SQL.
+     * @returns {String}
+     */
     getTableAlias(tableName, ast) {
         let tableAlias = "";
         tableName = tableName.toUpperCase();
@@ -69,6 +76,13 @@ class Sql {
         return tableAlias;
     }
 
+    /**
+     * 
+     * @param {String} tableName 
+     * @param {Object} ast 
+     * @param {String} astBlock 
+     * @returns {String}
+     */
     locateAstTableAlias(tableName, ast, astBlock) {
         if (typeof ast[astBlock] == 'undefined')
             return "";
@@ -227,6 +241,11 @@ class Sql {
         return viewTableData;
     }
 
+    /**
+     * If 'GROUP BY' is not set and 'DISTINCT' column is specified, update AST to add 'GROUP BY'.
+     * @param {Object} ast 
+     * @returns {Object}
+     */
     distinctField(ast) {
         let astFields = ast['SELECT'];
 
@@ -250,6 +269,11 @@ class Sql {
         return ast;
     }
 
+    /**
+     * Add new column to AST for every AGGREGATE function and unique pivot column data.
+     * @param {Object} ast 
+     * @returns {Object}
+     */
     pivotField(ast){
         //  If we are doing a PIVOT, it then requires a GROUP BY.
         if (typeof ast['PIVOT'] != 'undefined') {
@@ -267,6 +291,11 @@ class Sql {
         return ast;
     }
 
+    /**
+     * Find distinct pivot column data.
+     * @param {Object} ast 
+     * @returns {any[][]}
+     */
     getUniquePivotData(ast) {
         let pivotAST = {};
         
@@ -284,6 +313,12 @@ class Sql {
         return  tableData;   
     }
 
+    /**
+     * 
+     * @param {Object} ast 
+     * @param {any[][]} pivotFieldData 
+     * @returns {Object}
+     */
     addCalculatedPivotFieldsToAst(ast, pivotFieldData) {
         let newPivotAstFields = [];
 
@@ -377,7 +412,7 @@ class Sql {
         }
 
         removeRowNum.sort(function(a, b){return b-a});
-        for (let rowNum of removeRowNum) {
+        for (rowNum of removeRowNum) {
             srcData.splice(rowNum,1);
         }
 
