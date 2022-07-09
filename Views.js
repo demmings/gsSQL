@@ -186,6 +186,7 @@ class SelectTables {
         this.astFields = astFields;
         this.tableInfo = tableInfo;
         this.joinedTablesMap = new Map();
+        this.sqlServerFunctionCache = new Map();
         this.virtualFields = new VirtualFields();
         this.dataJoin = new JoinTables([], this.virtualFields);
         this.masterTableInfo = tableInfo.get(primaryTable.toUpperCase());
@@ -440,6 +441,11 @@ class SelectTables {
      * @returns {String}
      */
     sqlServerFunctions(calculatedFormula) {
+        //  If this calculated field formula has already been put into the required format,
+        //  pull this out of our cache rather than redo.
+        if (this.sqlServerFunctionCache.has(calculatedFormula))
+            return this.sqlServerFunctionCache.get(calculatedFormula);
+
         let sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER"];
@@ -585,6 +591,9 @@ class SelectTables {
                 functionString = originalFunctionString.replace(originalCaseStatement, functionString);
             }
         }
+
+        //  No need to recalculate for each row.
+        this.sqlServerFunctionCache.set(calculatedFormula, functionString);
 
         return functionString;
     }
@@ -1468,8 +1477,6 @@ class JoinTables {
         /** @type {DerivedTables} */
         this.derivedTables = new DerivedTables();
 
-        // astJoin = astJoin.reverse();
-
         for (let joinTable of astJoin) {
             /** @type {VirtualField} */
             let leftFieldInfo = this.derivedTables.getFieldInfo(joinTable.cond.left);
@@ -1563,14 +1570,12 @@ class JoinTables {
      * @param {VirtualField} leftField 
      * @param {VirtualField} rightField
      * @param {String} type
-     * @returns {Number[][][]} 
+     * @returns {Number[][]} 
      */
     leftRightJoin(leftField, rightField, type) {
-        let rightRecordIDs = [];
         let leftRecordsIDs = [];
 
         //  First record is the column title.
-        rightRecordIDs.push([0]);
         leftRecordsIDs.push([0]);
 
         /** @type {any[][]} */
@@ -1598,18 +1603,9 @@ class JoinTables {
 
                 leftRecordsIDs[leftTableRecordNum] = joinRows;
             }
-
-            //  For every RIGHT TABLE record matched, we record the matching LEFT TABLE record ID.
-            for (let item of joinRows) {
-                let vals = rightRecordIDs[item];
-                if (vals == null)
-                    vals = [];
-                vals.push(leftTableRecordNum);
-                rightRecordIDs[item] = vals;
-            }
         }
 
-        return [leftRecordsIDs, rightRecordIDs];
+        return leftRecordsIDs;
     }
 }
 
@@ -1658,15 +1654,10 @@ class DerivedTable {
      * 
      * @param {VirtualField} leftField 
      * @param {VirtualField} rightField 
-     * @param {Number[][][]} records 
+     * @param {Number[][]} leftRecords 
      * @param {Boolean} isOuterJoin
      */
-    constructor(leftField, rightField, records, isOuterJoin) {
-        /** @type {Number[][]} */
-        let leftRecords;
-        /** @type {Number[][]} */
-        let rightRecords;
-        [leftRecords, rightRecords] = records;
+    constructor(leftField, rightField, leftRecords, isOuterJoin) {
         /** @type {VirtualField} */
         this.leftTable = null;
         /** @type {VirtualField} */
