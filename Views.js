@@ -163,18 +163,6 @@ class SelectView {
     }
 }
 
-
-class TableField {
-    constructor(table, field) {
-        this.table = table;
-        this.field = field;
-    }
-
-    setSortOrder(sort) {
-        this.sortOrder = sort;
-    }
-}
-
 class SelectTables {
     /**
      * @param {String} primaryTable
@@ -255,8 +243,7 @@ class SelectTables {
                     leftConstant = Function(functionString)();
                 }
                 catch (ex) {
-                    // Logger.log("Function() Failed: " + functionString);
-                    throw(ex.message);
+                    throw (ex.message);
                 }
             }
 
@@ -271,8 +258,7 @@ class SelectTables {
                     rightConstant = Function(functionString)();
                 }
                 catch (ex) {
-                    // Logger.log("Function() Failed: " + functionString);
-                    throw(ex.message);
+                    throw (ex.message);
                 }
             }
 
@@ -372,7 +358,6 @@ class SelectTables {
                         result = new Function(functionString)();
                     }
                     catch (ex) {
-                        // Logger.log("Function() Failed: " + functionString);
                         throw ("Calculated Field Error: " + ex.message);
                     }
                     newRow.push(result);
@@ -715,9 +700,6 @@ class SelectTables {
         if (selectedData.length == 0)
             return;
 
-        //  Throws ERROR if not.
-        // this.isGroupByExpression(astGroupBy);
-
         //  Sort the least important first, and most important last.
         let reverseOrderBy = astGroupBy.reverse();
 
@@ -747,39 +729,6 @@ class SelectTables {
             groupedData.push(this.conglomerateRecord(groupRecords));
 
         return groupedData;
-    }
-
-    /**
-     * 
-     * @param {any[]} astGroupBy 
-     * @returns {Boolean}
-     */
-    isGroupByExpression(astGroupBy) {
-        /** @type {SelectField} */
-        let field;
-        for (field of this.virtualFields.selectVirtualFields) {
-            //  If NOT a function, must be in GROUP BY fields.
-            if (field.aggregateFunction == "") {
-                let isInGroup = false;
-
-                for (let groupByItem of astGroupBy) {
-                    if (this.virtualFields.isSameField(groupByItem.column, field.fieldInfo.fieldName)) {
-                        isInGroup = true;
-                    }
-                    else if (groupByItem.column.indexOf(".") == -1) {
-                        if (this.virtualFields.isSameField(this.masterTableInfo.tableName + "." + groupByItem.column, field.fieldInfo.fieldName)) {
-                            isInGroup = true;
-                            groupByItem.column = this.masterTableInfo.tableName + "." + groupByItem.column;
-                        }
-                    }
-                }
-
-                if (!isInGroup)
-                    throw ("Not a GROUP BY expression: " + field.fieldInfo.fieldName);
-            }
-        }
-
-        return true;
     }
 
     /**
@@ -999,10 +948,6 @@ class SelectTables {
                 constantData = fieldCondition;
         }
 
-        //        if (fieldConditionTableInfo == null && constantData == null) {
-        //            throw "Invalid field in WHERE: " + fieldCondition;
-        //        }
-
         return [fieldConditionTableInfo, columnNumber, constantData, calculatedField];
     }
 
@@ -1137,12 +1082,11 @@ class VirtualFields {
         let originalTable = originalField.tableInfo.tableName;
 
         for (let i = 0; i < this.virtualFieldList.length; i++) {
-            if (originalCol == this.virtualFieldList[i].tableColumn && 
+            if (originalCol == this.virtualFieldList[i].tableColumn &&
                 originalTable == this.virtualFieldList[i].tableInfo.tableName) {
                 //  Keep field object, just replace contents.
                 this.virtualFieldList[i].tableColumn = newField.tableColumn;
                 this.virtualFieldList[i].tableInfo = newField.tableInfo;
-                // break;
             }
         }
     }
