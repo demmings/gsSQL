@@ -1,6 +1,6 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
-export { DERIVEDTABLE, SelectView, VirtualFields, VirtualField, SelectTables };
+export { DERIVEDTABLE, VirtualFields, VirtualField, SelectTables };
 import { Table } from './Table.js';
 import { Sql } from './Sql.js';
 import { sqlCondition2JsCondition } from './SimpleParser.js';
@@ -9,103 +9,42 @@ import { Logger } from './SqlTest.js';
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
 
-class SelectView {
+class SelectTables {
     /**
      * @param {Object} astTables
      * @param {Object} astFields
      * @param {Map<String,Table>} tableInfo 
      */
     constructor(astTables, astFields, tableInfo) {
-        this.astTables = astTables;
+        this.primaryTable = astTables[0].table;
         this.astFields = astFields;
+        this.tableInfo = tableInfo;
+        this.joinedTablesMap = new Map();
+        this.sqlServerFunctionCache = new Map();
+        this.virtualFields = new VirtualFields();
+        this.dataJoin = new JoinTables([], this.virtualFields);
+        this.masterTableInfo = tableInfo.get(this.primaryTable.toUpperCase());
 
-        /** @type {Number[]} */
-        this.recordIDs = [];
-        this.selectTables = new SelectTables(astTables[0].table, this.astFields, tableInfo);
+        //  Keep a list of all possible fields from all tables.
+        this.virtualFields.loadVirtualFields(this.primaryTable, tableInfo);
+
+        //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
+        this.astFields = this.virtualFields.expandWildcardFields(this.masterTableInfo, this.astFields);
+
+        //  Keep a list of fields that are SELECTED.
+        this.virtualFields.updateSelectFieldList(this.primaryTable, astFields);
     }
 
     /**
      * 
-     * @param {Object} conditions 
-     * @returns  {Number[]}
+     * @param {any[]} astJoin 
      */
-    selectRecordIDsWhere(conditions) {
-        return this.whereCondition(conditions);
+    join(astJoin) {
+        this.dataJoin = new JoinTables(astJoin, this.virtualFields);
     }
 
-    /**
-     * 
-     * @param {Number[]} recordIDs 
-     * @returns {any[][]}
-     */
-    getViewData(recordIDs) {
-        return this.selectTables.loadData(recordIDs);
-    }
-
-    /**
-     * 
-     * @returns {String[]}
-     */
-    getColumnNames() {
-        return this.selectTables.getColumnNames();
-    }
-
-    /**
-     * 
-     * @returns {String[]}
-     */
-    getColumnTitles() {
-        return this.selectTables.getColumnTitles();
-    }
-
-    /**
-     * 
-     * @returns {Number}
-     */
-    getConglomerateFieldCount() {
-        return this.selectTables.getConglomerateFieldCount();
-    }
-
-    /**
-     * 
-     * @param {any[][]} groupRecords 
-     * @returns {any[]}
-     */
-    conglomerateRecord(groupRecords) {
-        return this.selectTables.conglomerateRecord(groupRecords);
-    }
-
-    /**
-     * 
-     * @param {any[]} astOrderby 
-     * @param {any[][]} selectedData 
-     * @returns {any[][]}
-     */
-    groupBy(astOrderby, selectedData) {
-        return this.selectTables.groupBy(astOrderby, selectedData);
-    }
-
-    /**
-      * 
-      * @param {any[]} astHaving 
-      * @param {any[][]} selectedData 
-      * @returns {any[][]}
-      */
-    having(astHaving, selectedData) {
-        return this.selectTables.having(astHaving, selectedData);
-    }
-
-    /**
-     * 
-     * @param {any[]} astOrderby 
-     * @param {any[][]} selectedData 
-     */
-    orderBy(astOrderby, selectedData) {
-        return this.selectTables.orderBy(astOrderby, selectedData);
-    }
-
-    /**
-     * 
+   /**
+     * Retrieve filtered record ID's.
      * @param {Object} conditions 
      * @returns {Number[]}
      */
@@ -121,14 +60,6 @@ class SelectView {
     }
 
     /**
-     * 
-     * @param {any[]} astJoin 
-     */
-    join(astJoin) {
-        this.selectTables.join(astJoin);
-    }
-
-    /**
     * 
     * @param {String} logic 
     * @param {Object} terms 
@@ -139,7 +70,7 @@ class SelectView {
 
         for (let cond of terms) {
             if (typeof cond.logic == 'undefined') {
-                recordIDs.push(this.selectTables.getRecordIDs(cond));
+                recordIDs.push(this.getRecordIDs(cond));
             }
             else {
                 recordIDs.push(this.resolveCondition(cond.logic, cond.terms));
@@ -160,42 +91,7 @@ class SelectView {
         }
 
         return result;
-    }
-}
-
-class SelectTables {
-    /**
-     * @param {String} primaryTable
-     * @param {Object} astFields
-     * @param {Map<String,Table>} tableInfo 
-     */
-    constructor(primaryTable, astFields, tableInfo) {
-        this.primaryTable = primaryTable;
-        this.astFields = astFields;
-        this.tableInfo = tableInfo;
-        this.joinedTablesMap = new Map();
-        this.sqlServerFunctionCache = new Map();
-        this.virtualFields = new VirtualFields();
-        this.dataJoin = new JoinTables([], this.virtualFields);
-        this.masterTableInfo = tableInfo.get(primaryTable.toUpperCase());
-
-        //  Keep a list of all possible fields from all tables.
-        this.virtualFields.loadVirtualFields(primaryTable, tableInfo);
-
-        //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
-        this.astFields = this.virtualFields.expandWildcardFields(this.masterTableInfo, this.astFields);
-
-        //  Keep a list of fields that are SELECTED.
-        this.virtualFields.updateSelectFieldList(primaryTable, astFields);
-    }
-
-    /**
-     * 
-     * @param {any[]} astJoin 
-     */
-    join(astJoin) {
-        this.dataJoin = new JoinTables(astJoin, this.virtualFields);
-    }
+    }    
 
     /**
     * 
@@ -336,7 +232,7 @@ class SelectTables {
      * @param {Number[]} recordIDs 
      * @returns {any[][]}
      */
-    loadData(recordIDs) {
+    getViewData(recordIDs) {
         let virtualData = [];
 
         for (let masterRecordID of recordIDs) {

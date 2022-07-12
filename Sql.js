@@ -3,7 +3,7 @@
 export {Sql};
 import {Table} from './Table.js';
 import {sql2ast} from './SimpleParser.js';
-import {SelectView, SelectTables} from './Views.js';
+import {SelectTables} from './Views.js';
 //  *** DEBUG END  ***/
 
 /**
@@ -139,19 +139,19 @@ class Sql {
                 ast = this.pivotField(ast);
             }
 
-            let view = new SelectView(ast['FROM'], ast['SELECT'], this.tables);
+            let view = new SelectTables(ast['FROM'], ast['SELECT'], this.tables);
 
             if (typeof ast['JOIN'] != 'undefined') {
                 view.join(ast['JOIN']);
             }
 
             if (typeof ast['WHERE'] != 'undefined') {
-                recordIDs = view.selectRecordIDsWhere(ast['WHERE']);
+                recordIDs = view.whereCondition(ast['WHERE']);
             }
             else {
                 //  Entire table is selected.  
                 let conditions = { operator: "=", left: "\"A\"", right: "\"A\"" };
-                recordIDs = view.selectRecordIDsWhere(conditions);
+                recordIDs = view.whereCondition(conditions);
             }
 
             viewTableData = view.getViewData(recordIDs);
