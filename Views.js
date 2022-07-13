@@ -43,11 +43,11 @@ class SelectTables {
         this.dataJoin = new JoinTables(astJoin, this.virtualFields);
     }
 
-   /**
-     * Retrieve filtered record ID's.
-     * @param {Object} conditions 
-     * @returns {Number[]}
-     */
+    /**
+      * Retrieve filtered record ID's.
+      * @param {Object} conditions 
+      * @returns {Number[]}
+      */
     whereCondition(conditions) {
         let sqlData = [];
 
@@ -91,7 +91,7 @@ class SelectTables {
         }
 
         return result;
-    }    
+    }
 
     /**
     * 
@@ -541,7 +541,7 @@ class SelectTables {
     }
 
     /**
-     * 
+     * String split on comma, EXCEPT if comma is within brackets (i.e. within an inner function)
      * @param {String} paramString 
      * @returns {String[]}
      */
@@ -724,7 +724,7 @@ class SelectTables {
         selectedData.unshift(this.getColumnNames());
 
         //  Create our virtual GROUP table with data already selected.
-        let groupTable = new Table(this.primaryTable, "", "", selectedData);
+        let groupTable = new Table(this.primaryTable).loadArrayData(selectedData);
 
         let tableMapping = new Map();
         tableMapping.set(this.primaryTable.toUpperCase(), groupTable);
@@ -1314,34 +1314,32 @@ class JoinTables {
      * @param {VirtualFields} virtualFields 
      */
     constructor(astJoin, virtualFields) {
-        /** @type {DerivedTables} */
-        this.derivedTables = new DerivedTables();
+        /** @type {DerivedTable} */
+        this.derivedTable = new DerivedTable();
 
         for (let joinTable of astJoin) {
             /** @type {VirtualField} */
-            let leftFieldInfo = this.derivedTables.getFieldInfo(joinTable.cond.left);
+            let leftFieldInfo = this.derivedTable.getFieldInfo(joinTable.cond.left);
             if (leftFieldInfo == null)
                 leftFieldInfo = virtualFields.getFieldInfo(joinTable.cond.left);
             if (leftFieldInfo == null)
                 throw ("Invalid JOIN field: " + joinTable.cond.left);
 
             /** @type {VirtualField} */
-            let rightFieldInfo = this.derivedTables.getFieldInfo(joinTable.cond.right);
+            let rightFieldInfo = this.derivedTable.getFieldInfo(joinTable.cond.right);
             if (rightFieldInfo == null)
                 rightFieldInfo = virtualFields.getFieldInfo(joinTable.cond.right);
             if (rightFieldInfo == null)
                 throw ("Invalid JOIN field: " + joinTable.cond.right);
 
-            let table = this.joinTables(leftFieldInfo, rightFieldInfo, joinTable);
+            this.derivedTable = this.joinTables(leftFieldInfo, rightFieldInfo, joinTable);
 
             //  Field locations have changed to the derived table, so update our
             //  virtual field list with proper settings.
-            virtualFields.updateDerivedTableVirtualFields(table);
+            virtualFields.updateDerivedTableVirtualFields(this.derivedTable);
 
-            table.leftTable = virtualFields.getFieldInfo(leftFieldInfo.fieldName);
-            table.rightTable = virtualFields.getFieldInfo(rightFieldInfo.fieldName);
-
-            this.derivedTables.setTable(table);
+            this.derivedTable.leftTable = virtualFields.getFieldInfo(leftFieldInfo.fieldName);
+            this.derivedTable.rightTable = virtualFields.getFieldInfo(rightFieldInfo.fieldName);
         }
 
         // Don't want any references to the original NON-DERIVED tables.
@@ -1353,7 +1351,7 @@ class JoinTables {
      * @returns {Boolean}
      */
     isDerivedTable() {
-        return this.derivedTables.isDerivedTable();
+        return this.derivedTable.isDerivedTable();
     }
 
     /**
@@ -1361,7 +1359,7 @@ class JoinTables {
      * @returns {Table}
      */
     getJoinedTableInfo() {
-        return this.derivedTables.getTableData();
+        return this.derivedTable.getTableData();
     }
 
     /**
@@ -1378,25 +1376,52 @@ class JoinTables {
         switch (joinTable.type) {
             case "left":
                 matchedRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
-                derivedTable = new DerivedTable(leftFieldInfo, rightFieldInfo, matchedRecordIDs, true);
+                derivedTable = new DerivedTable()
+                    .setLeftField(leftFieldInfo)
+                    .setRightField(rightFieldInfo)
+                    .setLeftRecords(matchedRecordIDs)
+                    .setIsOuterJoin(true)
+                    .createTable();
                 break;
 
             case "inner":
                 matchedRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
-                derivedTable = new DerivedTable(leftFieldInfo, rightFieldInfo, matchedRecordIDs, false);
+                derivedTable = new DerivedTable()
+                    .setLeftField(leftFieldInfo)
+                    .setRightField(rightFieldInfo)
+                    .setLeftRecords(matchedRecordIDs)
+                    .setIsOuterJoin(false)
+                    .createTable();
                 break;
 
             case "right":
                 matchedRecordIDs = this.leftRightJoin(rightFieldInfo, leftFieldInfo, joinTable.type);
-                derivedTable = new DerivedTable(rightFieldInfo, leftFieldInfo, matchedRecordIDs, true);
+                derivedTable = new DerivedTable()
+                    .setLeftField(rightFieldInfo)
+                    .setRightField(leftFieldInfo)
+                    .setLeftRecords(matchedRecordIDs)
+                    .setIsOuterJoin(true)
+                    .createTable();
+
                 break;
 
             case "full":
                 let leftJoinRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
-                derivedTable = new DerivedTable(leftFieldInfo, rightFieldInfo, leftJoinRecordIDs, true);
+                derivedTable = new DerivedTable()
+                    .setLeftField(leftFieldInfo)
+                    .setRightField(rightFieldInfo)
+                    .setLeftRecords(leftJoinRecordIDs)
+                    .setIsOuterJoin(true)
+                    .createTable();                
 
                 let rightJoinRecordIDs = this.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
-                let rightDerivedTable = new DerivedTable(rightFieldInfo, leftFieldInfo, rightJoinRecordIDs, true);
+                let rightDerivedTable = new DerivedTable()
+                    .setLeftField(rightFieldInfo)
+                    .setRightField(leftFieldInfo)
+                    .setLeftRecords(rightJoinRecordIDs)
+                    .setIsOuterJoin(true)
+                    .createTable();  
+
                 derivedTable.tableInfo.concat(rightDerivedTable.tableInfo);
 
                 break;
@@ -1449,25 +1474,98 @@ class JoinTables {
     }
 }
 
-class DerivedTables {
+class DerivedTable {
     constructor() {
-        /** @type {DerivedTable} */
-        this.derived = null;
-    }
-    /**
-     * 
-     * @param {DerivedTable} table 
-     */
-    setTable(table) {
-        this.derived = table;
+        /** @type {VirtualField} */
+        this.leftTable = null;
+        /** @type {VirtualField} */
+        this.rightTable = null;
+        /** @type {Table} */
+        this.tableInfo = null;
+        /** @type  {VirtualField} */
+        this.leftField = null;
+        /** @type  {VirtualField} */
+        this.rightField = null;
+        /** @type  {Number[][]} */
+        this.leftRecords = null;
+        /** @type  {Boolean} */
+        this.isOuterJoin = null;
     }
 
     /**
      * 
-     * @returns {Boolean}
+     * @param {VirtualField} leftField 
+     * @returns {DerivedTable}
      */
+    setLeftField(leftField) {
+        this.leftField = leftField;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {VirtualField} rightField 
+     * @returns {DerivedTable}
+     */
+    setRightField(rightField) {
+        this.rightField = rightField;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Number[][]} leftRecords 
+     * @returns {DerivedTable} 
+     */
+    setLeftRecords(leftRecords) {
+        this.leftRecords = leftRecords;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Boolean} isOuterJoin 
+     * @returns {DerivedTable}
+     */
+    setIsOuterJoin(isOuterJoin) {
+        this.isOuterJoin = isOuterJoin;
+        return this;
+    }
+
+    /**
+     * 
+     * @returns {DerivedTable}
+     */
+    createTable() {
+        let columnCount = this.rightField.tableInfo.getColumnCount();
+        let emptyRightRow = Array(columnCount).fill("");
+
+        let joinedData = [this.getCombinedColumnTitles(this.leftField, this.rightField)];
+
+        for (let i = 1; i < this.leftField.tableInfo.tableData.length; i++) {
+            if (typeof this.leftRecords[i] != "undefined") {
+                if (typeof this.rightField.tableInfo.tableData[this.leftRecords[i][0]] == "undefined")
+                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(emptyRightRow));
+                else {
+                    let maxJoin = this.isOuterJoin ? this.leftRecords[i].length : 1;
+                    for (let j = 0; j < maxJoin; j++) {
+                        joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[this.leftRecords[i][j]]));
+                    }
+                }
+            }
+        }
+        /** @type {Table} */
+        this.tableInfo = new Table(DERIVEDTABLE).loadArrayData(joinedData);
+
+        return this;
+    }
+
+    /**
+    * 
+    * @returns {Boolean}
+    */
     isDerivedTable() {
-        return this.derived != null;
+        return this.tableInfo != null;
     }
 
     /**
@@ -1475,7 +1573,7 @@ class DerivedTables {
      * @returns {Table}
      */
     getTableData() {
-        return this.derived.tableInfo;
+        return this.tableInfo;
     }
 
     /**
@@ -1484,48 +1582,18 @@ class DerivedTables {
      * @returns {VirtualField} 
      */
     getFieldInfo(field) {
-        return this.derived == null ? null : this.derived.tableInfo.getVirtualFieldInfo(field);
+        return this.tableInfo == null ? null : this.tableInfo.getVirtualFieldInfo(field);
     }
 
-}
-
-class DerivedTable {
     /**
      * 
      * @param {VirtualField} leftField 
      * @param {VirtualField} rightField 
-     * @param {Number[][]} leftRecords 
-     * @param {Boolean} isOuterJoin
+     * @returns {String[]}
      */
-    constructor(leftField, rightField, leftRecords, isOuterJoin) {
-        /** @type {VirtualField} */
-        this.leftTable = null;
-        /** @type {VirtualField} */
-        this.rightTable = null;
-
+    getCombinedColumnTitles(leftField, rightField) {
         let titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames();
-
         let rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames();
-        titleRow = titleRow.concat(rightFieldNames);
-
-        let emptyRightRow = Array(rightFieldNames.length).fill("");
-
-        let joinedData = [];
-        joinedData.push(titleRow);
-
-        for (let i = 1; i < leftField.tableInfo.tableData.length; i++) {
-            if (typeof leftRecords[i] != "undefined") {
-                if (typeof rightField.tableInfo.tableData[leftRecords[i][0]] == "undefined")
-                    joinedData.push(leftField.tableInfo.tableData[i].concat(emptyRightRow));
-                else {
-                    let maxJoin = isOuterJoin ? leftRecords[i].length : 1;
-                    for (let j = 0; j < maxJoin; j++) {
-                        joinedData.push(leftField.tableInfo.tableData[i].concat(rightField.tableInfo.tableData[leftRecords[i][j]]));
-                    }
-                }
-            }
-        }
-        /** @type {Table} */
-        this.tableInfo = new Table(DERIVEDTABLE, "", "", joinedData);
+        return titleRow.concat(rightFieldNames);
     }
 }

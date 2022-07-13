@@ -9,22 +9,27 @@ class Table {
     /**
      * 
      * @param {String} tableName 
-     * @param {String} tableAlias
-     * @param {String} namedRange - specify a RANGE to load table data FROM or...
-     * @param {any[]} tableData - double array with table data.  First row MUST be column titles.
      */
-    constructor(tableName, tableAlias, namedRange = "", tableData = []) {
+    constructor(tableName) {
         this.tableName = tableName.toUpperCase();
-        this.tableAlias = tableAlias;
+        this.tableAlias = "";
         this.tableData = [];
         this.indexes = new Map();
         /** @type {Schema} */
-        this.schema = new Schema();
+        this.schema = new Schema()
+            .setTableName(tableName)
+            .setTable(this);
+    }
 
-        if (namedRange != "")
-            this.loadNamedRangeData(namedRange);
-        else if (tableData != undefined && tableData.length != 0)
-            this.loadArrayData(tableData);
+    /**
+     * 
+     * @param {String} tableAlias 
+     * @returns {Table}
+     */
+    setTableAlias(tableAlias) {
+        this.tableAlias = tableAlias;
+        this.schema.setTableAlias(tableAlias);
+        return this;
     }
 
     /**
@@ -38,6 +43,7 @@ class Table {
     /**
      * 
      * @param {String} namedRange 
+     * @returns {Table}
      */
     loadNamedRangeData(namedRange) {
         if (namedRange == "")
@@ -54,7 +60,7 @@ class Table {
         this.tableData = tempData.filter(e => e.join().replace(/,/g, "").length);
 
         Logger.log("Load Data: Range=" + namedRange + ". Items=" + this.tableData.length);
-        this.schema = new Schema(this.tableName, this.tableAlias, this.tableData, this);
+        this.schema.setTableData(this.tableData).load();
 
         return this;
     }
@@ -62,13 +68,14 @@ class Table {
     /**
      * 
      * @param {any[]} tableData - Loaded table data with first row titles included.
+     * @returns {Table}
      */
     loadArrayData(tableData) {
         if (tableData.length == 0)
             return this;
 
         this.tableData = tableData;
-        this.schema = new Schema(this.tableName, this.tableAlias, this.tableData, this);
+        this.schema.setTableData(this.tableData).load(); 
 
         return this;
     }
@@ -131,6 +138,11 @@ class Table {
      */
     getAllExtendedNotationFieldNames() {
         return this.schema.getAllExtendedNotationFieldNames();
+    }
+
+    getColumnCount() {
+        let fields = this.getAllExtendedNotationFieldNames();
+        return fields.length;
     }
 
     /**
@@ -237,17 +249,11 @@ class Table {
 }
 
 class Schema {
-    /**
-     * Finds table field info.
-     * @param {String} tableName
-     * @param {String} tableAlias
-     * @param {any[][]} tableData 
-     */
-    constructor(tableName = "", tableAlias = "", tableData = [], tableInfo = null) {
-        this.tableName = tableName.toUpperCase();
-        this.tableAlias = tableAlias.toUpperCase();
-        this.tableData = tableData;
-        this.tableInfo = tableInfo;
+    constructor() {
+        this.tableName = "";
+        this.tableAlias = "";
+        this.tableData = [];
+        this.tableInfo = null;
         this.isDerivedTable = this.tableName == DERIVEDTABLE;
 
         /** @type {Map<String,Number>} */
@@ -255,8 +261,46 @@ class Schema {
         // this.fieldType = new Map();
         /** @type {VirtualFields} */
         this.virtualFields = new VirtualFields();
+    }
 
-        this.getFieldInfo();
+    /**
+     * 
+     * @param {String} tableName 
+     * @returns {Schema}
+     */
+    setTableName(tableName) {
+        this.tableName = tableName.toUpperCase();
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} tableAlias 
+     * @returns {Schema}  
+     */
+    setTableAlias(tableAlias) {
+        this.tableAlias = tableAlias.toUpperCase();
+        return this;
+    }
+
+    /**
+     * 
+     * @param {any[][]} tableData 
+     * @returns {Schema}
+     */
+    setTableData(tableData) {
+        this.tableData = tableData;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Table} tableInfo 
+     * @returns {Schema}
+     */
+    setTable(tableInfo) {
+        this.tableInfo = tableInfo;
+        return this;
     }
 
     /**
@@ -350,8 +394,9 @@ class Schema {
      * The field name is found in TITLE row of sheet.  These column titles
      * are TRIMMED, UPPERCASE and SPACES removed (made to UNDERSCORE).
      * SQL statements MUST reference fields with spaces converted to underscore.
+     * @returns {Schema}
      */
-    getFieldInfo() {
+    load() {
         if (this.tableData.length > 0) {
             /** @type {any[]} */
             let titleRow = this.tableData[0];
@@ -391,5 +436,7 @@ class Schema {
             //  The asterisk represents ALL fields in table.
             this.fields.set("*", null);
         }
+
+        return this;
     }
 }

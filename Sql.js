@@ -45,7 +45,8 @@ class Sql {
         //  All tables that are reference along with sheet ranges.
         for (let table of tableList) {
             let tableAlias = this.getTableAlias(table[0], this.ast);
-            this.tables.set(table[0].toUpperCase(), new Table(table[0], tableAlias, table[1], table[2]));
+            let tableInfo = new Table(table[0]).setTableAlias(tableAlias).loadNamedRangeData(table[1]).loadArrayData(table[2]);
+            this.tables.set(table[0].toUpperCase(), tableInfo);
         }
     }
 
