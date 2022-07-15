@@ -46,7 +46,7 @@ class Table {
      * @returns {Table}
      */
     loadNamedRangeData(namedRange) {
-        if (namedRange == "")
+        if (typeof namedRange == 'undefined' || namedRange == "")
             return this;
 
         var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -71,7 +71,7 @@ class Table {
      * @returns {Table}
      */
     loadArrayData(tableData) {
-        if (tableData.length == 0)
+        if (typeof tableData == 'undefined' || tableData.length == 0)
             return this;
 
         this.tableData = tableData;

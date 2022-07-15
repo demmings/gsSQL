@@ -32,7 +32,7 @@ class SelectTables {
         this.astFields = this.virtualFields.expandWildcardFields(this.masterTableInfo, this.astFields);
 
         //  Keep a list of fields that are SELECTED.
-        this.virtualFields.updateSelectFieldList(this.primaryTable, astFields);
+        this.virtualFields.updateSelectFieldList(astFields);
     }
 
     /**
@@ -123,108 +123,104 @@ class SelectTables {
         this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.masterTableInfo;
 
         for (let masterRecordID = 1; masterRecordID < this.masterTable.tableData.length; masterRecordID++) {
-            let leftVariable = null;
-            let leftIsDate = false;
-            let rightVariable = null;
-            let rightIsDate = false;
+            let leftValue = null;
+            let rightValue = null;
 
             if (leftCol >= 0) {
-                leftVariable = leftTable.tableData[masterRecordID][leftCol];
-                leftIsDate = leftVariable instanceof Date;
+                leftValue = leftTable.tableData[masterRecordID][leftCol];
             }
             else if (leftCalculatedField != "") {
-                //  Working on a calculated field.
-                let functionString = this.sqlServerCalcFields(leftCalculatedField, masterRecordID);
-                try {
-                    leftConstant = Function(functionString)();
-                }
-                catch (ex) {
-                    throw (ex.message);
-                }
+                leftValue = this.evaluateCalculatedField(leftCalculatedField, masterRecordID);
             }
+            else
+                leftValue = leftConstant;
 
             if (rightCol >= 0) {
-                rightVariable = rightTable.tableData[masterRecordID][rightCol];
-                rightIsDate = rightVariable instanceof Date;
+                rightValue = rightTable.tableData[masterRecordID][rightCol];
             }
             else if (rightCalculatedField != "") {
-                //  Working on a calculated field.
-                let functionString = this.sqlServerCalcFields(rightCalculatedField, masterRecordID);
-                try {
-                    rightConstant = Function(functionString)();
-                }
-                catch (ex) {
-                    throw (ex.message);
-                }
+                rightValue = this.evaluateCalculatedField(rightCalculatedField, masterRecordID);
             }
-
-            let leftValue = (leftCol == -1) ? leftConstant : leftVariable;
-            let rightValue = (rightCol == -1) ? rightConstant : rightVariable;
+            else
+                rightValue = rightConstant;
 
             if (leftValue == null || rightValue == null)
                 continue;
 
-            if (leftIsDate || rightIsDate) {
+            if (leftValue instanceof Date || rightValue instanceof Date) {
                 leftValue = this.dateToMs(leftValue);
                 rightValue = this.dateToMs(rightValue);
             }
 
-            let keep = false;
-            switch (condition.operator.toUpperCase()) {
-                case "=":
-                    keep = leftValue == rightValue;
-                    break;
-
-                case ">":
-                    keep = leftValue > rightValue;
-                    break;
-
-                case "<":
-                    keep = leftValue < rightValue;
-                    break;
-
-                case ">=":
-                    keep = leftValue >= rightValue;
-                    break;
-
-                case "<=":
-                    keep = leftValue <= rightValue;
-                    break;
-
-                case "<>":
-                    keep = leftValue != rightValue;
-                    break;
-
-                case "!=":
-                    keep = leftValue != rightValue;
-                    break;
-
-                case "LIKE":
-                    keep = this.likeCondition(leftValue, rightValue);
-                    break;
-
-                case "NOT LIKE":
-                    keep = !(this.likeCondition(leftValue, rightValue));
-                    break;
-
-                case "IN":
-                    keep = this.inCondition(leftValue, rightValue);
-                    break;
-
-                case "NOT IN":
-                    keep = !(this.inCondition(leftValue, rightValue));
-                    break;
-
-                default:
-                    throw ("Invalid Operator: " + condition.operator);
-            }
-
-            if (keep)
+            if (this.isConditionTrue(leftValue, condition.operator, rightValue))
                 recordIDs.push(masterRecordID);
 
         }
 
         return recordIDs;
+    }
+
+    /**
+     * 
+     * @param {any} leftValue 
+     * @param {String} operator 
+     * @param {any} rightValue 
+     * @returns 
+     */
+    isConditionTrue(leftValue, operator, rightValue) {
+        let keep = false;
+        operator = operator.toUpperCase();
+
+        switch (operator) {
+            case "=":
+                keep = leftValue == rightValue;
+                break;
+
+            case ">":
+                keep = leftValue > rightValue;
+                break;
+
+            case "<":
+                keep = leftValue < rightValue;
+                break;
+
+            case ">=":
+                keep = leftValue >= rightValue;
+                break;
+
+            case "<=":
+                keep = leftValue <= rightValue;
+                break;
+
+            case "<>":
+                keep = leftValue != rightValue;
+                break;
+
+            case "!=":
+                keep = leftValue != rightValue;
+                break;
+
+            case "LIKE":
+                keep = this.likeCondition(leftValue, rightValue);
+                break;
+
+            case "NOT LIKE":
+                keep = !(this.likeCondition(leftValue, rightValue));
+                break;
+
+            case "IN":
+                keep = this.inCondition(leftValue, rightValue);
+                break;
+
+            case "NOT IN":
+                keep = !(this.inCondition(leftValue, rightValue));
+                break;
+
+            default:
+                throw ("Invalid Operator: " + operator);
+        }
+
+        return keep;
     }
 
     /**
@@ -247,15 +243,7 @@ class SelectTables {
                 if (field.fieldInfo != null)
                     newRow.push(field.fieldInfo.getData(masterRecordID));
                 else if (field.calculatedFormula != "") {
-                    //  Working on a calculated field.
-                    let functionString = this.sqlServerCalcFields(field.calculatedFormula, masterRecordID);
-                    let result;
-                    try {
-                        result = new Function(functionString)();
-                    }
-                    catch (ex) {
-                        throw ("Calculated Field Error: " + ex.message);
-                    }
+                    let result = this.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
                     newRow.push(result);
                 }
             }
@@ -264,6 +252,25 @@ class SelectTables {
         }
 
         return virtualData;
+    }
+
+    /**
+     * 
+     * @param {String} calculatedFormula 
+     * @param {Number} masterRecordID 
+     * @returns {any}
+     */
+    evaluateCalculatedField(calculatedFormula, masterRecordID) {
+        let result;
+        let functionString = this.sqlServerCalcFields(calculatedFormula, masterRecordID);
+        try {
+            result = new Function(functionString)();
+        }
+        catch (ex) {
+            throw ("Calculated Field Error: " + ex.message);
+        }
+
+        return result;
     }
 
     /**
@@ -1165,11 +1172,10 @@ class VirtualFields {
 
     /**
      * 
-     * @param {String} primaryTable 
      * @param {*} astFields 
      * @returns {SelectField[]}
      */
-    updateSelectFieldList(primaryTable, astFields) {
+    updateSelectFieldList(astFields) {
         this.columnNames = [];
         this.columnTitles = [];
         this.selectVirtualFields = [];
