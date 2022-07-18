@@ -12,7 +12,6 @@ class Table {
      */
     constructor(tableName) {
         this.tableName = tableName.toUpperCase();
-        this.tableAlias = "";
         this.tableData = [];
         this.indexes = new Map();
         /** @type {Schema} */
@@ -27,7 +26,6 @@ class Table {
      * @returns {Table}
      */
     setTableAlias(tableAlias) {
-        this.tableAlias = tableAlias;
         this.schema.setTableAlias(tableAlias);
         return this;
     }
@@ -60,7 +58,7 @@ class Table {
         this.tableData = tempData.filter(e => e.join().replace(/,/g, "").length);
 
         Logger.log("Load Data: Range=" + namedRange + ". Items=" + this.tableData.length);
-        this.schema.setTableData(this.tableData).load();
+        this.loadSchema();
 
         return this;
     }
@@ -75,7 +73,15 @@ class Table {
             return this;
 
         this.tableData = tableData;
-        this.schema.setTableData(this.tableData).load(); 
+        this.loadSchema();
+
+        return this;
+    }
+
+    loadSchema() {
+        this.schema
+        .setTableData(this.tableData)
+        .load(); 
 
         return this;
     }
@@ -258,7 +264,6 @@ class Schema {
 
         /** @type {Map<String,Number>} */
         this.fields = new Map();
-        // this.fieldType = new Map();
         /** @type {VirtualFields} */
         this.virtualFields = new VirtualFields();
     }
@@ -397,25 +402,28 @@ class Schema {
      * @returns {Schema}
      */
     load() {
+        this.fields = new Map();
+        this.virtualFields = new VirtualFields();
+
         if (this.tableData.length > 0) {
             /** @type {any[]} */
             let titleRow = this.tableData[0];
 
             let colNum = 0;
             /** @type{String} */
-            let col;
-            for (col of titleRow) {
-                col = col.trim().toUpperCase().replace(/\s/g, "_");
-                let fullColumnName = col;
+            let columnName;
+            for (columnName of titleRow) {
+                columnName = columnName.trim().toUpperCase().replace(/\s/g, "_");
+                let fullColumnName = columnName;
                 let fullColumnAliasName = "";
-                if (col.indexOf(".") == -1) {
-                    fullColumnName = this.tableName + "." + col;
+                if (columnName.indexOf(".") == -1) {
+                    fullColumnName = this.tableName + "." + columnName;
                     if (this.tableAlias != "")
-                        fullColumnAliasName = this.tableAlias + "." + col;
+                        fullColumnAliasName = this.tableAlias + "." + columnName;
                 }
 
-                if (col != "") {
-                    this.fields.set(col, colNum);
+                if (columnName != "") {
+                    this.fields.set(columnName, colNum);
 
                     if (!this.isDerivedTable) {
                         this.fields.set(fullColumnName, colNum);
@@ -425,7 +433,7 @@ class Schema {
                         }
                     }
 
-                    let virtualField = new VirtualField(col, this.tableInfo, colNum);
+                    let virtualField = new VirtualField(columnName, this.tableInfo, colNum);
                     this.virtualFields.add(virtualField);
                 }
 

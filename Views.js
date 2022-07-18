@@ -737,7 +737,7 @@ class SelectTables {
         tableMapping.set(this.primaryTable.toUpperCase(), groupTable);
 
         //  Set up for our SQL.
-        let inSQL = new Sql([], "", false).setTables(tableMapping);
+        let inSQL = new Sql([]).setTables(tableMapping);
 
         //  Fudge the HAVING to look like a SELECT.
         let astSelect = {};
@@ -830,7 +830,7 @@ class SelectTables {
 
         //  Maybe a SELECT within...
         if (typeof fieldCondition['SELECT'] != 'undefined') {
-            let inSQL = new Sql([], "", false).setTables(this.tableInfo);
+            let inSQL = new Sql([]).setTables(this.tableInfo);
             let inData = inSQL.select(fieldCondition);
             constantData = inData.join(",");
         }

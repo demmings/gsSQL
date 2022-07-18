@@ -1,9 +1,9 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
-export {Sql};
-import {Table} from './Table.js';
-import {sql2ast} from './SimpleParser.js';
-import {SelectTables} from './Views.js';
+export { Sql };
+import { Table } from './Table.js';
+import { sql2ast } from './SimpleParser.js';
+import { SelectTables } from './Views.js';
 //  *** DEBUG END  ***/
 
 /**
@@ -20,60 +20,131 @@ function gsSQL(tableArr, statement, columnTitle = false) {
     let tableList = eval(tableArr);
 
     Logger.log("gsSQL: tableList=" + tableList + ".  Statement=" + statement + ". List Len=" + tableList.length);
+
+    let sqlCmd = new Sql().enableColumnTitle(columnTitle);
     for (let temp of tableList) {
         Logger.log("table: " + temp);
+        sqlCmd.addTableData(temp[0], temp[1]);
     }
-    let sql = new Sql(tableList, statement, columnTitle);
-
-    return sql.execute();
+    return sqlCmd.execute(statement);
 }
 
 
 class Sql {
-    /**
+    /** Loads table data into object.
      * @param {any[][]} tableList - [tableName, sheetRange, tableArray], for as many tables that are used.
-     * @param {String} statement - SQL statement.
-     * @param {Boolean} columnTitle - Add a column title in the output (default=false)
      */
-    constructor(tableList, statement, columnTitle = false) {
+    constructor(tableList=[]) {
         /** @type {Map<String,Table>} */
         this.tables = new Map();
-        this.statement = statement;
-        this.columnTitle = columnTitle;
-        this.ast = sql2ast(this.statement);
+        this.columnTitle = false;
 
         //  All tables that are reference along with sheet ranges.
         for (let table of tableList) {
-            let tableAlias = this.getTableAlias(table[0], this.ast);
-            let tableInfo = new Table(table[0]).setTableAlias(tableAlias).loadNamedRangeData(table[1]).loadArrayData(table[2]);
+            let tableInfo = new Table(table[0])
+                .loadNamedRangeData(table[1])
+                .loadArrayData(table[2]);
             this.tables.set(table[0].toUpperCase(), tableInfo);
         }
     }
 
     /**
-     * Find table alias name (if any) for input actual table name.
-     * @param {String} tableName - Actual table name.
-     * @param {Object} ast - Abstract Syntax Tree for SQL.
-     * @returns {String}
+     * 
+     * @param {String} tableName 
+     * @param {any} tableData 
+     * @returns {Sql}
      */
+    addTableData(tableName, tableData) {
+        let tableInfo;
+
+        if (Array.isArray(tableData)) {
+            tableInfo = new Table(tableName)
+                .loadArrayData(tableData);    
+        }
+        else {
+            tableInfo = new Table(tableName)
+            .loadNamedRangeData(tableData);  
+        }
+
+        this.tables.set(tableName.toUpperCase(), tableInfo);  
+        
+        return this;
+    }
+
+    /**
+     * Include column headers in return data.
+     * @param {Boolean} value 
+     * @returns {Sql}
+     */
+    enableColumnTitle(value) {
+        this.columnTitle = value;
+        return this;
+    }
+
+    /**
+    * After command is parsed, perform SQL function.
+    * Execute() can be called multiple times for different SELECT statements, provided that all required
+    * table data was loaded in the constructor.
+    * @param {String} statement
+    * @returns {any[][]}
+    */
+    execute(statement) {
+        let sqlData = [];
+
+        this.ast = sql2ast(statement);
+
+        // @ts-ignore
+        for (let table of this.tables.keys()) {
+            let tableAlias = this.getTableAlias(table, this.ast);
+            let tableInfo = this.tables.get(table.toUpperCase());
+            tableInfo
+                .setTableAlias(tableAlias)
+                .loadSchema();
+        }
+
+        if (typeof this.ast['SELECT'] != 'undefined')
+            sqlData = this.select(this.ast);
+        else
+            throw ("Only SELECT statements are supported.");
+
+        return sqlData;
+    }
+
+    /**
+     * 
+    * @param {Map<String,Table>} mapOfTables 
+    */
+    setTables(mapOfTables) {
+        this.tables = mapOfTables;
+
+        return this;
+    }
+
+
+    /**
+    * Find table alias name (if any) for input actual table name.
+    * @param {String} tableName - Actual table name.
+    * @param {Object} ast - Abstract Syntax Tree for SQL.
+    * @returns {String}
+    */
     getTableAlias(tableName, ast) {
         let tableAlias = "";
         tableName = tableName.toUpperCase();
         let astTableBlocks = ['FROM', 'JOIN'];
         let astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
         let i = 0;
-        while  (tableAlias == "" && i < astTableBlocks.length) {
+        while (tableAlias == "" && i < astTableBlocks.length) {
             tableAlias = this.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
             i++;
         }
 
         i = 0;
-        while  (tableAlias == "" && i < astRecursiveTableBlocks.length) {
+        while (tableAlias == "" && i < astRecursiveTableBlocks.length) {
             if (typeof ast[astRecursiveTableBlocks[i]] != 'undefined')
                 tableAlias = this.getTableAlias(tableName, ast[astRecursiveTableBlocks[i]]);
             i++;
         }
-        
+
         return tableAlias;
     }
 
@@ -92,34 +163,9 @@ class Sql {
             if (tableName == ast[astBlock][i].table.toUpperCase() && ast[astBlock][i].as != "") {
                 return ast[astBlock][i].as;
             }
-        } 
-        
+        }
+
         return "";
-    }
-
-    /**
-     * 
-     * @param {Map<String,Table>} mapOfTables 
-     */
-    setTables(mapOfTables) {
-        this.tables = mapOfTables;
-
-        return this;
-    }
-
-    /**
-     * After command is parsed, perform SQL function.
-     * @returns 
-     */
-    execute() {
-        let sqlData = [];
-
-        if (typeof this.ast['SELECT'] != 'undefined')
-            sqlData = this.select(this.ast);
-        else
-            throw("Only SELECT statements are supported.");
-
-        return sqlData;
     }
 
     /**
@@ -184,8 +230,8 @@ class Sql {
                     viewTableData.splice(maxItems);
             }
 
-            if (typeof ast['UNION'] != 'undefined' ) {
-                let unionSQL = new Sql([], "", false).setTables(this.tables);
+            if (typeof ast['UNION'] != 'undefined') {
+                let unionSQL = new Sql([]).setTables(this.tables);
                 for (let union of ast['UNION']) {
                     let unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
@@ -196,8 +242,8 @@ class Sql {
                 }
             }
 
-            if (typeof ast['UNION ALL'] != 'undefined' ) {
-                let unionSQL = new Sql([], "", false).setTables(this.tables);
+            if (typeof ast['UNION ALL'] != 'undefined') {
+                let unionSQL = new Sql([]).setTables(this.tables);
                 for (let union of ast['UNION ALL']) {
                     let unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
@@ -208,8 +254,8 @@ class Sql {
                 }
             }
 
-            if (typeof ast['INTERSECT'] != 'undefined' ) {
-                let unionSQL = new Sql([], "", false).setTables(this.tables);
+            if (typeof ast['INTERSECT'] != 'undefined') {
+                let unionSQL = new Sql([]).setTables(this.tables);
                 for (let union of ast['INTERSECT']) {
                     let unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
@@ -220,8 +266,8 @@ class Sql {
                 }
             }
 
-            if (typeof ast['EXCEPT'] != 'undefined' ) {
-                let unionSQL = new Sql([], "", false).setTables(this.tables);
+            if (typeof ast['EXCEPT'] != 'undefined') {
+                let unionSQL = new Sql([]).setTables(this.tables);
                 for (let union of ast['EXCEPT']) {
                     let unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
@@ -236,7 +282,7 @@ class Sql {
                 viewTableData.unshift(view.getColumnTitles());
         }
         else {
-            throw("Missing keyword FROM");
+            throw ("Missing keyword FROM");
         }
 
         return viewTableData;
@@ -275,11 +321,11 @@ class Sql {
      * @param {Object} ast 
      * @returns {Object}
      */
-    pivotField(ast){
+    pivotField(ast) {
         //  If we are doing a PIVOT, it then requires a GROUP BY.
         if (typeof ast['PIVOT'] != 'undefined') {
             if (typeof ast['GROUP BY'] == 'undefined')
-                throw("PIVOT requires GROUP BY");
+                throw ("PIVOT requires GROUP BY");
         }
         else
             return ast;
@@ -299,7 +345,7 @@ class Sql {
      */
     getUniquePivotData(ast) {
         let pivotAST = {};
-        
+
         pivotAST['SELECT'] = ast['PIVOT'];
         pivotAST['SELECT'][0].name = "DISTINCT " + pivotAST['SELECT'][0].name;
         pivotAST['FROM'] = ast['FROM'];
@@ -311,7 +357,7 @@ class Sql {
         let tableData = this.select(pivotAST);
         this.columnTitle = oldSetting;
 
-        return  tableData;   
+        return tableData;
     }
 
     /**
@@ -328,14 +374,13 @@ class Sql {
 
             const functionNameRegex = /[a-zA-Z]*(?=\()/
             let matches = selectField.name.match(functionNameRegex)
-            if (matches != null && matches.length > 0)
-            {
+            if (matches != null && matches.length > 0) {
                 let args = SelectTables.parseForFunctions(selectField.name, matches[0]);
-                
+
                 for (let fld of pivotFieldData) {
                     let caseTxt = matches[0] + "(CASE WHEN " + ast['PIVOT'][0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 'null' END)";
-                    let asField = fld[0] + " " + (typeof selectField.as != 'undefined' && selectField.as != "" ? selectField.as : selectField.name); 
-                    newPivotAstFields.push({name: caseTxt, as: asField});
+                    let asField = fld[0] + " " + (typeof selectField.as != 'undefined' && selectField.as != "" ? selectField.as : selectField.name);
+                    newPivotAstFields.push({ name: caseTxt, as: asField });
                 }
             }
             else
@@ -360,7 +405,7 @@ class Sql {
 
         for (let newRow of newData) {
             let key = newRow.join("::");
-            if (! srcMap.has(key)) {
+            if (!srcMap.has(key)) {
                 srcData.push(newRow);
                 srcMap.set(key, true);
             }
@@ -408,13 +453,13 @@ class Sql {
         for (let newRow of newData) {
             let key = newRow.join("::");
             if (srcMap.has(key)) {
-                removeRowNum.push(srcMap.get(key));   
+                removeRowNum.push(srcMap.get(key));
             }
         }
 
-        removeRowNum.sort(function(a, b){return b-a});
+        removeRowNum.sort(function (a, b) { return b - a });
         for (rowNum of removeRowNum) {
-            srcData.splice(rowNum,1);
+            srcData.splice(rowNum, 1);
         }
 
         return srcData;
