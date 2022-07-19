@@ -52,16 +52,16 @@ example:
         ];
     }
         
-addTableData(table, data) ==>  
-    table: name referenced in SQL statement.
-    data:  either a double array with column title in first row OR a string indicating a sheet range (named range or A1 notation).
+addTableData(table, data) 
+    1)  table: name referenced in SQL statement.
+    2)  data:  either a double array with column title in first row OR a string indicating a sheet range (named range or A1 notation).
     
-enableColumnTitle(true) ==>
-     Output a column title (default is none or false)
+enableColumnTitle(true) 
+    1)  true or false.  Output a column title (default is none or false)
      
 execute(stmt) ==>
-      SQL SELECT statement to run.  
-      Returns a double array of data (first row is column title - if enabled).
+    1)  stmt:  SQL SELECT statement to run.  
+        Returns a double array of data (first row is column title - if enabled).
 
 Using from SHEETS as a custom function.
 example:
