@@ -8,12 +8,49 @@ Use SQL SELECT syntax from within apps script code or as a Google Sheet function
 Using from App Script.
 example:
 
-        let stmt = "SELECT quantity, price, quantity * price from booksales where price * quantity > 100";
+   whereNotIn1() {
+        let stmt = "SELECT books.id, books.title, books.author_id " +
+            "FROM books " +
+            "WHERE books.author_id NOT IN (SELECT id from authors)" +
+            "ORDER BY books.title";
 
-        let testSQL = new Sql([["booksales", "", this.bookSalesTable()],
-        ["editors", "", this.editorsTable()]], stmt, true);
-        
-        let data = testSQL.execute();
+        let data = new Sql()
+            .addTableData("books", this.bookTable())
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["books.id", "books.title", "books.author_id"],
+        ["9", "Book with Mysterious Author", "1"]];
+
+        return this.isEqual("whereNotIn1", data, expected);
+    }
+    
+    bookTable() {
+        return [
+            ["id", "title", "type", "author id", "editor id", "translator id"],
+            ["1", "Time to Grow Up!", "original", "11", "21", ""],
+            ["2", "Your Trip", "translated", "15", "22", "32"],
+            ["3", "Lovely Love", "original", "14", "24", ""],
+            ["4", "Dream Your Life", "original", "11", "24", ""],
+            ["5", "Oranges", "translated", "12", "25", "31"],
+            ["6", "Your Happy Life", "translated", "15", "22", "33"],
+            ["7", "Applied AI", "translated", "13", "23", "34"],
+            ["9", "Book with Mysterious Author", "translated", "1", "23", "34"],
+            ["8", "My Last Book", "original", "11", "28", ""]
+        ];
+    }
+    
+    authorsTable() {
+        return [
+            ["id", "first_name", "last_name"],
+            ["11", "Ellen", "Writer"],
+            ["12", "Olga", "Savelieva"],
+            ["13", "Jack", "Smart"],
+            ["14", "Donald", "Brain"],
+            ["15", "Yao", "Dou"]
+        ];
+    }
         
 1.  Create instance of Sql() object with the following constructor parameters:
 2.    a)  Array of Arrays where we define each table used:
