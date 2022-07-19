@@ -8,7 +8,7 @@ Use SQL SELECT syntax from within apps script code or as a Google Sheet function
 Using from App Script.
 example:
 
-   whereNotIn1() {
+    whereNotIn1() {
         let stmt = "SELECT books.id, books.title, books.author_id " +
             "FROM books " +
             "WHERE books.author_id NOT IN (SELECT id from authors)" +
