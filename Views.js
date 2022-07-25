@@ -14,11 +14,13 @@ class SelectTables {
      * @param {Object} astTables
      * @param {Object} astFields
      * @param {Map<String,Table>} tableInfo 
+     * @param {any[]} bindVariables
      */
-    constructor(astTables, astFields, tableInfo) {
+    constructor(astTables, astFields, tableInfo, bindVariables) {
         this.primaryTable = astTables[0].table;
         this.astFields = astFields;
         this.tableInfo = tableInfo;
+        this.bindVariables = bindVariables;
         this.joinedTablesMap = new Map();
         this.sqlServerFunctionCache = new Map();
         this.virtualFields = new VirtualFields();
@@ -67,6 +69,7 @@ class SelectTables {
     */
     resolveCondition(logic, terms) {
         let recordIDs = [];
+        this.nextBindParameter = 0;
 
         for (let cond of terms) {
             if (typeof cond.logic == 'undefined') {
@@ -836,6 +839,13 @@ class SelectTables {
         }
         else if (this.isStringConstant(fieldCondition))
             constantData = this.extractStringConstant(fieldCondition);
+        else if (fieldCondition == '?') {
+            //  Bind variable data.
+            if (this.nextBindParameter >= this.bindVariables.length)
+                throw("Bind variable mismatch");
+            constantData = this.bindVariables[this.nextBindParameter];
+            this.nextBindParameter++;
+        }
         else {
             if (isNaN(fieldCondition)) {
                 if (this.virtualFields.hasField(fieldCondition)) {

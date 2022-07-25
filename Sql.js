@@ -11,10 +11,11 @@ import { SelectTables } from './Views.js';
  * @param {String} tableArr - "[[tableName, sheetRange],[name,range],...]]"
  * @param {String} statement - SQL (e.g.:  'select * from tableName')
  * @param {Boolean} columnTitle - TRUE will add column title to output (default=FALSE)
+ * @param {...any} bindings - Bind variables to match '?' in SQL statement.
  * @returns {any[][]}
  * @customfunction
  */
-function gsSQL(tableArr, statement, columnTitle = false) {
+function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
     //  TODO:  'THEY' say never use EVAL.  Well, who are 'THEY' and I don't care since I
     //          am the only user.
     let tableList = eval(tableArr);
@@ -22,6 +23,9 @@ function gsSQL(tableArr, statement, columnTitle = false) {
     Logger.log("gsSQL: tableList=" + tableList + ".  Statement=" + statement + ". List Len=" + tableList.length);
 
     let sqlCmd = new Sql().enableColumnTitle(columnTitle);
+    for (let bind of bindings) {
+        sqlCmd.addBindParameter(bind);
+    }
     for (let temp of tableList) {
         Logger.log("table: " + temp);
         sqlCmd.addTableData(temp[0], temp[1]);
@@ -38,6 +42,7 @@ class Sql {
         /** @type {Map<String,Table>} */
         this.tables = new Map();
         this.columnTitle = false;
+        this.bindParameters = [];
 
         //  All tables that are reference along with sheet ranges.
         for (let table of tableList) {
@@ -78,6 +83,27 @@ class Sql {
      */
     enableColumnTitle(value) {
         this.columnTitle = value;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {any} value 
+     * @returns {Sql}
+     */
+    addBindParameter(value){
+        this.bindParameters.push(value);
+
+        return this;
+    }
+
+    /**
+     * 
+     * @returns {Sql}
+     */
+    clearBindParameters() {
+        this.bindParameters = [];
+
         return this;
     }
 
@@ -186,7 +212,7 @@ class Sql {
                 ast = this.pivotField(ast);
             }
 
-            let view = new SelectTables(ast['FROM'], ast['SELECT'], this.tables);
+            let view = new SelectTables(ast['FROM'], ast['SELECT'], this.tables, this.bindParameters);
 
             if (typeof ast['JOIN'] != 'undefined') {
                 view.join(ast['JOIN']);

@@ -519,6 +519,28 @@ class SqlTester {
         return this.isEqual("whereAndOr1", data, expected);
     }
 
+    whereAndOr2() {
+        let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
+
+        let data = new Sql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .addBindParameter('05/01/2022')
+            .addBindParameter('05/04/2022')
+            .addBindParameter('9')
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022"]];
+
+        return this.isEqual("whereAndOr2", data, expected);
+    }
+
     groupBy1() {
         let stmt = "select bookSales.book_id, SUM(bookSales.Quantity) from bookSales group by book_id";
 
@@ -1601,6 +1623,7 @@ function testerSql() {
     tester.whereIn2();
     tester.whereNotIn1();
     tester.whereAndOr1();
+    tester.whereAndOr2();
     tester.groupBy1();
     tester.groupBy2();
     tester.groupBy3();

@@ -660,6 +660,8 @@ CondLexer.prototype = {
             return this.readOperator();
         if (/[\+\-*\/%]/.test(this.currentChar))
             return this.readMathOperator();
+        if (this.currentChar == '?')
+            return this.readBindVariable();
 
         if (this.currentChar === "") return { type: 'eot', value: '' };
         else {
@@ -761,6 +763,13 @@ CondLexer.prototype = {
         this.readNextChar();
 
         return { type: 'mathoperator', value: tokenValue };
+    },
+
+    readBindVariable: function () {
+        var tokenValue = this.currentChar;
+        this.readNextChar();
+
+        return { type: 'bindVariable', value: tokenValue };
     },
 };
 
@@ -904,6 +913,10 @@ CondParser.prototype = {
 
             }
 
+            this.readNextToken();
+        }
+        else if (this.currentToken.type == 'bindVariable') {
+            astNode = this.currentToken.value;    
             this.readNextToken();
         }
 
