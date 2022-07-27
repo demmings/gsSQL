@@ -99,6 +99,17 @@ class Sql {
 
     /**
      * 
+     * @param {any[]} value 
+     * @returns {Sql}
+     */
+    setBindValues(value) {
+        this.bindParameters = value;
+
+        return this;
+    }
+
+    /**
+     * 
      * @returns {Sql}
      */
     clearBindParameters() {
@@ -306,6 +317,8 @@ class Sql {
 
             if (this.columnTitle)
                 viewTableData.unshift(view.getColumnTitles());
+            else if (viewTableData.length == 1 && viewTableData[0].length == 0)
+                viewTableData[0] = [""];
         }
         else {
             throw ("Missing keyword FROM");

@@ -482,6 +482,50 @@ class SqlTester {
         return this.isEqual("whereIn2", data, expected);
     }
 
+    whereIn3() {
+        let stmt = "SELECT id, title, author_id " +
+            "FROM books " +
+            "WHERE author_id IN (select id from authors where first_name like '%ald') " +
+            "ORDER BY title";
+
+        let data = new Sql()
+            .addTableData("books", this.bookTable())
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["id", "title", "author_id"],
+        ["3", "Lovely Love", "14"]];
+
+        return this.isEqual("whereIn3", data, expected);
+    }
+
+    whereIn4() {
+        let stmt = "SELECT * " +
+            "FROM books " +
+            "WHERE author_id IN (select id from authors where first_name = ?) " +
+            "or editor_id in (select id from editors where last_name = ?) " +
+            "or title = ? " +
+            "ORDER BY title";
+
+        let data = new Sql()
+            .addTableData("books", this.bookTable())
+            .addTableData("authors", this.authorsTable())
+            .addTableData("editors", this.editorsTable())
+            .enableColumnTitle(true)
+            .addBindParameter('Donald')
+            .addBindParameter('Roberts')
+            .addBindParameter('Oranges')
+            .execute(stmt);
+
+        let expected = [["BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID"],
+        ["4", "Dream Your Life", "original", "11", "24", ""],
+        ["3", "Lovely Love", "original", "14", "24", ""],
+        ["5", "Oranges", "translated", "12", "25", "31"]];
+
+        return this.isEqual("whereIn4", data, expected);
+    }
+
     whereNotIn1() {
         let stmt = "SELECT books.id, books.title, books.author_id " +
             "FROM books " +
@@ -721,7 +765,7 @@ class SqlTester {
         ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "Applied AI", "Jack", "Maria", "Numereo Uno", "bigOne@gmail.com", 1],
         ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 100]];
 
-        return this.isEqual("whereLike1", data, expected);
+        return this.isEqual("whereLike2", data, expected);
     }
 
     whereNotLike1() {
@@ -1588,7 +1632,7 @@ class SqlTester {
         let expectedJSON = JSON.stringify(expectedArry);
 
         if (jsonData != expectedJSON) {
-            Logger.log(functionName + "() ***   F A I L E D   ***");
+            Logger.log(functionName + "() ----------   F A I L E D   ----------");
             Logger.log(jsonData);
         }
         else {
@@ -1621,6 +1665,8 @@ function testerSql() {
     tester.fullJoin2();
     tester.whereIn1();
     tester.whereIn2();
+    tester.whereIn3();
+    tester.whereIn4();
     tester.whereNotIn1();
     tester.whereAndOr1();
     tester.whereAndOr2();

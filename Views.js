@@ -69,7 +69,6 @@ class SelectTables {
     */
     resolveCondition(logic, terms) {
         let recordIDs = [];
-        this.nextBindParameter = 0;
 
         for (let cond of terms) {
             if (typeof cond.logic == 'undefined') {
@@ -270,7 +269,7 @@ class SelectTables {
             result = new Function(functionString)();
         }
         catch (ex) {
-            throw ("Calculated Field Error: " + ex.message);
+            throw ("Calculated Field Error: " + ex.message + ".  " + functionString);
         }
 
         return result;
@@ -834,6 +833,7 @@ class SelectTables {
         //  Maybe a SELECT within...
         if (typeof fieldCondition['SELECT'] != 'undefined') {
             let inSQL = new Sql([]).setTables(this.tableInfo);
+            inSQL.setBindValues(this.bindVariables);
             let inData = inSQL.select(fieldCondition);
             constantData = inData.join(",");
         }
@@ -841,10 +841,9 @@ class SelectTables {
             constantData = this.extractStringConstant(fieldCondition);
         else if (fieldCondition == '?') {
             //  Bind variable data.
-            if (this.nextBindParameter >= this.bindVariables.length)
+            if (this.bindVariables.length == 0)
                 throw("Bind variable mismatch");
-            constantData = this.bindVariables[this.nextBindParameter];
-            this.nextBindParameter++;
+            constantData = this.bindVariables.shift();
         }
         else {
             if (isNaN(fieldCondition)) {
