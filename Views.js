@@ -603,7 +603,7 @@ class SelectTables {
     */
     groupBy(astGroupBy, selectedData) {
         if (selectedData.length == 0)
-            return;
+            return selectedData;
 
         //  Sort the least important first, and most important last.
         let reverseOrderBy = astGroupBy.reverse();

@@ -8,7 +8,7 @@ import { SelectTables } from './Views.js';
 
 /**
  * 
- * @param {String} tableArr - "[[tableName, sheetRange],[name,range],...]]"
+ * @param {String} tableArr - "[[tableName, sheetRange, cacheSeconds=60],[name,range,cache],...]]"
  * @param {String} statement - SQL (e.g.:  'select * from tableName')
  * @param {Boolean} columnTitle - TRUE will add column title to output (default=FALSE)
  * @param {...any} bindings - Bind variables to match '?' in SQL statement.
@@ -20,6 +20,10 @@ function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
     //          am the only user.
     let tableList = eval(tableArr);
 
+    //  If called at the same time, loading similar tables in similar order - all processes
+    //  just wait for table - but if loaded in different order, each process could be loading something.
+    tableList = tableList.sort(() => Math.random() - 0.5);
+
     Logger.log("gsSQL: tableList=" + tableList + ".  Statement=" + statement + ". List Len=" + tableList.length);
 
     let sqlCmd = new Sql().enableColumnTitle(columnTitle);
@@ -28,7 +32,13 @@ function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
     }
     for (let temp of tableList) {
         Logger.log("table: " + temp);
-        sqlCmd.addTableData(temp[0], temp[1]);
+
+        if (typeof temp[0] == 'undefined')
+            throw ("Missing table name.");
+        if (typeof temp[1] == 'undefined')
+            throw ("Missing table range.")
+        let cacheSeconds =(typeof temp[2] == 'undefined') ? 0 : temp[2];
+        sqlCmd.addTableData(temp[0], temp[1], cacheSeconds );
     }
     return sqlCmd.execute(statement);
 }
@@ -57,9 +67,10 @@ class Sql {
      * 
      * @param {String} tableName 
      * @param {any} tableData 
+     * @param {Number} cacheSeconds
      * @returns {Sql}
      */
-    addTableData(tableName, tableData) {
+    addTableData(tableName, tableData, cacheSeconds=0) {
         let tableInfo;
 
         if (Array.isArray(tableData)) {
@@ -68,7 +79,7 @@ class Sql {
         }
         else {
             tableInfo = new Table(tableName)
-            .loadNamedRangeData(tableData);  
+            .loadNamedRangeData(tableData, cacheSeconds);  
         }
 
         this.tables.set(tableName.toUpperCase(), tableInfo);  
@@ -93,7 +104,13 @@ class Sql {
      */
     addBindParameter(value){
         this.bindParameters.push(value);
+        return this;
+    }
 
+    addBindNamedRangeParameter(value) {
+        let tableData = new TableData();
+        let namedValue = tableData.getValueCached(value, 30);
+        this.bindParameters.push(namedValue);
         return this;
     }
 
@@ -104,7 +121,6 @@ class Sql {
      */
     setBindValues(value) {
         this.bindParameters = value;
-
         return this;
     }
 
@@ -114,7 +130,6 @@ class Sql {
      */
     clearBindParameters() {
         this.bindParameters = [];
-
         return this;
     }
 
@@ -153,7 +168,6 @@ class Sql {
     */
     setTables(mapOfTables) {
         this.tables = mapOfTables;
-
         return this;
     }
 
@@ -319,6 +333,7 @@ class Sql {
                 viewTableData.unshift(view.getColumnTitles());
             else if (viewTableData.length == 1 && viewTableData[0].length == 0)
                 viewTableData[0] = [""];
+
         }
         else {
             throw ("Missing keyword FROM");
@@ -392,9 +407,11 @@ class Sql {
 
         // These are all of the unique PIVOT field data points.
         let oldSetting = this.columnTitle;
+        let oldBindVariables = [...this.bindParameters];
         this.columnTitle = false;
         let tableData = this.select(pivotAST);
         this.columnTitle = oldSetting;
+        this.bindParameters = oldBindVariables;
 
         return tableData;
     }

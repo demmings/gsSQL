@@ -2,6 +2,7 @@
 /*  *** DEBUG START ***
 export { Table, Schema };
 import { DERIVEDTABLE, VirtualFields, VirtualField } from './Views.js';
+import { TableData } from './TableData.js';
 import { Logger } from './SqlTest.js';
 //  *** DEBUG END  ***/
 
@@ -41,21 +42,12 @@ class Table {
     /**
      * 
      * @param {String} namedRange 
+     * @param {Number} cacheSeconds
      * @returns {Table}
      */
-    loadNamedRangeData(namedRange) {
-        if (typeof namedRange == 'undefined' || namedRange == "")
-            return this;
-
-        var ss = SpreadsheetApp.getActiveSpreadsheet();
-        let range = ss.getRangeByName(namedRange);
-        if (range == null) {
-            Logger.log("Table: " + this.tableName + ". Invalid Range:" + namedRange);
-            throw ("Invalid TABLE Range: " + namedRange + " for table " + this.tableName);
-        }
-
-        let tempData = range.getValues();
-        this.tableData = tempData.filter(e => e.join().replace(/,/g, "").length);
+    loadNamedRangeData(namedRange, cacheSeconds = 0) {
+        let tableData = new TableData();
+        this.tableData = tableData.loadTableData(namedRange, cacheSeconds);
 
         Logger.log("Load Data: Range=" + namedRange + ". Items=" + this.tableData.length);
         this.loadSchema();

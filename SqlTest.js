@@ -1398,6 +1398,25 @@ class SqlTester {
         return this.isEqual("groupPivot2", data, expected);
     }
 
+    groupPivot3() {
+        let stmt = "select date, sum(quantity) from bookReturns where date >= ? and date <= ? group by date pivot customer_id";
+
+        let data = new Sql()
+            .addTableData("bookReturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .addBindParameter("05/01/2022")
+            .addBindParameter("05/04/2022")
+            .execute(stmt);
+
+        let expected = [["date", "c1 sum(quantity)", "c2 sum(quantity)", "c3 sum(quantity)", "c4 sum(quantity)"],
+        ["05/01/2022", 10, 8, 0, 0],
+        ["05/02/2022", 1, 0, 1, 0],
+        ["05/03/2022", 0, 0, 0, 300],
+        ["05/04/2022", 1, 100, 0, 0]];
+
+        return this.isEqual("groupPivot3", data, expected);
+    }
+
 
     groupFunc1() {
         let stmt = "select bookSales.date, SUM(if(customer_id = 'C1', bookSales.Quantity,0)), SUM(if(customer_id = 'C2', bookSales.Quantity,0)) from bookSales where customer_id != '' group by date";
@@ -1706,6 +1725,7 @@ function testerSql() {
     tester.selectAlias1();
     tester.groupPivot1();
     tester.groupPivot2();
+    tester.groupPivot3();
     tester.groupFunc1();
     tester.selectInGroupByPivot1();
     tester.selectInGroupByPivot2();
