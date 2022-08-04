@@ -18,14 +18,14 @@ function protect_split(separator, str) {
     let string = false;
     let nb_brackets = 0;
     let new_str = "";
-    for (let i = 0; i < str.length; i++) {
-        if (!string && /['"`]/.test(str[i])) string = str[i];
-        else if (string && str[i] == string) string = false;
-        else if (!string && str[i] == '(') nb_brackets++;
-        else if (!string && str[i] == ')') nb_brackets--;
+    for (let c of str) {
+        if (!string && /['"`]/.test(c)) string = c;
+        else if (string && c == string) string = false;
+        else if (!string && c == '(') nb_brackets++;
+        else if (!string && c == ')') nb_brackets--;
 
-        if (str[i] == separator && (nb_brackets > 0 || string)) new_str += sep;
-        else new_str += str[i];
+        if (c == separator && (nb_brackets > 0 || string)) new_str += sep;
+        else new_str += c;
     }
     str = new_str;
 
@@ -405,7 +405,6 @@ function sql2ast(query, parseCond) {
         return result;
     };
 
-    // TODO: handle HAVING
     analysis['HAVING'] = function (str) {
         return trim(str);
     };
@@ -1143,8 +1142,7 @@ function cond2sql(cond, not_first) {
 function resolveSqlCondition(logic, terms) {
     let jsCondition = "";
 
-    for (let i = 0; i < terms.length; i++) {
-        let cond = terms[i];
+    for (let cond of terms) {
         if (typeof cond.logic == 'undefined') {
             if (jsCondition != "") {
                 if (logic == "AND")

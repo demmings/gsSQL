@@ -358,7 +358,7 @@ class SelectTables {
                     originalFunctionString = functionString;
                     originalCaseStatement = args[0];
                     functionString = args[1];
-                    matchStr = new RegExp("WHEN(.*?)THEN(.*?)(?=WHEN|ELSE|$)|ELSE(.*?)(?=$)");
+                    matchStr = /WHEN(.*?)THEN(.*?)(?=WHEN|ELSE|$)|ELSE(.*?)(?=$)/;
                     args = args[1].match(matchStr);
                 }
             }
@@ -993,12 +993,12 @@ class VirtualFields {
         let originalCol = originalField.tableColumn;
         let originalTable = originalField.tableInfo.tableName;
 
-        for (let i = 0; i < this.virtualFieldList.length; i++) {
-            if (originalCol == this.virtualFieldList[i].tableColumn &&
-                originalTable == this.virtualFieldList[i].tableInfo.tableName) {
+        for (let fld of this.virtualFieldList) {
+            if (originalCol == fld.tableColumn &&
+                originalTable == fld.tableInfo.tableName) {
                 //  Keep field object, just replace contents.
-                this.virtualFieldList[i].tableColumn = newField.tableColumn;
-                this.virtualFieldList[i].tableInfo = newField.tableInfo;
+                fld.tableColumn = newField.tableColumn;
+                fld.tableInfo = newField.tableInfo;
             }
         }
     }
@@ -1054,6 +1054,7 @@ class VirtualFields {
      * @returns {Boolean}
      */
     isSameField(name1, name2) {
+        let isSame = false;
         let leftVirtual = name1;
         if (typeof name1 == "string")
             leftVirtual = this.getFieldInfo(name1);
@@ -1065,9 +1066,9 @@ class VirtualFields {
         if (leftVirtual != null && rightVirtual != null &&
             leftVirtual.tableInfo.tableName == rightVirtual.tableInfo.tableName &&
             leftVirtual.tableColumn == rightVirtual.tableColumn) {
-            return true;
+            isSame = true;
         }
-        return false;
+        return isSame;
     }
 
     /**

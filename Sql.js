@@ -215,9 +215,9 @@ class Sql {
         if (typeof ast[astBlock] == 'undefined')
             return "";
 
-        for (let i = 0; i < ast[astBlock].length; i++) {
-            if (tableName == ast[astBlock][i].table.toUpperCase() && ast[astBlock][i].as != "") {
-                return ast[astBlock][i].as;
+        for (let astItem of ast[astBlock]) {
+            if (tableName == astItem.table.toUpperCase() && astItem.as != "") {
+                return astItem.as;
             }
         }
 
@@ -363,8 +363,8 @@ class Sql {
                 if (typeof ast['GROUP BY'] == 'undefined') {
                     let groupBy = [];
 
-                    for (let i = 0; i < astFields.length; i++) {
-                        groupBy.push({ column: astFields[i].name });
+                    for (let astItem of astFields) {
+                        groupBy.push({ column: astItem.name });
                     }
 
                     ast["GROUP BY"] = groupBy;
