@@ -1,9 +1,10 @@
 # gsSQL
-The Google Sheets QUERY function is very flexible and powerful.  However it is:
-    * Only available as a function in sheets.  It cannot be used to query data within your apps script (GAS).
-    * Beyond basic lookups, the syntax of your select statement can quickly get very complicated and verbose.
-    * Complicated QUERY statements written long ago become uninteligible, especially when your simulated JOINs to other 'tables' clutter up your long statements.
-    * References to fields using the column letters is both hard to figure out what is going on and also very brittle.  What happens when a column is inserted before those referenced in the SELECT.  Well it fails of course.
+The Google Sheets ***QUERY*** function is very flexible and powerful.  However it is:
+
+- Only available as a function in sheets.  It cannot be used to query data within your apps script (GAS).
+- Beyond basic lookups, the syntax of your select statement can quickly get very complicated and verbose.
+- Complicated QUERY statements written long ago become uninteligible, especially when your simulated JOINs to other 'tables' clutter up your long statements.
+- References to fields using the column letters is both hard to figure out what is going on and also very brittle.  What happens when a column is inserted before those referenced in the SELECT.  Well it fails of course.
     
 The gsSQL project is meant to help simplify your QUERY statements.  It is also available to be used from within your scripts.
 All regular SQL SELECT syntax is supported, along with the PIVOT option - which is also available from the QUERY command.
@@ -12,11 +13,13 @@ All regular SQL SELECT syntax is supported, along with the PIVOT option - which 
 
 1.  Copy the .js files into your google app script folder and CLASP PUSH if necessary.
 2.  The SqlTest.js file is not required. It is just used for a basic sanity check for various SQL SELECT statements.
+3.  The Sql.js file contains the custom function ***gsSQL***
+4.  Sql.js file also contains the ***Sql()*** class which is used for app script SQL SELECT statement use. 
 
 
-#Using from App Script.
+# Using from App Script.
 example:
-
+```
     whereNotIn1() {
         let stmt = "SELECT books.id, books.title, books.author_id " +
             "FROM books " +
@@ -60,6 +63,7 @@ example:
             ["15", "Yao", "Dou"]
         ];
     }
+ ```
  
 Sql() Methods:
 
@@ -78,9 +82,9 @@ Sql() Methods:
 Using from SHEETS as a custom function.
 example:
 
-        =gsSQL("[['masterTransactions', 'Master Transactions!$A$1:$I'], ['accounts', 'accountNamesData']]", "SELECT * FROM accounts WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = 'TFSA' ", true)
+        =gsSQL("[['masterTransactions', 'Master Transactions!$A$1:$I', 60], ['accounts', 'accountNamesData', 3600]]", "SELECT * FROM accounts WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = 'TFSA' ", true)
         
-1.  First parameter is a double array of:  a) table name, b) Range of data.
+1.  First parameter is a double array of:  a) table name, b) Range of data, c) cache seconds
 2.  Select statement.
 3.  Include column title or not.
 
@@ -89,10 +93,11 @@ NOTE:
 2.  If the column includes spaces, the SELECT statement must replace the spaces with an underscore.  e.g.:  "First Name" is the column and the select would be "select first_name from myTable"
 3.  Column names do not support the period ".", so you must remove periods before trying the select.
 4.  Column names must be unique (obviously).
-5.  When specifying the table name/data as a parameter, you should only specify tables referenced in the SELECT as all data from every table is loaded into memory for processing (I didn't say this was a memory optimized script).
+5.  When specifying the input table definitions, you should only specify tables referenced in the SELECT as all data from every table is loaded into memory for processing.
+6.  When ***gsSQL*** is used within your sheet multiple times and the same tables are also referenced multiple times, it makes sense to specify a cache seconds value.  For tables that change often and up to date info is required, keep the cache either very low or zero.  However, for tables that rarely change, it makes sense to cache for a longer period.  
+7.  The Google cache does have size and duration limits.  If the table is huge, it is probably best to set the cache size to zero.  Also note that the cache has a duration limit of 21600 seconds.  Beyond that number of seconds, the script properties are used to store the data - which may not be as quick as the cache.
 
-WARNING:
-I have used eval() and Function() to make my life easier.  If you believe that you will do some kind of injection attack on yourself at some later date, I urge you to modify the scripts to remove these from the program (or not use at all).
+# WARNING:
 
 The BASIC SELECT functionality is implemented, however if you want to do anything extremely fancy, it is most likely not going to work.  Check out the SqlTest.js to get an idea of the kind of commands that will work.  
 
