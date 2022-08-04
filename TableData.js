@@ -16,12 +16,17 @@ function testTableData() {
         .execute("select transaction_date as 'Transaction Date', sum(gross) as Gross, sum(amount) as Net " +
             "from mastertransactions " +
             "where transaction_date >=  ? and transaction_date <= ? ");
+    Logger.log(itemData);
 
     let trans = table.loadTableData('Master Transactions!$A$1:$I', 60);
+    Logger.log(trans);
     trans = table.loadTableData('Master Transactions!$A$1:$I', 60);
+    Logger.log(trans);
 
     let arrData = table.loadTableData('accountNamesData', 60);
+    Logger.log(arrData);
     arrData = table.loadTableData('accountNamesData', 60);
+    Logger.log(arrData);
 }
 
 class TableData {
@@ -199,7 +204,7 @@ class TableData {
         }
 
         //  Only change our CACHE STATUS if we have a lock.
-        var lock = LockService.getScriptLock();
+        let lock = LockService.getScriptLock();
         try {
             lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) {
@@ -235,7 +240,7 @@ class TableData {
      */
     cachePutArray(cache, namedRange, cacheSeconds, arrData) {
         let cacheStatusName =this.cacheStatusName(namedRange);
-        var json = JSON.stringify(arrData);
+        let json = JSON.stringify(arrData);
 
         //  Split up data (for re-assembly on get() later)
         let splitCount = (json.length / (100 * 1024)) * 1.2;    // 1.2 - assumes some blocks may be bigger.
@@ -324,7 +329,7 @@ class TableData {
      * @param {any[][]} arrData 
      */
     fixJSONdates(arrData) {
-        var ISO_8601_FULL = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(([+-]\d\d:\d\d)|Z)?$/i
+        let ISO_8601_FULL = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(([+-]\d\d:\d\d)|Z)?$/i
 
         for (let row of arrData) {
             for (let i = 0; i < row.length; i++) {
@@ -363,10 +368,15 @@ function testMyScriptsettings() {
     testSettings.put("jklKEY", 456.78, -1);
 
     let temp = testSettings.get("garbage");
+    Logger.log(temp);
     temp = testSettings.get("abcKEY");
+    Logger.log(temp);
     temp = testSettings.get("defKEY");
+    Logger.log(temp);
     temp = testSettings.get("ghiKEY");
+    Logger.log(temp);
     temp = testSettings.get("jklKEY");
+    Logger.log(temp);
 }
 
 class ScriptSettings {
@@ -414,7 +424,7 @@ class ScriptSettings {
         const keys = Object.keys(propertyDataObject);
 
         for (let key of keys) {
-            this.put(key, propertyDataObject[key]);
+            this.put(key, propertyDataObject[key], daysToHold);
         }
     }
 
