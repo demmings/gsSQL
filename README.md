@@ -1,11 +1,20 @@
 # gsSQL
-Use SQL SELECT syntax from within apps script code or as a Google Sheet function - to replace the QUERY function.
+The Google Sheets QUERY function is very flexible and powerful.  However it is:
+    * Only available as a function in sheets.  It cannot be used to query data within your apps script (GAS).
+    * Beyond basic lookups, the syntax of your select statement can quickly get very complicated and verbose.
+    * Complicated QUERY statements written long ago become uninteligible, especially when your simulated JOINs to other 'tables' clutter up your long statements.
+    * References to fields using the column letters is both hard to figure out what is going on and also very brittle.  What happens when a column is inserted before those referenced in the SELECT.  Well it fails of course.
+    
+The gsSQL project is meant to help simplify your QUERY statements.  It is also available to be used from within your scripts.
+All regular SQL SELECT syntax is supported, along with the PIVOT option - which is also available from the QUERY command.
+
+# USING gsSQL
 
 1.  Copy the .js files into your google app script folder and CLASP PUSH if necessary.
 2.  The SqlTest.js file is not required. It is just used for a basic sanity check for various SQL SELECT statements.
 
 
-Using from App Script.
+#Using from App Script.
 example:
 
     whereNotIn1() {
@@ -54,9 +63,10 @@ example:
  
 Sql() Methods:
 
-    addTableData(table, data) 
+    addTableData(table, data, cacheSeconds) 
         1)  table: name referenced in SQL statement.
         2)  data:  either a double array with column title in first row OR a string indicating a sheet range (named range or A1 notation).
+        3)  cacheSeconds:  number of seconds that loaded table data will be available from the cache after the initial loading.  default=0.
 
     enableColumnTitle(true) 
         1)  true or false.  Output a column title (default is none or false)
@@ -84,17 +94,10 @@ NOTE:
 WARNING:
 I have used eval() and Function() to make my life easier.  If you believe that you will do some kind of injection attack on yourself at some later date, I urge you to modify the scripts to remove these from the program (or not use at all).
 
-Most of the BASIC SELECT functionality is implemented, however if you want to do anything fancy, it is most likely not going to work.  Check out the SqlTest.js to get an idea of the kind of commands that will work.  
+The BASIC SELECT functionality is implemented, however if you want to do anything extremely fancy, it is most likely not going to work.  Check out the SqlTest.js to get an idea of the kind of commands that will work.  
 
 Known Issues:
 
-1)  Field and table alias syntax is not supported.  So in a JOIN situation, you will need to use the full DOT notation to reference any field from the joined table.  The column ALIAS can be used for a column title in the return data.  e.g.:
-
-        select bookSales.date as 'Transaction Date', 
-                SUM(bookSales.Quantity) as [ as Much Quantity], 
-                Max(price) as Maximum 
-           from bookSales 
-           where customer_id in (select id from customers)  
-           group by date pivot customer_id
+1)  Field alias syntax is not fully supported.  It is currently only used for column titles that can be returned with the select data.
             
 2)  Very little error checking.  When developing your SQL SELECT statements and something is not correct or not supported, the application may just fail without giving any real indication of the problem.  This needs improvements.
