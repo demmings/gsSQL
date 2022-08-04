@@ -7,7 +7,9 @@ The Google Sheets ***QUERY*** function is very flexible and powerful.  However i
 - References to fields using the column letters is both hard to figure out what is going on and also very brittle.  What happens when a column is inserted before those referenced in the SELECT.  Well it fails of course.
     
 The gsSQL project is meant to help simplify your QUERY statements.  It is also available to be used from within your scripts.
-All regular SQL SELECT syntax is supported, along with the PIVOT option - which is also available from the QUERY command.
+All regular SQL SELECT syntax is supported, along with:
+-The PIVOT option - which is also available from the QUERY command.  (A new column is created for each distinct data in the PIVOT field for EVERY aggregate field).
+-BIND variables are available.  These are used to help simplify your select statement.
 
 # USING gsSQL
 
@@ -74,6 +76,9 @@ Sql() Methods:
 
     enableColumnTitle(true) 
         1)  true or false.  Output a column title (default is none or false)
+        
+    addBindParameter(value)
+        1)  For every question mark (no quotes) in your SELECT statement, there needs to be a matching bind variable data.  Call this method as for as many question marks in the select are used - in the order that they are found.
 
     execute(stmt)
         1)  stmt:  SQL SELECT statement to run.  
@@ -82,7 +87,7 @@ Sql() Methods:
 Using from SHEETS as a custom function.
 example:
 
-        =gsSQL("[['masterTransactions', 'Master Transactions!$A$1:$I', 60], ['accounts', 'accountNamesData', 3600]]", "SELECT * FROM accounts WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = 'TFSA' ", true)
+        =gsSQL("[['masterTransactions', 'Master Transactions!$A$1:$I', 60], ['accounts', 'accountNamesData', 3600]]", "SELECT * FROM accounts WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = 'TFSA' ", true, [bindVar1, bindVar2, ...])
         
 1.  First parameter is a double array of:  a) table name, b) Range of data, c) cache seconds
 2.  Select statement.
@@ -96,6 +101,17 @@ NOTE:
 5.  When specifying the input table definitions, you should only specify tables referenced in the SELECT as all data from every table is loaded into memory for processing.
 6.  When ***gsSQL*** is used within your sheet multiple times and the same tables are also referenced multiple times, it makes sense to specify a cache seconds value.  For tables that change often and up to date info is required, keep the cache either very low or zero.  However, for tables that rarely change, it makes sense to cache for a longer period.  
 7.  The Google cache does have size and duration limits.  If the table is huge, it is probably best to set the cache size to zero.  Also note that the cache has a duration limit of 21600 seconds.  Beyond that number of seconds, the script properties are used to store the data - which may not be as quick as the cache.
+8.  Use BIND variables to simplify the SELECT statement.  In the following statement, you must supply 3 bind variables  e.g.
+
+```
+SELECT * FROM books WHERE author_id IN (select id from authors where first_name = ?) or editor_id in (select id from editors where last_name = ?) or title = ? ORDER BY title
+```
+
+9.  BIND variables simplify the use of date comparisons.  The QUERY statement requires that you format the date in your SELECT.  Any DATE BIND variables are converted automatically.  Just specify the named range or A1 range in your gsSQL statement (without quotes) for each parameter and in your SELECT, just substitute with a question mark.  Here is an example from my sheet:
+
+```
+=-gsSQL("[['mastertransactions', 'Master Transactions!$A$1:$I',60]]","select sum(amount) from mastertransactions where account = ? and expense_category = ? and transaction_date >= ? and transaction_date <= ?", false, myName, "Savings - TFSA", startIncomeDate, endIncomeDate)
+```
 
 # WARNING:
 
