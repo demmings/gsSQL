@@ -75,7 +75,7 @@ class TableData {
 
         if (this.isRangeLoading(cache, namedRange)) {
             //  Just wait until data loaded elsewhere.
-            arrData = this.waitForRangeToLoad(cache, namedRange, 30000);
+            arrData = this.waitForRangeToLoad(cache, namedRange, seconds);
         }
         else {
             arrData = this.lockLoadAndCache(cache, namedRange, seconds);
@@ -147,15 +147,15 @@ class TableData {
      * Retrieve data from cache after it has loaded elsewhere.
      * @param {Object} cache 
      * @param {String} namedRange 
-     * @param {Number} mSeconds - ms to wait for loading, then just read from sheet directly.
+     * @param {Number} cacheSeconds - How long to cache results.
      * @returns {any[][]}
      */
-    waitForRangeToLoad(cache, namedRange, mSeconds) {
+    waitForRangeToLoad(cache, namedRange, cacheSeconds) {
         let start = new Date().getTime();
         let current = new Date().getTime();
 
         Logger.log("waitForRangeToLoad() - Start: " + namedRange);
-        while (this.isRangeLoading(cache, namedRange) && (current - start) < mSeconds) {
+        while (this.isRangeLoading(cache, namedRange) && (current - start) < 10000) {
             Utilities.sleep(250);
             current = new Date().getTime();
         }
@@ -167,6 +167,11 @@ class TableData {
         if (arrData == null) {
             Logger.log("waitForRangeToLoad - give up.  Read directly. " + namedRange);
             arrData = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange).getValues();
+
+            if (this.isRangeLoading(cache, namedRange)) {
+                //  Other process probably timed out and left status hanging.
+                this.cachePutArray(cache, namedRange, cacheSeconds, arrData);
+            }
         }
 
         return arrData;
@@ -190,13 +195,13 @@ class TableData {
 
         //  The status indicates this named range is being loaded in another process.
         if (this.isRangeLoading(cache, namedRange)) {
-            return this.waitForRangeToLoad(cache, namedRange, 30000);
+            return this.waitForRangeToLoad(cache, namedRange, cacheSeconds);
         }
 
         //  Only change our CACHE STATUS if we have a lock.
         var lock = LockService.getScriptLock();
         try {
-            lock.waitLock(30000); // wait 30 seconds for others' use of the code section and lock to stop and then proceed
+            lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) {
             throw ("Cache lock failed");
         }
@@ -204,11 +209,11 @@ class TableData {
         //  It is possible that just before getting the lock, another process started caching.
         if (this.isRangeLoading(cache, namedRange)) {
             lock.releaseLock();
-            return this.waitForRangeToLoad(cache, namedRange, 30000);
+            return this.waitForRangeToLoad(cache, namedRange, cacheSeconds);
         }
 
         //  Mark the status for this named range that loading is in progress.
-        cache.put(this.cacheStatusName(namedRange), TABLE.LOADING, cacheSeconds);
+        cache.put(this.cacheStatusName(namedRange), TABLE.LOADING, 15);
         lock.releaseLock();
 
         //  Load data from SHEETS.
@@ -249,7 +254,7 @@ class TableData {
         //  Update status that cache is updated.
         let lock = LockService.getScriptLock();
         try {
-            lock.waitLock(30000); // wait 30 seconds for others' use of the code section and lock to stop and then proceed
+            lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) { 
             throw ("Cache lock failed");
         }

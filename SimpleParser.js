@@ -13,12 +13,12 @@ function trim(str) {
 
 // Split a string using a separator, only if this separator isn't beetween brackets
 function protect_split(separator, str) {
-    var sep = '######';
+    const sep = '######';
 
-    var string = false;
-    var nb_brackets = 0;
-    var new_str = "";
-    for (var i = 0; i < str.length; i++) {
+    let string = false;
+    let nb_brackets = 0;
+    let new_str = "";
+    for (let i = 0; i < str.length; i++) {
         if (!string && /['"`]/.test(str[i])) string = str[i];
         else if (string && str[i] == string) string = false;
         else if (!string && str[i] == '(') nb_brackets++;
@@ -39,17 +39,17 @@ function protect_split(separator, str) {
 
 // Add some # inside a string to avoid it to match a regex/split
 function protect(str) {
-    var result = '#';
-    var length = str.length;
-    for (var i = 0; i < length; i++) result += str[i] + "#";
+    let result = '#';
+    let length = str.length;
+    for (let i = 0; i < length; i++) result += str[i] + "#";
     return result;
 }
 
 // Restore a string output by protect() to its original state
 function unprotect(str) {
-    var result = '';
-    var length = str.length;
-    for (var i = 1; i < length; i = i + 2) result += str[i];
+    let result = '';
+    let length = str.length;
+    for (let i = 1; i < length; i = i + 2) result += str[i];
     return result;
 }
 
@@ -140,7 +140,7 @@ function sqlStatementSplitter(src) {
  */
 function makeSqlPartsSplitterRegEx(keywords) {
     // Define which words can act as separator
-    var parts_name = keywords.map(function (item) {
+    let parts_name = keywords.map(function (item) {
         return item + ' ';
     });
     parts_name = parts_name.concat(keywords.map(function (item) {
@@ -149,7 +149,7 @@ function makeSqlPartsSplitterRegEx(keywords) {
     parts_name = parts_name.concat(parts_name.map(function (item) {
         return item.toLowerCase();
     }));
-    var parts_name_escaped = parts_name.map(function (item) {
+    let parts_name_escaped = parts_name.map(function (item) {
         return item.replace('(', '[\\(]');
     });
 
@@ -164,18 +164,18 @@ function sql2ast(query, parseCond) {
         parseCond = true;
 
     // Remove semi-colons and keep only the first query
-    var semi_colon = '###semi-colon###';
+    let semi_colon = '###semi-colon###';
     query = query.replace(/[("'`].*;.*[)"'`]/g, function (match) {
         return match.replace(/;/g, semi_colon);
     });
-    var eor = '###EOR###';
+    let eor = '###EOR###';
     query = query.replace(/;/g, eor);
     query = query.split(eor)[0];
     query = query.replace(new RegExp(semi_colon, 'g'), ';');
 
     // Define which words can act as separator
-    var keywords = ['SELECT', 'FROM', 'DELETE FROM', 'INSERT INTO', 'UPDATE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'VALUES', 'SET', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
-    var parts_name = keywords.map(function (item) {
+    let keywords = ['SELECT', 'FROM', 'DELETE FROM', 'INSERT INTO', 'UPDATE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'VALUES', 'SET', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
+    let parts_name = keywords.map(function (item) {
         return item + ' ';
     });
     parts_name = parts_name.concat(keywords.map(function (item) {
@@ -184,7 +184,7 @@ function sql2ast(query, parseCond) {
     parts_name = parts_name.concat(parts_name.map(function (item) {
         return item.toLowerCase();
     }));
-    var parts_name_escaped = parts_name.map(function (item) {
+    let parts_name_escaped = parts_name.map(function (item) {
         return item.replace('(', '[\\(]');
     });
 
@@ -194,18 +194,18 @@ function sql2ast(query, parseCond) {
     query = hideInnerSql(query, parts_name_escaped, protect);
 
     // Write the position(s) in query of these separators
-    var parts_order = [];
+    let parts_order = [];
     function realNameCallback(match, name) {
         return name;
     }
     parts_name.forEach(function (item) {
-        var pos = 0;
-        var part;
+        let pos = 0;
+        let part;
 
         do {
             part = query.indexOf(item, pos);
             if (part != -1) {
-                var realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, realNameCallback);
+                let realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, realNameCallback);
 
                 if (typeof parts_order[part] == 'undefined' || parts_order[part].length < realName.length) {
                     parts_order[part] = realName;	// Position won't be exact because the use of protect()  (above) and unprotect() alter the query string ; but we just need the order :)
@@ -218,7 +218,7 @@ function sql2ast(query, parseCond) {
     });
 
     // Delete duplicates (caused, for example, by JOIN and INNER JOIN)
-    var busy_until = 0;
+    let busy_until = 0;
     parts_order.forEach(function (item, key) {
         if (busy_until > key) delete parts_order[key];
         else {
@@ -230,13 +230,13 @@ function sql2ast(query, parseCond) {
     });
 
     // Generate protected word list to reverse the use of protect()
-    var words = parts_name_escaped.slice(0);
+    let words = parts_name_escaped.slice(0);
     words = words.map(function (item) {
         return protect(item);
     });
 
     // Split parts
-    var parts = query.split(new RegExp(parts_name_escaped.join('|'), 'i'));
+    let parts = query.split(new RegExp(parts_name_escaped.join('|'), 'i'));
 
     // Unhide words precedently hidden with protect()
     query = hideInnerSql(query, words, unprotect);
@@ -246,10 +246,10 @@ function sql2ast(query, parseCond) {
     }
 
     // Define analysis functions
-    var analysis = [];
+    let analysis = [];
 
     analysis['SELECT'] = function (str) {
-        var result = protect_split(',', str);
+        let result = protect_split(',', str);
         result = result.filter(function (item) {
             return item !== '';
         }).map(function (item) {
@@ -279,7 +279,7 @@ function sql2ast(query, parseCond) {
     };
 
     analysis['SET'] = function (str) {
-        var result = protect_split(',', str);
+        let result = protect_split(',', str);
         result = result.filter(function (item) {
             return item !== '';
         }).map(function (item) {
@@ -289,7 +289,7 @@ function sql2ast(query, parseCond) {
     };
 
     analysis['FROM'] = analysis['DELETE FROM'] = analysis['UPDATE'] = function (str) {
-        var result = str.split(',');
+        let result = str.split(',');
         result = result.map(function (item) {
             return trim(item);
         });
@@ -297,7 +297,7 @@ function sql2ast(query, parseCond) {
             if (item === '') result.splice(key);
         });
         result = result.map(function (item) {
-            var [table, alias] = getNameAndAlias(item);
+            let [table, alias] = getNameAndAlias(item);
             return { table: table, as: alias };
         });
         return result;
@@ -305,8 +305,8 @@ function sql2ast(query, parseCond) {
 
     analysis['LEFT JOIN'] = analysis['JOIN'] = analysis['INNER JOIN'] = analysis['RIGHT JOIN'] = analysis['FULL JOIN'] = function (str) {
         str = str.toUpperCase().split(' ON ');
-        var table = str[0].split(' AS ');
-        var result = {};
+        let table = str[0].split(' AS ');
+        let result = {};
         result['table'] = trim(table[0]);
         result['as'] = trim(table[1]) || '';
         result['cond'] = trim(str[1]);
@@ -320,12 +320,12 @@ function sql2ast(query, parseCond) {
 
     analysis['ORDER BY'] = function (str) {
         str = str.split(',');
-        var result = [];
+        let result = [];
         str.forEach(function (item, key) {
-            var order_by = /([A-Za-z0-9_\.]+)\s*(ASC|DESC){0,1}/gi;
+            let order_by = /([A-Za-z0-9_\.]+)\s*(ASC|DESC){0,1}/gi;
             order_by = order_by.exec(item);
             if (order_by !== null) {
-                var tmp = {};
+                let tmp = {};
                 tmp['column'] = trim(order_by[1]);
                 tmp['order'] = trim(order_by[2]);
                 if (order_by[2] === undefined) {
@@ -339,12 +339,12 @@ function sql2ast(query, parseCond) {
 
     analysis['GROUP BY'] = function (str) {
         str = str.split(',');
-        var result = [];
+        let result = [];
         str.forEach(function (item, key) {
-            var group_by = /([A-Za-z0-9_\.]+)/gi;
+            let group_by = /([A-Za-z0-9_\.]+)/gi;
             group_by = group_by.exec(item);
             if (group_by !== null) {
-                var tmp = {};
+                let tmp = {};
                 tmp['column'] = trim(group_by[1]);
                 result.push(tmp);
             }
@@ -354,12 +354,12 @@ function sql2ast(query, parseCond) {
 
     analysis['PIVOT'] = function (str) {
         str = str.split(',');
-        var result = [];
+        let result = [];
         str.forEach(function (item, key) {
-            var pivotOn = /([A-Za-z0-9_\.]+)/gi;
+            let pivotOn = /([A-Za-z0-9_\.]+)/gi;
             pivotOn = pivotOn.exec(item);
             if (pivotOn !== null) {
-                var tmp = {};
+                let tmp = {};
                 tmp['name'] = trim(pivotOn[1]);
                 tmp['as'] = "";
                 result.push(tmp);
@@ -369,19 +369,19 @@ function sql2ast(query, parseCond) {
     };
 
     analysis['LIMIT'] = function (str) {
-        var limit = /((\d+)\s*,\s*)?(\d+)/gi;
+        let limit = /((\d+)\s*,\s*)?(\d+)/gi;
         limit = limit.exec(str);
         if (typeof limit[2] == 'undefined') limit[2] = 0;
-        var result = {};
+        let result = {};
         result['nb'] = parseInt(trim(limit[3]), 10);
         result['from'] = parseInt(trim(limit[2]), 10);
         return result;
     };
 
     analysis['INSERT INTO'] = function (str) {
-        var insert = /([A-Za-z0-9_\.]+)\s*(\(([A-Za-z0-9_\., ]+)\))?/gi;
+        let insert = /([A-Za-z0-9_\.]+)\s*(\(([A-Za-z0-9_\., ]+)\))?/gi;
         insert = insert.exec(str);
-        var result = {};
+        let result = {};
         result['table'] = trim(insert[1]);
         if (typeof insert[3] != 'undefined') {
             result['columns'] = insert[3].split(',');
@@ -395,8 +395,8 @@ function sql2ast(query, parseCond) {
     analysis['VALUES'] = function (str) {
         str = trim(str);
         if (str[0] != '(') str = '(' + str;	// If query has "VALUES(...)" instead of "VALUES (...)"
-        var groups = protect_split(',', str);
-        var result = [];
+        let groups = protect_split(',', str);
+        let result = [];
         groups.forEach(function (group) {
             group = group.replace(/^\(/g, '').replace(/\)$/g, '');
             group = protect_split(',', group);
@@ -427,17 +427,17 @@ function sql2ast(query, parseCond) {
     };
 
     // Analyze parts
-    var result = {};
-    var j = 0;
+    let result = {};
+    let j = 0;
     parts_order.forEach(function (item, key) {
         item = item.toUpperCase();
         j++;
         if (typeof analysis[item] != 'undefined') {
-            var part_result = analysis[item](parts[j]);
+            let part_result = analysis[item](parts[j]);
 
             if (typeof result[item] != 'undefined') {
                 if (typeof result[item] == 'string' || typeof result[item][0] == 'undefined') {
-                    var tmp = result[item];
+                    let tmp = result[item];
                     result[item] = [];
                     result[item].push(tmp);
                 }
@@ -583,7 +583,7 @@ function getNameAndAlias(item) {
     let alias = "";
     let lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
     if (lastAs != -1) { 
-        var s = item.substring(lastAs + 4).trim();
+        let s = item.substring(lastAs + 4).trim();
         if (s.length > 0 ) {
             alias = s;
             //  Remove quotes, if any.
@@ -671,9 +671,9 @@ CondLexer.prototype = {
     },
 
     readWord: function () {
-        var tokenValue = "";
-        var nb_brackets = 0;
-        var string = false;
+        let tokenValue = "";
+        let nb_brackets = 0;
+        let string = false;
         while (/./.test(this.currentChar)) {
             // Check if we are in a string
             if (!string && /['"`]/.test(this.currentChar)) string = this.currentChar;
@@ -713,8 +713,8 @@ CondLexer.prototype = {
     },
 
     readString: function () {
-        var tokenValue = "";
-        var quote = this.currentChar;
+        let tokenValue = "";
+        let quote = this.currentChar;
 
         tokenValue += this.currentChar;
         this.readNextChar();
@@ -740,14 +740,14 @@ CondLexer.prototype = {
     },
 
     readGroupSymbol: function () {
-        var tokenValue = this.currentChar;
+        let tokenValue = this.currentChar;
         this.readNextChar();
 
         return { type: 'group', value: tokenValue };
     },
 
     readOperator: function () {
-        var tokenValue = this.currentChar;
+        let tokenValue = this.currentChar;
         this.readNextChar();
 
         if (/[=<>]/.test(this.currentChar)) {
@@ -759,14 +759,14 @@ CondLexer.prototype = {
     },
 
     readMathOperator: function () {
-        var tokenValue = this.currentChar;
+        let tokenValue = this.currentChar;
         this.readNextChar();
 
         return { type: 'mathoperator', value: tokenValue };
     },
 
     readBindVariable: function () {
-        var tokenValue = this.currentChar;
+        let tokenValue = this.currentChar;
         this.readNextChar();
 
         return { type: 'bindVariable', value: tokenValue };
@@ -775,10 +775,10 @@ CondLexer.prototype = {
 
 // Tokenise a string (only useful for debug)
 CondLexer.tokenize = function (source) {
-    var lexer = new CondLexer(source);
-    var tokens = [];
+    let lexer = new CondLexer(source);
+    let tokens = [];
     do {
-        var token = lexer.readNextToken();
+        let token = lexer.readNextToken();
         if (token.type != 'empty') tokens.push(token);
     }
     while (lexer.currentChar);
@@ -812,19 +812,19 @@ CondParser.prototype = {
 
     // Parse logical expressions (AND/OR)
     parseLogicalExpression: function () {
-        var leftNode = this.parseConditionExpression();
+        let leftNode = this.parseConditionExpression();
 
         while (this.currentToken.type == 'logic') {
-            var logic = this.currentToken.value;
+            let logic = this.currentToken.value;
             this.readNextToken();
 
-            var rightNode = this.parseConditionExpression();
+            let rightNode = this.parseConditionExpression();
 
             // If we are chaining the same logical operator, add nodes to existing object instead of creating another one
             if (typeof leftNode.logic != 'undefined' && leftNode.logic == logic && typeof leftNode.terms != 'undefined')
                 leftNode.terms.push(rightNode);
             else {
-                var terms = [leftNode, rightNode];
+                let terms = [leftNode, rightNode];
                 leftNode = { 'logic': logic, 'terms': terms.slice(0) };
             }
         }
@@ -834,10 +834,10 @@ CondParser.prototype = {
 
     // Parse conditions ([word/string] [operator] [word/string])
     parseConditionExpression: function () {
-        var leftNode = this.parseBaseExpression();
+        let leftNode = this.parseBaseExpression();
 
         if (this.currentToken.type == 'operator') {
-            var operator = this.currentToken.value;
+            let operator = this.currentToken.value;
             this.readNextToken();
 
             // If there are 2 adjacent operators, join them with a space (exemple: IS NOT)
@@ -846,7 +846,7 @@ CondParser.prototype = {
                 this.readNextToken();
             }
 
-            var rightNode = this.parseBaseExpression(operator);
+            let rightNode = this.parseBaseExpression(operator);
 
             leftNode = { 'operator': operator, 'left': leftNode, 'right': rightNode };
         }
@@ -856,7 +856,7 @@ CondParser.prototype = {
 
     // Parse base items
     parseBaseExpression: function (operator) {
-        var astNode = "";
+        let astNode = "";
         let inCurrentToken;
 
         // If this is a word/string, return its value
@@ -931,7 +931,7 @@ CondParser.parse = function (source) {
 
 // Generate the SQL query corresponding to an AST output by sql2ast()
 function ast2sql(ast) {
-    var result = '';
+    let result = '';
 
     // Define subfunctions
     function select(ast) {
@@ -945,9 +945,9 @@ function ast2sql(ast) {
 
     function from(ast) {
         if (typeof ast['FROM'] != 'undefined') {
-            var result = ' FROM ';
-            var tmp = ast['FROM'].map(function (item) {
-                var str = item.table;
+            let result = ' FROM ';
+            let tmp = ast['FROM'].map(function (item) {
+                let str = item.table;
                 if (item.as !== '')
                     str += ' AS ' + item.as;
                 return str;
@@ -960,7 +960,7 @@ function ast2sql(ast) {
 
     function join(ast) {
         if (typeof ast['JOIN'] != 'undefined') {
-            var result = '';
+            let result = '';
             ast['JOIN'].forEach(function (item) {
                 result += ' ' + item.type.toUpperCase() + ' JOIN ' + item.table;
                 if (item.as !== '') result += ' AS ' + item.as;
@@ -980,8 +980,8 @@ function ast2sql(ast) {
 
     function order_by(ast) {
         if (typeof ast['ORDER BY'] != 'undefined') {
-            var result = ' ORDER BY ';
-            var orders = ast['ORDER BY'].map(function (item) {
+            let result = ' ORDER BY ';
+            let orders = ast['ORDER BY'].map(function (item) {
                 return item.column + ' ' + item.order;
             });
             result += orders.join(', ');
@@ -992,8 +992,8 @@ function ast2sql(ast) {
 
     function group_by(ast) {
         if (typeof ast['GROUP BY'] != 'undefined') {
-            var result = ' GROUP BY ';
-            var groups = ast['GROUP BY'].map(function (item) {
+            let result = ' GROUP BY ';
+            let groups = ast['GROUP BY'].map(function (item) {
                 return item.column;
             });
             result += groups.join(', ');
@@ -1004,7 +1004,7 @@ function ast2sql(ast) {
 
     function limit(ast) {
         if (typeof ast['LIMIT'] != 'undefined' && typeof ast['LIMIT'].nb != 'undefined' && parseInt(ast['LIMIT'].nb, 10) > 0) {
-            var result = ' LIMIT ';
+            let result = ' LIMIT ';
             if (typeof ast['LIMIT'].from != 'undefined' && parseInt(ast['LIMIT'].from, 10) > 1) result += ast['LIMIT'].from + ',';
             result += ast['LIMIT'].nb;
             return result;
@@ -1014,7 +1014,7 @@ function ast2sql(ast) {
 
     function insert_into(ast) {
         if (typeof ast['INSERT INTO'] != 'undefined') {
-            var result = 'INSERT INTO ' + ast['INSERT INTO'].table;
+            let result = 'INSERT INTO ' + ast['INSERT INTO'].table;
             if (typeof ast['INSERT INTO'].columns != 'undefined') {
                 result += ' (';
                 result += ast['INSERT INTO'].columns.join(', ');
@@ -1027,8 +1027,8 @@ function ast2sql(ast) {
 
     function values(ast) {
         if (typeof ast['VALUES'] != 'undefined') {
-            var result = ' VALUES ';
-            var vals = ast['VALUES'].map(function (item) {
+            let result = ' VALUES ';
+            let vals = ast['VALUES'].map(function (item) {
                 return '(' + item.join(', ') + ')';
             });
             result += vals.join(', ');
@@ -1039,9 +1039,9 @@ function ast2sql(ast) {
 
     function delete_from(ast) {
         if (typeof ast['DELETE FROM'] != 'undefined') {
-            var result = 'DELETE FROM ';
+            let result = 'DELETE FROM ';
             result += ast['DELETE FROM'].map(function (item) {
-                var str = item.table;
+                let str = item.table;
                 if (item.as !== '') str += ' AS ' + item.as;
                 return str;
             }).join(', ');
@@ -1052,9 +1052,9 @@ function ast2sql(ast) {
 
     function update(ast) {
         if (typeof ast['UPDATE'] != 'undefined') {
-            var result = 'UPDATE ';
+            let result = 'UPDATE ';
             result += ast['UPDATE'].map(function (item) {
-                var str = item.table;
+                let str = item.table;
                 if (item.as !== '') str += ' AS ' + item.as;
                 return str;
             }).join(', ');
@@ -1093,7 +1093,7 @@ function ast2sql(ast) {
 
 // Generate SQL from a condition AST output by sql2ast() or CondParser
 function cond2sql(cond, not_first) {
-    var result = '';
+    let result = '';
 
     // If there is a logical operation
     if (typeof cond.logic != 'undefined') {

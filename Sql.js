@@ -37,8 +37,8 @@ function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
             throw ("Missing table name.");
         if (typeof temp[1] == 'undefined')
             throw ("Missing table range.")
-        let cacheSeconds =(typeof temp[2] == 'undefined') ? 0 : temp[2];
-        sqlCmd.addTableData(temp[0], temp[1], cacheSeconds );
+        let cacheSeconds = (typeof temp[2] == 'undefined') ? 0 : temp[2];
+        sqlCmd.addTableData(temp[0], temp[1], cacheSeconds);
     }
     return sqlCmd.execute(statement);
 }
@@ -48,7 +48,7 @@ class Sql {
     /** Loads table data into object.
      * @param {any[][]} tableList - [tableName, sheetRange, tableArray], for as many tables that are used.
      */
-    constructor(tableList=[]) {
+    constructor(tableList = []) {
         /** @type {Map<String,Table>} */
         this.tables = new Map();
         this.columnTitle = false;
@@ -70,20 +70,20 @@ class Sql {
      * @param {Number} cacheSeconds
      * @returns {Sql}
      */
-    addTableData(tableName, tableData, cacheSeconds=0) {
+    addTableData(tableName, tableData, cacheSeconds = 0) {
         let tableInfo;
 
         if (Array.isArray(tableData)) {
             tableInfo = new Table(tableName)
-                .loadArrayData(tableData);    
+                .loadArrayData(tableData);
         }
         else {
             tableInfo = new Table(tableName)
-            .loadNamedRangeData(tableData, cacheSeconds);  
+                .loadNamedRangeData(tableData, cacheSeconds);
         }
 
-        this.tables.set(tableName.toUpperCase(), tableInfo);  
-        
+        this.tables.set(tableName.toUpperCase(), tableInfo);
+
         return this;
     }
 
@@ -102,11 +102,16 @@ class Sql {
      * @param {any} value 
      * @returns {Sql}
      */
-    addBindParameter(value){
+    addBindParameter(value) {
         this.bindParameters.push(value);
         return this;
     }
 
+    /**
+     * 
+     * @param {String} value 
+     * @returns {Sql}
+     */
     addBindNamedRangeParameter(value) {
         let tableData = new TableData();
         let namedValue = tableData.getValueCached(value, 30);
