@@ -8,8 +8,34 @@ The Google Sheets ***QUERY*** function is very flexible and powerful.  However i
     
 The gsSQL project is meant to help simplify your QUERY statements.  It is also available to be used from within your scripts.
 All regular SQL SELECT syntax is supported, along with:
+
 -The PIVOT option - which is also available from the QUERY command.  (A new column is created for each distinct data in the PIVOT field for EVERY aggregate field).
--BIND variables are available.  These are used to help simplify your select statement.
+```
+select date, sum(quantity) from bookReturns group by date pivot customer_id
+```
+
+-BIND variables are available.  These are used to help simplify your select statement. e.g.
+
+```
+    groupPivot3() {
+        let stmt = "select date, sum(quantity) from bookReturns where date >= ? and date <= ? group by date pivot customer_id";
+
+        let data = new Sql()
+            .addTableData("bookReturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .addBindParameter("05/01/2022")
+            .addBindParameter("05/04/2022")
+            .execute(stmt);
+
+        let expected = [["date", "c1 sum(quantity)", "c2 sum(quantity)", "c3 sum(quantity)", "c4 sum(quantity)"],
+        ["05/01/2022", 10, 8, 0, 0],
+        ["05/02/2022", 1, 0, 1, 0],
+        ["05/03/2022", 0, 0, 0, 300],
+        ["05/04/2022", 1, 100, 0, 0]];
+
+        return this.isEqual("groupPivot3", data, expected);
+    }
+```
 
 # USING gsSQL
 
@@ -79,6 +105,9 @@ Sql() Methods:
         
     addBindParameter(value)
         1)  For every question mark (no quotes) in your SELECT statement, there needs to be a matching bind variable data.  Call this method as for as many question marks in the select are used - in the order that they are found.
+        
+    addBindNamedRangeParameter(nameRange)
+        1)  For a bind variable that references a SINGLE cell named range.  Input is a STRING.  
 
     execute(stmt)
         1)  stmt:  SQL SELECT statement to run.  
