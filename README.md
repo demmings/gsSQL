@@ -151,3 +151,5 @@ Known Issues:
 1)  Field alias syntax is not fully supported.  It is currently only used for column titles that can be returned with the select data.
             
 2)  Very little error checking.  When developing your SQL SELECT statements and something is not correct or not supported, the application may just fail without giving any real indication of the problem.  This needs improvements.
+
+3)  Not really an issue, but the use of bind variables does not mean that the SELECT is compiled and reused.  It is only to make your SELECT easier to read.
