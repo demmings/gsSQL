@@ -203,7 +203,7 @@ class TableData {
         try {
             lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) {
-            throw ("Cache lock failed");
+            throw new Error ("Cache lock failed");
         }
 
         //  It is possible that just before getting the lock, another process started caching.
@@ -256,7 +256,7 @@ class TableData {
         try {
             lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) { 
-            throw ("Cache lock failed");
+            throw new Error("Cache lock failed");
         }
         cache.putAll(putObject, cacheSeconds);
         cache.put(cacheStatusName, TABLE.BLOCKS + blockCount.toString(), cacheSeconds);

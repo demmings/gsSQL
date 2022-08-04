@@ -1580,6 +1580,24 @@ class SqlTester {
         return this.isFail("selectBadField3", ex);
     }
 
+    selectBadOp1() {
+        let stmt = "SELECT  quantity, Sum(price) from booksales where price >>! 0 ";
+
+        let testSQL = new Sql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadOp1", ex);
+    }
+
     selectBadAs1() {
         let stmt = "SELECT  quantity, price ASE PrIcE from booksales ";
 
@@ -1735,6 +1753,7 @@ function testerSql() {
     tester.selectBadField1();
     tester.selectBadField2();
     tester.selectBadField3();
+    tester.selectBadOp1();
     tester.selectBadAs1();
     tester.selectBadConstant1();
     tester.selectBadConstant2();

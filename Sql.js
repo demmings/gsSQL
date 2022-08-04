@@ -34,9 +34,9 @@ function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
         Logger.log("table: " + temp);
 
         if (typeof temp[0] == 'undefined')
-            throw ("Missing table name.");
+            throw new Error("Missing table name.");
         if (typeof temp[1] == 'undefined')
-            throw ("Missing table range.")
+            throw new Error("Missing table range.")
         let cacheSeconds = (typeof temp[2] == 'undefined') ? 0 : temp[2];
         sqlCmd.addTableData(temp[0], temp[1], cacheSeconds);
     }
@@ -162,7 +162,7 @@ class Sql {
         if (typeof this.ast['SELECT'] != 'undefined')
             sqlData = this.select(this.ast);
         else
-            throw ("Only SELECT statements are supported.");
+            throw new Error("Only SELECT statements are supported.");
 
         return sqlData;
     }
@@ -291,7 +291,7 @@ class Sql {
                 for (let union of ast['UNION']) {
                     let unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
-                        throw ("Invalid UNION.  Selected field counts do not match.");
+                        throw new Error("Invalid UNION.  Selected field counts do not match.");
 
                     //  Remove duplicates.
                     viewTableData = this.appendUniqueRows(viewTableData, unionData);
@@ -303,7 +303,7 @@ class Sql {
                 for (let union of ast['UNION ALL']) {
                     let unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
-                        throw ("Invalid UNION ALL.  Selected field counts do not match.");
+                        throw new Error("Invalid UNION ALL.  Selected field counts do not match.");
 
                     //  Allow duplicates.
                     viewTableData = viewTableData.concat(unionData);
@@ -315,7 +315,7 @@ class Sql {
                 for (let union of ast['INTERSECT']) {
                     let unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
-                        throw ("Invalid INTERSECT.  Selected field counts do not match.");
+                        throw new Error("Invalid INTERSECT.  Selected field counts do not match.");
 
                     //  Must exist in BOTH tables.
                     viewTableData = this.intersectRows(viewTableData, unionData);
@@ -327,7 +327,7 @@ class Sql {
                 for (let union of ast['EXCEPT']) {
                     let unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
-                        throw ("Invalid EXCEPT.  Selected field counts do not match.");
+                        throw new Error("Invalid EXCEPT.  Selected field counts do not match.");
 
                     //  Remove from first table all rows that match in second table.
                     viewTableData = this.exceptRows(viewTableData, unionData);
@@ -341,7 +341,7 @@ class Sql {
 
         }
         else {
-            throw ("Missing keyword FROM");
+            throw new Error("Missing keyword FROM");
         }
 
         return viewTableData;
@@ -384,7 +384,7 @@ class Sql {
         //  If we are doing a PIVOT, it then requires a GROUP BY.
         if (typeof ast['PIVOT'] != 'undefined') {
             if (typeof ast['GROUP BY'] == 'undefined')
-                throw ("PIVOT requires GROUP BY");
+                throw new Error ("PIVOT requires GROUP BY");
         }
         else
             return ast;

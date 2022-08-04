@@ -219,7 +219,7 @@ class SelectTables {
                 break;
 
             default:
-                throw ("Invalid Operator: " + operator);
+                throw new Error ("Invalid Operator: " + operator);
         }
 
         return keep;
@@ -269,7 +269,7 @@ class SelectTables {
             result = new Function(functionString)();
         }
         catch (ex) {
-            throw ("Calculated Field Error: " + ex.message + ".  " + functionString);
+            throw new Error("Calculated Field Error: " + ex.message + ".  " + functionString);
         }
 
         return result;
@@ -688,7 +688,7 @@ class SelectTables {
                             groupValue += data;
                             break;
                         default:
-                            throw ("Invalid aggregate function: " + field.aggregateFunction);
+                            throw new Error("Invalid aggregate function: " + field.aggregateFunction);
                     }
                     first = false;
                 }
@@ -842,7 +842,7 @@ class SelectTables {
         else if (fieldCondition == '?') {
             //  Bind variable data.
             if (this.bindVariables.length == 0)
-                throw("Bind variable mismatch");
+                throw new Error("Bind variable mismatch");
             constantData = this.bindVariables.shift();
         }
         else {
@@ -1036,7 +1036,7 @@ class VirtualFields {
      */
     getFieldInfo(field) {
         if (field == null || typeof field != "string")
-            throw ("SELECT syntax error.  Failed to retrieve field info.");
+            throw new Error("SELECT syntax error.  Failed to retrieve field info.");
 
         field = field.trim().toUpperCase();
         let fieldInfo = null;
@@ -1338,14 +1338,14 @@ class JoinTables {
             if (leftFieldInfo == null)
                 leftFieldInfo = virtualFields.getFieldInfo(joinTable.cond.left);
             if (leftFieldInfo == null)
-                throw ("Invalid JOIN field: " + joinTable.cond.left);
+                throw new Error("Invalid JOIN field: " + joinTable.cond.left);
 
             /** @type {VirtualField} */
             let rightFieldInfo = this.derivedTable.getFieldInfo(joinTable.cond.right);
             if (rightFieldInfo == null)
                 rightFieldInfo = virtualFields.getFieldInfo(joinTable.cond.right);
             if (rightFieldInfo == null)
-                throw ("Invalid JOIN field: " + joinTable.cond.right);
+                throw new Error("Invalid JOIN field: " + joinTable.cond.right);
 
             this.derivedTable = this.joinTables(leftFieldInfo, rightFieldInfo, joinTable);
 

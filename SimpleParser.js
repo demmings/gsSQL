@@ -448,7 +448,7 @@ function sql2ast(query, parseCond) {
         }
         else {
             console.log('Can\'t analyze statement "' + item + '"');
-            throw ("Can't analyze statement " + item);
+            throw new Error("Can't analyze statement " + item);
         }
     });
 
