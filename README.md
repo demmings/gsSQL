@@ -1,3 +1,6 @@
+![Your Repository’s Stats](https://github-readme-stats.vercel.app/api?username=demmings&show_icons=true)
+
+
 # gsSQL
 The Google Sheets ***QUERY*** function is very flexible and powerful.  However it is:
 
