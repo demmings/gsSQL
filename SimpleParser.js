@@ -322,7 +322,7 @@ function sql2ast(query, parseCond) {
     analysis['ORDER BY'] = function (str) {
         str = str.split(',');
         let orderByResult = [];
-        str.forEach(function (item, key) {
+        str.forEach(function (item, _key) {
             let order_by = /([A-Za-z0-9_\.]+)\s*(ASC|DESC){0,1}/gi;
             order_by = order_by.exec(item);
             if (order_by !== null) {
@@ -341,7 +341,7 @@ function sql2ast(query, parseCond) {
     analysis['GROUP BY'] = function (str) {
         str = str.split(',');
         let groupByResult = [];
-        str.forEach(function (item, key) {
+        str.forEach(function (item, _key) {
             let group_by = /([A-Za-z0-9_\.]+)/gi;
             group_by = group_by.exec(item);
             if (group_by !== null) {
@@ -356,7 +356,7 @@ function sql2ast(query, parseCond) {
     analysis['PIVOT'] = function (str) {
         str = str.split(',');
         let pivotResult = [];
-        str.forEach(function (item, key) {
+        str.forEach(function (item, _key) {
             let pivotOn = /([A-Za-z0-9_\.]+)/gi;
             pivotOn = pivotOn.exec(item);
             if (pivotOn !== null) {
@@ -429,7 +429,7 @@ function sql2ast(query, parseCond) {
     // Analyze parts
     let result = {};
     let j = 0;
-    parts_order.forEach(function (item, key) {
+    parts_order.forEach(function (item, _key) {
         item = item.toUpperCase();
         j++;
         if (typeof analysis[item] != 'undefined') {
@@ -928,168 +928,6 @@ CondParser.prototype = {
 CondParser.parse = function (source) {
     return new CondParser(source).parseExpressionsRecursively();
 };
-
-// Generate the SQL query corresponding to an AST output by sql2ast()
-function ast2sql(ast) {
-    let result = '';
-
-    // Define subfunctions
-    function select(ast) {
-        if (typeof ast['SELECT'] != 'undefined') {
-            return 'SELECT ' + ast['SELECT'].map(function (item) {
-                return item.name;
-            }).join(', ');
-        }
-        else return '';
-    }
-
-    function from(ast) {
-        if (typeof ast['FROM'] != 'undefined') {
-            let result = ' FROM ';
-            let tmp = ast['FROM'].map(function (item) {
-                let str = item.table;
-                if (item.as !== '')
-                    str += ' AS ' + item.as;
-                return str;
-            });
-            result += tmp.join(', ');
-            return result;
-        }
-        else return '';
-    }
-
-    function join(ast) {
-        if (typeof ast['JOIN'] != 'undefined') {
-            let result = '';
-            ast['JOIN'].forEach(function (item) {
-                result += ' ' + item.type.toUpperCase() + ' JOIN ' + item.table;
-                if (item.as !== '') result += ' AS ' + item.as;
-                result += ' ON ' + cond2sql(item.cond);
-            });
-            return result;
-        }
-        else return '';
-    }
-
-    function where(ast) {
-        if (typeof ast['WHERE'] != 'undefined') {
-            return ' WHERE ' + cond2sql(ast['WHERE']);
-        }
-        else return '';
-    }
-
-    function order_by(ast) {
-        if (typeof ast['ORDER BY'] != 'undefined') {
-            let result = ' ORDER BY ';
-            let orders = ast['ORDER BY'].map(function (item) {
-                return item.column + ' ' + item.order;
-            });
-            result += orders.join(', ');
-            return result;
-        }
-        else return '';
-    }
-
-    function group_by(ast) {
-        if (typeof ast['GROUP BY'] != 'undefined') {
-            let result = ' GROUP BY ';
-            let groups = ast['GROUP BY'].map(function (item) {
-                return item.column;
-            });
-            result += groups.join(', ');
-            return result;
-        }
-        else return '';
-    }
-
-    function limit(ast) {
-        if (typeof ast['LIMIT'] != 'undefined' && typeof ast['LIMIT'].nb != 'undefined' && parseInt(ast['LIMIT'].nb, 10) > 0) {
-            let result = ' LIMIT ';
-            if (typeof ast['LIMIT'].from != 'undefined' && parseInt(ast['LIMIT'].from, 10) > 1) result += ast['LIMIT'].from + ',';
-            result += ast['LIMIT'].nb;
-            return result;
-        }
-        else return '';
-    }
-
-    function insert_into(ast) {
-        if (typeof ast['INSERT INTO'] != 'undefined') {
-            let result = 'INSERT INTO ' + ast['INSERT INTO'].table;
-            if (typeof ast['INSERT INTO'].columns != 'undefined') {
-                result += ' (';
-                result += ast['INSERT INTO'].columns.join(', ');
-                result += ')';
-            }
-            return result;
-        }
-        else return '';
-    }
-
-    function values(ast) {
-        if (typeof ast['VALUES'] != 'undefined') {
-            let result = ' VALUES ';
-            let vals = ast['VALUES'].map(function (item) {
-                return '(' + item.join(', ') + ')';
-            });
-            result += vals.join(', ');
-            return result;
-        }
-        else return '';
-    }
-
-    function delete_from(ast) {
-        if (typeof ast['DELETE FROM'] != 'undefined') {
-            let result = 'DELETE FROM ';
-            result += ast['DELETE FROM'].map(function (item) {
-                let str = item.table;
-                if (item.as !== '') str += ' AS ' + item.as;
-                return str;
-            }).join(', ');
-            return result;
-        }
-        else return '';
-    }
-
-    function update(ast) {
-        if (typeof ast['UPDATE'] != 'undefined') {
-            let result = 'UPDATE ';
-            result += ast['UPDATE'].map(function (item) {
-                let str = item.table;
-                if (item.as !== '') str += ' AS ' + item.as;
-                return str;
-            }).join(', ');
-            return result;
-        }
-        else return '';
-    }
-
-    function set(ast) {
-        if (typeof ast['SET'] != 'undefined') {
-            return ' SET ' + ast['SET'].map(function (item) {
-                return item.expression;
-            }).join(', ');
-        }
-        else return '';
-    }
-
-
-    // Check request's type
-    if (typeof ast['SELECT'] != 'undefined' && typeof ast['FROM'] != 'undefined') {
-        result = select(ast) + from(ast) + join(ast) + where(ast) + group_by(ast) + order_by(ast) + limit(ast);
-    }
-    else if (typeof ast['INSERT INTO'] != 'undefined') {
-        result = insert_into(ast) + values(ast);
-    }
-    else if (typeof ast['UPDATE'] != 'undefined') {
-        result = update(ast) + set(ast) + where(ast);
-    }
-    else if (typeof ast['DELETE FROM'] != 'undefined') {
-        result = delete_from(ast) + where(ast);
-    }
-    else result = null;
-
-    return result;
-}
 
 // Generate SQL from a condition AST output by sql2ast() or CondParser
 function cond2sql(cond, not_first) {

@@ -72,8 +72,8 @@ class Table {
 
     loadSchema() {
         this.schema
-        .setTableData(this.tableData)
-        .load(); 
+            .setTableData(this.tableData)
+            .load();
 
         return this;
     }
@@ -309,7 +309,7 @@ class Schema {
         let fieldNames = [];
 
         // @ts-ignore
-        for (const [key, value] of this.fields.entries()) {
+        for (let key of this.fields.keys()) {
             if (key != "*")
                 fieldNames.push(key);
         }
@@ -329,9 +329,8 @@ class Schema {
         for (const [key, value] of this.fields.entries()) {
             if (value != null) {
                 let fieldParts = key.split(".");
-                if (fieldParts.length == 2 && (fieldParts[0] == this.tableName || this.isDerivedTable))
-                    fieldNames[value] = key;
-                else if (typeof fieldNames[value] == 'undefined')
+                if (typeof fieldNames[value] == 'undefined' ||
+                    (fieldParts.length == 2 && (fieldParts[0] == this.tableName || this.isDerivedTable)))
                     fieldNames[value] = key;
             }
         }

@@ -103,12 +103,12 @@ class SelectTables {
     getRecordIDs(condition) {
         /** @type {Number[]} */
         let recordIDs = [];
-        /** @type {String} */
+        /** @type {any} */
         let leftConstant = null;
         let leftCol = -1;
         /** @type {Table} */
         let leftTable = null;
-        /** @type {String} */
+        /** @type {any} */
         let rightConstant = null;
         let rightCol = -1;
         /** @type {Table} */
@@ -125,8 +125,8 @@ class SelectTables {
         this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.masterTableInfo;
 
         for (let masterRecordID = 1; masterRecordID < this.masterTable.tableData.length; masterRecordID++) {
-            let leftValue = null;
-            let rightValue = null;
+            let leftValue = leftConstant;
+            let rightValue = rightConstant;
 
             if (leftCol >= 0) {
                 leftValue = leftTable.tableData[masterRecordID][leftCol];
@@ -134,8 +134,6 @@ class SelectTables {
             else if (leftCalculatedField != "") {
                 leftValue = this.evaluateCalculatedField(leftCalculatedField, masterRecordID);
             }
-            else
-                leftValue = leftConstant;
 
             if (rightCol >= 0) {
                 rightValue = rightTable.tableData[masterRecordID][rightCol];
@@ -143,8 +141,6 @@ class SelectTables {
             else if (rightCalculatedField != "") {
                 rightValue = this.evaluateCalculatedField(rightCalculatedField, masterRecordID);
             }
-            else
-                rightValue = rightConstant;
 
             if (leftValue == null || rightValue == null)
                 continue;
