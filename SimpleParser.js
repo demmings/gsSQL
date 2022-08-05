@@ -195,7 +195,7 @@ function sql2ast(query, parseCond) {
 
     // Write the position(s) in query of these separators
     let parts_order = [];
-    function realNameCallback(match, name) {
+    function realNameCallback(_match, name) {
         return name;
     }
     parts_name.forEach(function (item) {
@@ -246,11 +246,12 @@ function sql2ast(query, parseCond) {
     }
 
     // Define analysis functions
-    let analysis = [];
+    // let analysis = [];
+    let analysis = {};
 
     analysis['SELECT'] = function (str) {
-        let result = protect_split(',', str);
-        result = result.filter(function (item) {
+        let selectResult = protect_split(',', str);
+        selectResult = selectResult.filter(function (item) {
             return item !== '';
         }).map(function (item) {
             //  Is there a column alias?
@@ -275,43 +276,43 @@ function sql2ast(query, parseCond) {
                 return { name: item, as: alias };
             }
         });
-        return result;
+        return selectResult;
     };
 
     analysis['SET'] = function (str) {
-        let result = protect_split(',', str);
-        result = result.filter(function (item) {
+        let setResult = protect_split(',', str);
+        setResult = setResult.filter(function (item) {
             return item !== '';
         }).map(function (item) {
             return { expression: item };
         });
-        return result;
+        return setResult;
     };
 
     analysis['FROM'] = analysis['DELETE FROM'] = analysis['UPDATE'] = function (str) {
-        let result = str.split(',');
-        result = result.map(function (item) {
+        let fromResult = str.split(',');
+        fromResult = fromResult.map(function (item) {
             return trim(item);
         });
-        result.forEach(function (item, key) {
-            if (item === '') result.splice(key);
+        fromResult.forEach(function (item, key) {
+            if (item === '') fromResult.splice(key);
         });
-        result = result.map(function (item) {
+        fromResult = fromResult.map(function (item) {
             let [table, alias] = getNameAndAlias(item);
             return { table: table, as: alias };
         });
-        return result;
+        return fromResult;
     };
 
     analysis['LEFT JOIN'] = analysis['JOIN'] = analysis['INNER JOIN'] = analysis['RIGHT JOIN'] = analysis['FULL JOIN'] = function (str) {
         str = str.toUpperCase().split(' ON ');
         let table = str[0].split(' AS ');
-        let result = {};
-        result['table'] = trim(table[0]);
-        result['as'] = trim(table[1]) || '';
-        result['cond'] = trim(str[1]);
+        let joinResult = {};
+        joinResult['table'] = trim(table[0]);
+        joinResult['as'] = trim(table[1]) || '';
+        joinResult['cond'] = trim(str[1]);
 
-        return result;
+        return joinResult;
     };
 
     analysis['WHERE'] = function (str) {
@@ -320,7 +321,7 @@ function sql2ast(query, parseCond) {
 
     analysis['ORDER BY'] = function (str) {
         str = str.split(',');
-        let result = [];
+        let orderByResult = [];
         str.forEach(function (item, key) {
             let order_by = /([A-Za-z0-9_\.]+)\s*(ASC|DESC){0,1}/gi;
             order_by = order_by.exec(item);
@@ -331,30 +332,30 @@ function sql2ast(query, parseCond) {
                 if (order_by[2] === undefined) {
                     tmp['order'] = "ASC";
                 }
-                result.push(tmp);
+                orderByResult.push(tmp);
             }
         });
-        return result;
+        return orderByResult;
     };
 
     analysis['GROUP BY'] = function (str) {
         str = str.split(',');
-        let result = [];
+        let groupByResult = [];
         str.forEach(function (item, key) {
             let group_by = /([A-Za-z0-9_\.]+)/gi;
             group_by = group_by.exec(item);
             if (group_by !== null) {
                 let tmp = {};
                 tmp['column'] = trim(group_by[1]);
-                result.push(tmp);
+                groupByResult.push(tmp);
             }
         });
-        return result;
+        return groupByResult;
     };
 
     analysis['PIVOT'] = function (str) {
         str = str.split(',');
-        let result = [];
+        let pivotResult = [];
         str.forEach(function (item, key) {
             let pivotOn = /([A-Za-z0-9_\.]+)/gi;
             pivotOn = pivotOn.exec(item);
@@ -362,47 +363,47 @@ function sql2ast(query, parseCond) {
                 let tmp = {};
                 tmp['name'] = trim(pivotOn[1]);
                 tmp['as'] = "";
-                result.push(tmp);
+                pivotResult.push(tmp);
             }
         });
-        return result;
+        return pivotResult;
     };
 
     analysis['LIMIT'] = function (str) {
         let limit = /((\d+)\s*,\s*)?(\d+)/gi;
         limit = limit.exec(str);
         if (typeof limit[2] == 'undefined') limit[2] = 0;
-        let result = {};
-        result['nb'] = parseInt(trim(limit[3]), 10);
-        result['from'] = parseInt(trim(limit[2]), 10);
-        return result;
+        let limitResult = {};
+        limitResult['nb'] = parseInt(trim(limit[3]), 10);
+        limitResult['from'] = parseInt(trim(limit[2]), 10);
+        return limitResult;
     };
 
     analysis['INSERT INTO'] = function (str) {
         let insert = /([A-Za-z0-9_\.]+)\s*(\(([A-Za-z0-9_\., ]+)\))?/gi;
         insert = insert.exec(str);
-        let result = {};
-        result['table'] = trim(insert[1]);
+        let insertResult = {};
+        insertResult['table'] = trim(insert[1]);
         if (typeof insert[3] != 'undefined') {
-            result['columns'] = insert[3].split(',');
-            result['columns'] = result['columns'].map(function (item) {
+            insertResult['columns'] = insert[3].split(',');
+            insertResult['columns'] = insertResult['columns'].map(function (item) {
                 return trim(item);
             });
         }
-        return result;
+        return insertResult;
     };
 
     analysis['VALUES'] = function (str) {
         str = trim(str);
         if (str[0] != '(') str = '(' + str;	// If query has "VALUES(...)" instead of "VALUES (...)"
         let groups = protect_split(',', str);
-        let result = [];
+        let valuesResult = [];
         groups.forEach(function (group) {
             group = group.replace(/^\(/g, '').replace(/\)$/g, '');
             group = protect_split(',', group);
-            result.push(group);
+            valuesResult.push(group);
         });
-        return result;
+        return valuesResult;
     };
 
     analysis['HAVING'] = function (str) {
