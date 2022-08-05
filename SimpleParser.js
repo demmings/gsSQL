@@ -323,7 +323,7 @@ function sql2ast(query, parseCond) {
         str = str.split(',');
         let orderByResult = [];
         str.forEach(function (item, _key) {
-            let order_by = /([A-Za-z0-9_\.]+)\s*(ASC|DESC){0,1}/gi;
+            let order_by = /([\w\.]+)\s*(ASC|DESC){0,1}/gi;
             order_by = order_by.exec(item);
             if (order_by !== null) {
                 let tmp = {};
@@ -342,7 +342,7 @@ function sql2ast(query, parseCond) {
         str = str.split(',');
         let groupByResult = [];
         str.forEach(function (item, _key) {
-            let group_by = /([A-Za-z0-9_\.]+)/gi;
+            let group_by = /([\w\.]+)/gi;
             group_by = group_by.exec(item);
             if (group_by !== null) {
                 let tmp = {};
@@ -357,7 +357,7 @@ function sql2ast(query, parseCond) {
         str = str.split(',');
         let pivotResult = [];
         str.forEach(function (item, _key) {
-            let pivotOn = /([A-Za-z0-9_\.]+)/gi;
+            let pivotOn = /([\w\.]+)/gi;
             pivotOn = pivotOn.exec(item);
             if (pivotOn !== null) {
                 let tmp = {};
@@ -380,7 +380,7 @@ function sql2ast(query, parseCond) {
     };
 
     analysis['INSERT INTO'] = function (str) {
-        let insert = /([A-Za-z0-9_\.]+)\s*(\(([A-Za-z0-9_\., ]+)\))?/gi;
+        let insert = /([\w\.]+)\s*(\(([\w\., ]+)\))?/gi;
         insert = insert.exec(str);
         let insertResult = {};
         insertResult['table'] = trim(insert[1]);

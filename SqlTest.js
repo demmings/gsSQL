@@ -1687,7 +1687,7 @@ testerSql();
 //  *** DEBUG END  ***/
 
 function testerSql() {
-    var tester = new SqlTester();
+    let tester = new SqlTester();
 
     tester.selectAll1();
     tester.innerJoin1();
