@@ -823,6 +823,27 @@ class SqlTester {
         return this.isEqual("union1", data, expected);
     }
 
+    unionBind1() {
+        let stmt = "select * from authors where id = ? UNION select * from editors where id = ? UNION select * from translators where id = ?";
+
+        let data = new Sql()
+            .addTableData("authors", this.authorsTable())
+            .addTableData("editors", this.editorsTable())
+            .addTableData("translators", this.translatorsTable())
+            .enableColumnTitle(true)
+            .addBindParameter('15')
+            .addBindParameter('51')
+            .addBindParameter('31')
+            .execute(stmt);
+
+        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
+        ["15", "Yao", "Dou"],
+        ["51", "Daniel", "Smart"],
+        ["31", "Ira", "Davies"]];
+
+        return this.isEqual("unionBind1", data, expected);
+    }
+
     unionAll1() {
         let stmt = "select * from authors UNION ALL select * from editors";
 
@@ -1718,6 +1739,7 @@ function testerSql() {
     tester.whereLike2();
     tester.whereNotLike1();
     tester.union1();
+    tester.unionBind1();
     tester.unionAll1();
     tester.except1();
     tester.intersect1();

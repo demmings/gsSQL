@@ -2,13 +2,14 @@
 /*  *** DEBUG START ***
 export { Sql };
 import { Table } from './Table.js';
+import { TableData } from './TableData.js';
 import { sql2ast } from './SimpleParser.js';
 import { SelectTables } from './Views.js';
 //  *** DEBUG END  ***/
 
 /**
  * 
- * @param {String} tableArr - "[[tableName, sheetRange, cacheSeconds=60],[name,range,cache],...]]"
+ * @param {String} tableArr - "[tableName, sheetRange, cacheSeconds=60],[name,range,cache],..."
  * @param {String} statement - SQL (e.g.:  'select * from tableName')
  * @param {Boolean} columnTitle - TRUE will add column title to output (default=FALSE)
  * @param {...any} bindings - Bind variables to match '?' in SQL statement.
@@ -16,13 +17,7 @@ import { SelectTables } from './Views.js';
  * @customfunction
  */
 function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
-    //  TODO:  'THEY' say never use EVAL.  Well, who are 'THEY' and I don't care since I
-    //          am the only user.
-    let tableList = eval(tableArr);
-
-    //  If called at the same time, loading similar tables in similar order - all processes
-    //  just wait for table - but if loaded in different order, each process could be loading something.
-    tableList = tableList.sort(() => Math.random() - 0.5);
+    let tableList = parseTableSettings(tableArr);
 
     Logger.log("gsSQL: tableList=" + tableList + ".  Statement=" + statement + ". List Len=" + tableList.length);
 
@@ -30,17 +25,48 @@ function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
     for (let bind of bindings) {
         sqlCmd.addBindParameter(bind);
     }
-    for (let temp of tableList) {
-        Logger.log("table: " + temp);
-
-        if (typeof temp[0] == 'undefined')
-            throw new Error("Missing table name.");
-        if (typeof temp[1] == 'undefined')
-            throw new Error("Missing table range.")
-        let cacheSeconds = (typeof temp[2] == 'undefined') ? 0 : temp[2];
-        sqlCmd.addTableData(temp[0], temp[1], cacheSeconds);
+    for (let tableDef of tableList) {
+        sqlCmd.addTableData(tableDef[0], tableDef[1], tableDef[2]);
     }
     return sqlCmd.execute(statement);
+}
+
+/**
+ * 
+ * @param {String} tableStr 
+ * @returns {any[][]}
+ */
+function parseTableSettings(tableStr) {
+    let tableList = [];
+
+    let tableGroup = SelectTables.parseForParams(tableStr, "[", "]");
+    if (tableGroup.length == 0)
+        throw new Error("Missing table definition [name,range,cache]");
+
+    for (let table of tableGroup) {
+        let indexOfOpenBracket = table.indexOf("[");
+        let indexOfLastBracket = table.lastIndexOf("]");
+        
+        let params = table.substring(indexOfOpenBracket+1, indexOfLastBracket);
+
+        /** @type {any[]} */
+        let items = params.split(",");
+        for (let i = 0; i < items.length; i++)
+            items[i] = items[i].replace(/['"]+/g, '').trim();
+
+        if (items.length == 2)
+            items.push(0);      //  default 0 second cache.
+        if (items.length != 3)
+            throw new Error ("Invalid table definition [name,range,cache]");
+
+        tableList.push(items);
+    }
+
+    //  If called at the same time, loading similar tables in similar order - all processes
+    //  just wait for table - but if loaded in different order, each process could be loading something.
+    tableList = tableList.sort(() => Math.random() - 0.5);
+
+    return tableList;
 }
 
 
@@ -53,14 +79,6 @@ class Sql {
         this.tables = new Map();
         this.columnTitle = false;
         this.bindParameters = [];
-
-        //  All tables that are reference along with sheet ranges.
-        for (let table of tableList) {
-            let tableInfo = new Table(table[0])
-                .loadNamedRangeData(table[1])
-                .loadArrayData(table[2]);
-            this.tables.set(table[0].toUpperCase(), tableInfo);
-        }
     }
 
     /**
@@ -380,12 +398,20 @@ class Sql {
         return newPivotAstFields;
     }
 
+    /**
+     * 
+     * @param {Object} ast 
+     * @param {any[][]} viewTableData 
+     * @returns {any[][]}
+     */
     unionSets(ast, viewTableData) {
         let unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
 
         for (let type of unionTypes) {
             if (typeof ast[type] != 'undefined') {
-                let unionSQL = new Sql([]).setTables(this.tables);
+                let unionSQL = new Sql()
+                .setBindValues(this.bindParameters)
+                .setTables(this.tables);
                 for (let union of ast[type]) {
                     let unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)

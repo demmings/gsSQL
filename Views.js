@@ -371,7 +371,7 @@ class SelectTables {
 
             while (args != null && args.length > 0) {
                 // Split on COMMA, except within brackets.
-                let parms = typeof args[1] == 'undefined' ? [] : this.parseForParams(args[1]);
+                let parms = typeof args[1] == 'undefined' ? [] : SelectTables.parseForParams(args[1]);
 
                 let replacement = "";
                 switch (func) {
@@ -560,7 +560,7 @@ class SelectTables {
      * @param {String} paramString 
      * @returns {String[]}
      */
-    parseForParams(paramString) {
+    static parseForParams(paramString, startBracket="(", endBracket=")") {
         let args = [];
         let bracketCount = 0;
         let start = 0;
@@ -572,9 +572,9 @@ class SelectTables {
                 args.push(paramString.substring(start, i));
                 start = i + 1;
             }
-            else if (c == "(")
+            else if (c == startBracket)
                 bracketCount++;
-            else if (c == ")")
+            else if (c == endBracket)
                 bracketCount--;
         }
 
@@ -773,7 +773,7 @@ class SelectTables {
         tableMapping.set(this.primaryTable.toUpperCase(), groupTable);
 
         //  Set up for our SQL.
-        let inSQL = new Sql([]).setTables(tableMapping);
+        let inSQL = new Sql().setTables(tableMapping);
 
         //  Fudge the HAVING to look like a SELECT.
         let astSelect = {};
@@ -871,7 +871,7 @@ class SelectTables {
 
         //  Maybe a SELECT within...
         if (typeof fieldCondition['SELECT'] != 'undefined') {
-            let inSQL = new Sql([]).setTables(this.tableInfo);
+            let inSQL = new Sql().setTables(this.tableInfo);
             inSQL.setBindValues(this.bindVariables);
             let inData = inSQL.select(fieldCondition);
             constantData = inData.join(",");

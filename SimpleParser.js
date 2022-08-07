@@ -928,49 +928,6 @@ CondParser.parse = function (source) {
     return new CondParser(source).parseExpressionsRecursively();
 };
 
-// Generate SQL from a condition AST output by sql2ast() or CondParser
-function cond2sql(cond, not_first) {
-    let result = '';
-
-    // If there is a logical operation
-    if (typeof cond.logic != 'undefined') {
-        result = cond.terms.map(function (item) {
-            return cond2sql(item, true);
-        });
-        result = result.join(' ' + cond.logic + ' ');
-        if (typeof not_first !== 'undefined') result = '(' + result + ')';
-    }
-    // If there is a condition
-    else if (typeof cond.left != 'undefined') {
-        result = cond.left;
-        if (typeof cond.operator != 'undefined') {
-            result += ' ' + cond.operator;
-            if (typeof cond.right != 'undefined') {
-                if (cond.operator === 'IN') {
-                    //  Check if SELECT is IN condition.
-                    if (typeof cond.right['SELECT'] != 'undefined') {
-                        result += ' (' + ast2sql(cond.right) + ')';
-                    }
-                    else
-                        result += ' (' + cond.right + ')';
-                }
-                else {
-                    if (typeof cond.right['SELECT'] != 'undefined') {
-                        result += ' (' + ast2sql(cond.right) + ')';
-                    }
-                    else
-                        result += ' ' + cond.right;
-                }
-            }
-        }
-    }
-    // If there is a boolean
-    else result = cond;
-
-    return result;
-}
-
-
 /**
 * 
 * @param {String} logic 
