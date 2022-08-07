@@ -1237,7 +1237,7 @@ class VirtualFields {
             let calculatedField = (typeof selField.terms == 'undefined') ? null : selField.terms;
 
             if (calculatedField == null && !this.hasField(columnName)) {
-                const functionNameRegex = /[\w]+(?=\()/;
+                const functionNameRegex = /\w+(?=\()/;
                 let matches = columnName.match(functionNameRegex)
                 if (matches != null && matches.length > 0)
                     aggregateFunctionName = matches[0];
