@@ -402,9 +402,9 @@ class Schema {
 
             let colNum = 0;
             /** @type{String} */
-            let columnName;
-            for (columnName of titleRow) {
-                columnName = columnName.trim().toUpperCase().replace(/\s/g, "_");
+            let col;
+            for (col of titleRow) {
+                let columnName = col.trim().toUpperCase().replace(/\s/g, "_");
                 let fullColumnName = columnName;
                 let fullColumnAliasName = "";
                 if (columnName.indexOf(".") == -1) {

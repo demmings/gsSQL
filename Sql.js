@@ -233,116 +233,45 @@ class Sql {
         let recordIDs = [];
         let viewTableData = [];
 
-        if (typeof ast['FROM'] != 'undefined') {
-            //  Manipulate AST to add GROUP BY if DISTINCT keyword.
-            ast = this.distinctField(ast);
-
-            if (typeof ast['PIVOT'] != 'undefined') {
-                //  Manipulate AST add pivot fields.
-                ast = this.pivotField(ast);
-            }
-
-            let view = new SelectTables(ast['FROM'], ast['SELECT'], this.tables, this.bindParameters);
-
-            if (typeof ast['JOIN'] != 'undefined') {
-                view.join(ast['JOIN']);
-            }
-
-            if (typeof ast['WHERE'] != 'undefined') {
-                recordIDs = view.whereCondition(ast['WHERE']);
-            }
-            else {
-                //  Entire table is selected.  
-                let conditions = { operator: "=", left: "\"A\"", right: "\"A\"" };
-                recordIDs = view.whereCondition(conditions);
-            }
-
-            viewTableData = view.getViewData(recordIDs);
-
-            if (typeof ast['GROUP BY'] != 'undefined') {
-                viewTableData = view.groupBy(ast['GROUP BY'], viewTableData);
-
-                if (typeof ast['HAVING'] != 'undefined') {
-                    viewTableData = view.having(ast['HAVING'], viewTableData);
-                }
-            }
-            else {
-                //  If any conglomerate field functions (SUM, COUNT,...)
-                //  we summarize all records into ONE.
-                if (view.getConglomerateFieldCount() > 0) {
-                    let compressedData = [];
-                    compressedData.push(view.conglomerateRecord(viewTableData));
-                    viewTableData = compressedData;
-                }
-            }
-
-            if (typeof ast['ORDER BY'] != 'undefined') {
-                view.orderBy(ast['ORDER BY'], viewTableData);
-            }
-
-            if (typeof ast['LIMIT'] != 'undefined') {
-                let maxItems = ast['LIMIT'].nb;
-                if (viewTableData.length > maxItems)
-                    viewTableData.splice(maxItems);
-            }
-
-            if (typeof ast['UNION'] != 'undefined') {
-                let unionSQL = new Sql([]).setTables(this.tables);
-                for (let union of ast['UNION']) {
-                    let unionData = unionSQL.select(union);
-                    if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
-                        throw new Error("Invalid UNION.  Selected field counts do not match.");
-
-                    //  Remove duplicates.
-                    viewTableData = this.appendUniqueRows(viewTableData, unionData);
-                }
-            }
-
-            if (typeof ast['UNION ALL'] != 'undefined') {
-                let unionSQL = new Sql([]).setTables(this.tables);
-                for (let union of ast['UNION ALL']) {
-                    let unionData = unionSQL.select(union);
-                    if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
-                        throw new Error("Invalid UNION ALL.  Selected field counts do not match.");
-
-                    //  Allow duplicates.
-                    viewTableData = viewTableData.concat(unionData);
-                }
-            }
-
-            if (typeof ast['INTERSECT'] != 'undefined') {
-                let unionSQL = new Sql([]).setTables(this.tables);
-                for (let union of ast['INTERSECT']) {
-                    let unionData = unionSQL.select(union);
-                    if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
-                        throw new Error("Invalid INTERSECT.  Selected field counts do not match.");
-
-                    //  Must exist in BOTH tables.
-                    viewTableData = this.intersectRows(viewTableData, unionData);
-                }
-            }
-
-            if (typeof ast['EXCEPT'] != 'undefined') {
-                let unionSQL = new Sql([]).setTables(this.tables);
-                for (let union of ast['EXCEPT']) {
-                    let unionData = unionSQL.select(union);
-                    if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
-                        throw new Error("Invalid EXCEPT.  Selected field counts do not match.");
-
-                    //  Remove from first table all rows that match in second table.
-                    viewTableData = this.exceptRows(viewTableData, unionData);
-                }
-            }
-
-            if (this.columnTitle)
-                viewTableData.unshift(view.getColumnTitles());
-            else if (viewTableData.length == 1 && viewTableData[0].length == 0)
-                viewTableData[0] = [""];
-
-        }
-        else {
+        if (typeof ast['FROM'] == 'undefined')
             throw new Error("Missing keyword FROM");
+
+        //  Manipulate AST to add GROUP BY if DISTINCT keyword.
+        ast = this.distinctField(ast);
+
+        //  Manipulate AST add pivot fields.
+        ast = this.pivotField(ast);
+
+        let view = new SelectTables(ast['FROM'], ast['SELECT'], this.tables, this.bindParameters);
+
+        //  JOIN tables to create a derived table.
+        view.join(ast);
+
+        //  Get the record ID's of all records matching WHERE condition.
+        recordIDs = view.whereCondition(ast);
+
+        //  Get selected data records.
+        viewTableData = view.getViewData(recordIDs);
+
+        //  Compress the data.
+        viewTableData = view.groupBy(ast, viewTableData);
+
+        //  Sort our selected data.
+        view.orderBy(ast, viewTableData);
+
+        if (typeof ast['LIMIT'] != 'undefined') {
+            let maxItems = ast['LIMIT'].nb;
+            if (viewTableData.length > maxItems)
+                viewTableData.splice(maxItems);
         }
+
+        //  Apply SET rules for various union types.
+        viewTableData = this.unionSets(ast, viewTableData);
+
+        if (this.columnTitle)
+            viewTableData.unshift(view.getColumnTitles());
+        else if (viewTableData.length == 1 && viewTableData[0].length == 0)
+            viewTableData[0] = [""];
 
         return viewTableData;
     }
@@ -384,7 +313,7 @@ class Sql {
         //  If we are doing a PIVOT, it then requires a GROUP BY.
         if (typeof ast['PIVOT'] != 'undefined') {
             if (typeof ast['GROUP BY'] == 'undefined')
-                throw new Error ("PIVOT requires GROUP BY");
+                throw new Error("PIVOT requires GROUP BY");
         }
         else
             return ast;
@@ -449,6 +378,46 @@ class Sql {
         }
 
         return newPivotAstFields;
+    }
+
+    unionSets(ast, viewTableData) {
+        let unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+
+        for (let type of unionTypes) {
+            if (typeof ast[type] != 'undefined') {
+                let unionSQL = new Sql([]).setTables(this.tables);
+                for (let union of ast[type]) {
+                    let unionData = unionSQL.select(union);
+                    if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
+                        throw new Error("Invalid " + type +  ".  Selected field counts do not match.");
+    
+                    switch (type)
+                    {
+                        case "UNION":
+                            //  Remove duplicates.
+                            viewTableData = this.appendUniqueRows(viewTableData, unionData);
+                            break;
+
+                        case "UNION ALL":
+                            //  Allow duplicates.
+                            viewTableData = viewTableData.concat(unionData);
+                            break;
+
+                        case "INTERSECT":
+                            //  Must exist in BOTH tables.
+                            viewTableData = this.intersectRows(viewTableData, unionData);
+                            break;
+
+                        case "EXCEPT":
+                            //  Remove from first table all rows that match in second table.
+                            viewTableData = this.exceptRows(viewTableData, unionData);
+                            break;                                               
+                    }
+                }
+            }            
+        }
+
+        return viewTableData;
     }
 
     /**

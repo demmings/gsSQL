@@ -246,7 +246,6 @@ function sql2ast(query, parseCond) {
     }
 
     // Define analysis functions
-    // let analysis = [];
     let analysis = {};
 
     analysis['SELECT'] = function (str) {

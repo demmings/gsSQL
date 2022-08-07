@@ -39,19 +39,29 @@ class SelectTables {
 
     /**
      * 
-     * @param {any[]} astJoin 
+     * @param {any[]} ast 
      */
-    join(astJoin) {
-        this.dataJoin = new JoinTables(astJoin, this.virtualFields);
+    join(ast) {
+        if (typeof ast['JOIN'] != 'undefined')
+            this.dataJoin = new JoinTables(ast['JOIN'], this.virtualFields);
     }
 
     /**
       * Retrieve filtered record ID's.
-      * @param {Object} conditions 
+      * @param {Object} ast 
       * @returns {Number[]}
       */
-    whereCondition(conditions) {
+    whereCondition(ast) {
         let sqlData = [];
+
+        let conditions;
+        if (typeof ast['WHERE'] != 'undefined') {
+            conditions = ast['WHERE'];
+        }
+        else {
+            //  Entire table is selected.  
+            conditions = { operator: "=", left: "\"A\"", right: "\"A\"" };
+        }
 
         if (typeof conditions.logic == 'undefined')
             sqlData = this.resolveCondition("OR", [conditions]);
@@ -592,12 +602,40 @@ class SelectTables {
     }
 
     /**
+     * 
+     * @param {Object} ast 
+     * @param {any[][]} viewTableData 
+     * @returns {any[][]}
+     */
+    groupBy(ast, viewTableData) {
+
+        if (typeof ast['GROUP BY'] != 'undefined') {
+            viewTableData = this.groupByFields(ast['GROUP BY'], viewTableData);
+
+            if (typeof ast['HAVING'] != 'undefined') {
+                viewTableData = this.having(ast['HAVING'], viewTableData);
+            }
+        }
+        else {
+            //  If any conglomerate field functions (SUM, COUNT,...)
+            //  we summarize all records into ONE.
+            if (this.getConglomerateFieldCount() > 0) {
+                let compressedData = [];
+                compressedData.push(this.conglomerateRecord(viewTableData));
+                viewTableData = compressedData;
+            }
+        }
+
+        return viewTableData;
+    }
+
+    /**
     * 
     * @param {any[]} astGroupBy 
     * @param {any[][]} selectedData 
     * @returns {any[][]}
     */
-    groupBy(astGroupBy, selectedData) {
+    groupByFields(astGroupBy, selectedData) {
         if (selectedData.length == 0)
             return selectedData;
 
@@ -748,10 +786,15 @@ class SelectTables {
 
     /**
      * 
-     * @param {any[]} astOrderby 
+     * @param {Object} ast 
      * @param {any[][]} selectedData 
      */
-    orderBy(astOrderby, selectedData) {
+    orderBy(ast, selectedData) {
+        if (typeof ast['ORDER BY'] == 'undefined')
+            return;
+
+        let astOrderby = ast['ORDER BY']
+
         //  Sort the least important first, and most important last.
         let reverseOrderBy = astOrderby.reverse();
 
