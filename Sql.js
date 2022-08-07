@@ -104,7 +104,7 @@ class Sql {
 
     /**
      * Include column headers in return data.
-     * @param {Boolean} value 
+     * @param {Boolean} value - true will return column names in first row of return data.
      * @returns {Sql}
      */
     enableColumnTitle(value) {

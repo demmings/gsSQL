@@ -322,7 +322,7 @@ function sql2ast(query, parseCond) {
         str = str.split(',');
         let orderByResult = [];
         str.forEach(function (item, _key) {
-            let order_by = /([\w\.]+)\s*(ASC|DESC){0,1}/gi;
+            let order_by = /([\w\.]+)\s*(ASC|DESC)?/gi;
             order_by = order_by.exec(item);
             if (order_by !== null) {
                 let tmp = {};
