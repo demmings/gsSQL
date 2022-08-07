@@ -71,10 +71,7 @@ function parseTableSettings(tableStr) {
 
 
 class Sql {
-    /** Loads table data into object.
-     * @param {any[][]} tableList - [tableName, sheetRange, tableArray], for as many tables that are used.
-     */
-    constructor(tableList = []) {
+    constructor() {
         /** @type {Map<String,Table>} */
         this.tables = new Map();
         this.columnTitle = false;
@@ -83,9 +80,9 @@ class Sql {
 
     /**
      * 
-     * @param {String} tableName 
-     * @param {any} tableData 
-     * @param {Number} cacheSeconds
+     * @param {String} tableName - Name of table referenced in SELECT.
+     * @param {any} tableData - Either double array or a named range.
+     * @param {Number} cacheSeconds - How long should loaded data be cached (default=0)
      * @returns {Sql}
      */
     addTableData(tableName, tableData, cacheSeconds = 0) {
