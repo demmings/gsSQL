@@ -1,5 +1,6 @@
 ![Your Repository’s Stats](https://github-readme-stats.vercel.app/api?username=demmings&show_icons=true)
 
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=demmings_gsSQL&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=demmings_gsSQL)
 
 # gsSQL
 The Google Sheets ***QUERY*** function is very flexible and powerful.  However it is:
