@@ -124,7 +124,7 @@ Sql() Methods:
 Using from SHEETS as a custom function.
 example:
 
-        =gsSQL("[['masterTransactions', 'Master Transactions!$A$1:$I', 60], ['accounts', 'accountNamesData', 3600]]", "SELECT * FROM accounts WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = 'TFSA' ", true, [bindVar1, bindVar2, ...])
+        =gsSQL("['masterTransactions', 'Master Transactions!$A$1:$I', 60], ['accounts', 'accountNamesData', 3600]", "SELECT * FROM accounts WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = 'TFSA' ", true, [bindVar1, bindVar2, ...])
         
 1.  First parameter is a double array of:  a) table name, b) Range of data, c) cache seconds
 2.  Select statement.
