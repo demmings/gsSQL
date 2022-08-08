@@ -7,8 +7,10 @@ import { Logger } from './SqlTest.js';
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 
 function trim(str) {
-    if (typeof str == 'string') return str.replace(/^\s+/g, '').replace(/\s+$/g, '');
-    else return str;
+    if (typeof str == 'string') 
+        return str.trim();
+    else    
+        return str;
 }
 
 // Split a string using a separator, only if this separator isn't beetween brackets
@@ -369,12 +371,9 @@ function sql2ast(query, parseCond) {
     };
 
     analysis['LIMIT'] = function (str) {
-        let limit = /((\d+)\s*,\s*)?(\d+)/gi;
-        limit = limit.exec(str);
-        if (typeof limit[2] == 'undefined') limit[2] = 0;
         let limitResult = {};
-        limitResult['nb'] = parseInt(trim(limit[3]), 10);
-        limitResult['from'] = parseInt(trim(limit[2]), 10);
+        limitResult['nb'] = parseInt(str);
+        limitResult['from'] = 0;
         return limitResult;
     };
 
