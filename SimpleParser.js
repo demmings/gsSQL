@@ -165,16 +165,6 @@ function sql2ast(query, parseCond) {
     if (typeof parseCond == 'undefined' || parseCond === null)
         parseCond = true;
 
-    // Remove semi-colons and keep only the first query
-    let semi_colon = '###semi-colon###';
-    query = query.replace(/[("'`].*;.*[)"'`]/g, function (match) {
-        return match.replace(/;/g, semi_colon);
-    });
-    let eor = '###EOR###';
-    query = query.replace(/;/g, eor);
-    query = query.split(eor)[0];
-    query = query.replace(new RegExp(semi_colon, 'g'), ';');
-
     // Define which words can act as separator
     let keywords = ['SELECT', 'FROM', 'DELETE FROM', 'INSERT INTO', 'UPDATE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'VALUES', 'SET', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
     let parts_name = keywords.map(function (item) {
