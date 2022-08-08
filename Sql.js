@@ -376,8 +376,6 @@ class Sql {
 
         for (let selectField of ast['SELECT']) {
             //  If this is an aggregrate function, we will add one for every pivotFieldData item
-
-            // const functionNameRegex = /[a-zA-Z]*(?=\()/
             const functionNameRegex = /^\w+\s*(?=\()/;
             let matches = selectField.name.match(functionNameRegex)
             if (matches != null && matches.length > 0) {
