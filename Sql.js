@@ -377,10 +377,11 @@ class Sql {
         for (let selectField of ast['SELECT']) {
             //  If this is an aggregrate function, we will add one for every pivotFieldData item
 
-            const functionNameRegex = /[a-zA-Z]*(?=\()/
+            // const functionNameRegex = /[a-zA-Z]*(?=\()/
+            const functionNameRegex = /^\w+\s*(?=\()/;
             let matches = selectField.name.match(functionNameRegex)
             if (matches != null && matches.length > 0) {
-                let args = SelectTables.parseForFunctions(selectField.name, matches[0]);
+                let args = SelectTables.parseForFunctions(selectField.name, matches[0].trim());
 
                 for (let fld of pivotFieldData) {
                     let caseTxt = matches[0] + "(CASE WHEN " + ast['PIVOT'][0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 'null' END)";
