@@ -113,44 +113,16 @@ class SelectTables {
     getRecordIDs(condition) {
         /** @type {Number[]} */
         let recordIDs = [];
-        /** @type {any} */
-        let leftConstant = null;
-        let leftCol = -1;
-        /** @type {Table} */
-        let leftTable = null;
-        /** @type {any} */
-        let rightConstant = null;
-        let rightCol = -1;
-        /** @type {Table} */
-        let rightTable = null;
-        /** @type {String} */
-        let leftCalculatedField = "";
-        /** @type {String} */
-        let rightCalculatedField = "";
 
-        [leftTable, leftCol, leftConstant, leftCalculatedField] = this.resolveFieldCondition(condition.left);
-        [rightTable, rightCol, rightConstant, rightCalculatedField] = this.resolveFieldCondition(condition.right);
+        let leftFieldConditions = this.resolveFieldCondition(condition.left);
+        let rightFieldConditions = this.resolveFieldCondition(condition.right);
 
         /** @type {Table} */
         this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.masterTableInfo;
 
         for (let masterRecordID = 1; masterRecordID < this.masterTable.tableData.length; masterRecordID++) {
-            let leftValue = leftConstant;
-            let rightValue = rightConstant;
-
-            if (leftCol >= 0) {
-                leftValue = leftTable.tableData[masterRecordID][leftCol];
-            }
-            else if (leftCalculatedField != "") {
-                leftValue = this.evaluateCalculatedField(leftCalculatedField, masterRecordID);
-            }
-
-            if (rightCol >= 0) {
-                rightValue = rightTable.tableData[masterRecordID][rightCol];
-            }
-            else if (rightCalculatedField != "") {
-                rightValue = this.evaluateCalculatedField(rightCalculatedField, masterRecordID);
-            }
+            let leftValue = this.getConditionValue(leftFieldConditions, masterRecordID);
+            let rightValue = this.getConditionValue(rightFieldConditions, masterRecordID);
 
             if (leftValue == null || rightValue == null)
                 continue;
@@ -166,6 +138,34 @@ class SelectTables {
         }
 
         return recordIDs;
+    }
+
+    /**
+     * 
+     * @param {any[]} fieldConditions 
+     * @param {Number} masterRecordID
+     */
+    getConditionValue(fieldConditions, masterRecordID) {
+        /** @type {any} */
+        let fieldConstant = null;
+        /** @type {Number} */
+        let fieldCol = -1;
+        /** @type {Table} */
+        let fieldTable = null;
+        /** @type {String} */
+        let fieldCalculatedField = "";
+
+        [fieldTable, fieldCol, fieldConstant, fieldCalculatedField] = fieldConditions;
+        
+        let leftValue = fieldConstant;
+        if (fieldCol >= 0) {
+            leftValue = fieldTable.tableData[masterRecordID][fieldCol];
+        }
+        else if (fieldCalculatedField != "") {
+            leftValue = this.evaluateCalculatedField(fieldCalculatedField, masterRecordID);
+        }
+
+        return leftValue;
     }
 
     /**
@@ -225,7 +225,7 @@ class SelectTables {
                 break;
 
             default:
-                throw new Error ("Invalid Operator: " + operator);
+                throw new Error("Invalid Operator: " + operator);
         }
 
         return keep;
@@ -560,7 +560,7 @@ class SelectTables {
      * @param {String} paramString 
      * @returns {String[]}
      */
-    static parseForParams(paramString, startBracket="(", endBracket=")") {
+    static parseForParams(paramString, startBracket = "(", endBracket = ")") {
         let args = [];
         let bracketCount = 0;
         let start = 0;

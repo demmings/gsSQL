@@ -60,7 +60,10 @@ class TableData {
         let arrData;
 
         if (seconds <= 0) {
-            return SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange).getValues();
+            let range = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange);
+            if (range == null)
+                throw new Error("Invalid table range specified:  " + namedRange);
+            return range.getValues();
         }
         else if (seconds > 21600) {
             cache = new ScriptSettings();
