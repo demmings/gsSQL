@@ -282,34 +282,33 @@ class SelectTables {
     }
 
     /**
-     * 
+     * The program is attempting to build some javascript code which we can then execute to 
+     * find the value of the calculated field.  There are two parts.
+     * 1)  Build LET statements to assign to all possible field name variants,
+     * 2)  Add the 'massaged' calculated field so that it can be run in javascript.
      * @param {String} calculatedFormula 
      * @param {Number} masterRecordID
-     * @returns {String}
+     * @returns {String} - String to be executed.  It is valid javascript lines of code.
      */
     sqlServerCalcFields(calculatedFormula, masterRecordID) {
         //  Working on a calculated field.
-
         let objectsDeclared = new Map();
 
         /** @type {VirtualField} */
         let vField;
         let myVars = "";
         for (vField of this.virtualFields.getAllVirtualFields()) {
-            if (vField.fieldName == "*")
-                continue;
-
-            //  Non primary table fields require full notation for column
-            if (this.masterTableInfo.tableName != vField.tableInfo.tableName) {
-                if (vField.fieldName.indexOf(".") == -1)
-                    continue;
-            }
-
-            //  The 'masterRecordID' is referencing masterTable, so fields from
+            //  a) Exclude the * field which represents all fields.
+            //  b) Non primary table fields require full notation for column
+            //  c) The 'masterRecordID' is referencing masterTable, so fields from
             //  other tables should be excluded.
-            if (this.masterTable != vField.tableInfo)
+            if (vField.fieldName == "*" ||
+            (this.masterTableInfo.tableName != vField.tableInfo.tableName && vField.fieldName.indexOf(".") == -1) ||
+            (this.masterTable != vField.tableInfo))
                 continue;
 
+            //  Get the DATA from this field.  We then build a series of LET statments
+            //  and we assign that data to the field name that might be found in a calculated field.
             let varData = vField.getData(masterRecordID);
             if (typeof vField.getData(masterRecordID) == "string" || vField.getData(masterRecordID) instanceof Date)
                 varData = "'" + vField.getData(masterRecordID) + "'";

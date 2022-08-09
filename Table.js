@@ -396,46 +396,66 @@ class Schema {
         this.fields = new Map();
         this.virtualFields = new VirtualFields();
 
-        if (this.tableData.length > 0) {
-            /** @type {any[]} */
-            let titleRow = this.tableData[0];
+        if (this.tableData.length == 0)
+            return this;
 
-            let colNum = 0;
-            /** @type{String} */
-            let col;
-            for (col of titleRow) {
-                let columnName = col.trim().toUpperCase().replace(/\s/g, "_");
-                let fullColumnName = columnName;
-                let fullColumnAliasName = "";
-                if (columnName.indexOf(".") == -1) {
-                    fullColumnName = this.tableName + "." + columnName;
-                    if (this.tableAlias != "")
-                        fullColumnAliasName = this.tableAlias + "." + columnName;
-                }
+        /** @type {any[]} */
+        let titleRow = this.tableData[0];
 
-                if (columnName != "") {
-                    this.fields.set(columnName, colNum);
+        let colNum = 0;
+        for (let baseColumnName of titleRow) {
+            //  Find possible variations of the field column name.
+            let fieldVariants = this.getColumnNameVariants(baseColumnName);
+            let columnName = fieldVariants[0];
 
-                    if (!this.isDerivedTable) {
-                        this.fields.set(fullColumnName, colNum);
+            this.setFieldVariantsColumNumber(fieldVariants, colNum);
 
-                        if (fullColumnAliasName != "") {
-                            this.fields.set(fullColumnAliasName, colNum);
-                        }
-                    }
-
-                    let virtualField = new VirtualField(columnName, this.tableInfo, colNum);
-                    this.virtualFields.add(virtualField);
-                }
-
-                colNum++;
+            if (columnName != "") {
+                let virtualField = new VirtualField(columnName, this.tableInfo, colNum);
+                this.virtualFields.add(virtualField);
             }
 
-            //  Add special field for every table.
-            //  The asterisk represents ALL fields in table.
-            this.fields.set("*", null);
+            colNum++;
         }
 
+        //  Add special field for every table.
+        //  The asterisk represents ALL fields in table.
+        this.fields.set("*", null);
+
+
         return this;
+    }
+
+    getColumnNameVariants(col) {
+        let columnName = col.trim().toUpperCase().replace(/\s/g, "_");
+        let fullColumnName = columnName;
+        let fullColumnAliasName = "";
+        if (columnName.indexOf(".") == -1) {
+            fullColumnName = this.tableName + "." + columnName;
+            if (this.tableAlias != "")
+                fullColumnAliasName = this.tableAlias + "." + columnName;
+        }
+
+        return [columnName, fullColumnName, fullColumnAliasName];
+    }
+
+    setFieldVariantsColumNumber(fieldVariants, colNum) {
+        let columnName;
+        let fullColumnName;
+        let fullColumnAliasName;
+
+        [columnName, fullColumnName, fullColumnAliasName] = fieldVariants;
+
+        if (columnName != "") {
+            this.fields.set(columnName, colNum);
+
+            if (!this.isDerivedTable) {
+                this.fields.set(fullColumnName, colNum);
+
+                if (fullColumnAliasName != "") {
+                    this.fields.set(fullColumnAliasName, colNum);
+                }
+            }
+        }
     }
 }
