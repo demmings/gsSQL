@@ -1219,9 +1219,8 @@ class VirtualFields {
     }
 
     /**
-     * 
+     * Updates internal SELECTED field list.
      * @param {*} astFields 
-     * @returns {SelectField[]}
      */
     updateSelectFieldList(astFields) {
         this.columnNames = [];
@@ -1229,23 +1228,7 @@ class VirtualFields {
         this.selectVirtualFields = [];
 
         for (let selField of astFields) {
-            //  If this is a CONGLOMERATE function, extract field name so that raw data
-            //  from field is included.  The data will be accumulated by GROUP BY later.
-            let columnName = selField.name;
-            let aggregateFunctionName = "";
-            let calculatedField = (typeof selField.terms == 'undefined') ? null : selField.terms;
-
-            if (calculatedField == null && !this.hasField(columnName)) {
-                const functionNameRegex = /^\w+\s*(?=\()/;
-                let matches = columnName.match(functionNameRegex)
-                if (matches != null && matches.length > 0)
-                    aggregateFunctionName = matches[0].trim();
-
-                matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName);
-                if (matches != null && matches.length > 1)
-                    columnName = matches[1];
-            }
-
+            let [columnName, aggregateFunctionName, calculatedField] = this.getSelectFieldNames(selField);
             this.columnTitles.push(typeof selField.as != 'undefined' && selField.as != "" ? selField.as : selField.name);
 
             if (calculatedField == null && this.hasField(columnName)) {
@@ -1262,7 +1245,7 @@ class VirtualFields {
                 this.selectVirtualFields.push(selectFieldInfo);
                 this.columnNames.push(selField.name);
             }
-            else if (columnName != "") {
+            else {
                 //  is this a function?
                 let selectFieldInfo = new SelectField(null);
                 selectFieldInfo.calculatedFormula = columnName;
@@ -1271,9 +1254,31 @@ class VirtualFields {
                 this.columnNames.push(selField.name);
             }
         }
-
-        return this.selectVirtualFields;
     }
+
+    /**
+     * 
+     * @param {Object} selField 
+     * @returns {any[]}
+     */
+    getSelectFieldNames(selField) {
+        let columnName = selField.name;
+        let aggregateFunctionName = "";
+        let calculatedField = (typeof selField.terms == 'undefined') ? null : selField.terms;
+
+        if (calculatedField == null && !this.hasField(columnName)) {
+            const functionNameRegex = /^\w+\s*(?=\()/;
+            let matches = columnName.match(functionNameRegex)
+            if (matches != null && matches.length > 0)
+                aggregateFunctionName = matches[0].trim();
+
+            matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName);
+            if (matches != null && matches.length > 1)
+                columnName = matches[1];
+        }
+
+        return [columnName, aggregateFunctionName, calculatedField];
+    }   
 
     /**
      * 
