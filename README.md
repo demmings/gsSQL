@@ -6,6 +6,7 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=demmings_gsSQL&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=demmings_gsSQL)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=demmings_gsSQL&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=demmings_gsSQL)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=demmings_gsSQL&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=demmings_gsSQL)
+[![CodeQL](https://github.com/demmings/gsSQL/actions/workflows/codeql.yml/badge.svg)](https://github.com/demmings/gsSQL/actions/workflows/codeql.yml)
 
 # gsSQL
 The Google Sheets ***QUERY*** function is very flexible and powerful.  However it is:
@@ -127,7 +128,7 @@ example:
 
         =gsSQL("['masterTransactions', 'Master Transactions!$A$1:$I', 60], ['accounts', 'accountNamesData', 3600]", "SELECT * FROM accounts WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = 'TFSA' ", true, [bindVar1, bindVar2, ...])
         
-1.  First parameter is a double array of:  a) table name, b) Range of data, c) cache seconds
+1.  First parameter is an array of:  a) table name, b) Range of data, c) cache seconds
 2.  Select statement.
 3.  Include column title or not.
 
