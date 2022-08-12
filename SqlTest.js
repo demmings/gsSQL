@@ -1677,10 +1677,12 @@ class SqlTester {
         if (exceptionErr != "") {
             Logger.log(functionName + "  Captured Error:  " + exceptionErr)
             Logger.log(functionName + "() ***   S U C C E S S   ***");
+            return true;
         }
         else {
             Logger.log(functionName + "() ***   F A I L E D   ***");
             Logger.log("Exception was expected !!");
+            return false;
         }
     }
 

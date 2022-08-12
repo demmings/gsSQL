@@ -639,9 +639,9 @@ class SelectTables {
             return selectedData;
 
         //  Sort the least important first, and most important last.
-        let reverseOrderBy = astGroupBy.reverse();
+        astGroupBy.reverse();
 
-        for (let orderField of reverseOrderBy) {
+        for (let orderField of astGroupBy) {
             let selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
 
             if (selectColumn != -1) {
