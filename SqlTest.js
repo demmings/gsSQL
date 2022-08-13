@@ -141,6 +141,38 @@ class SqlTester {
         return this.isEqual("selectAll1", data, expected);
     }
 
+    selectIsNotNull1() {
+        let stmt = "select * from authors where id is not null";
+
+        let data = new Sql()
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
+        ["11", "Ellen", "Writer"],
+        ["12", "Olga", "Savelieva"],
+        ["13", "Jack", "Smart"],
+        ["14", "Donald", "Brain"],
+        ["15", "Yao", "Dou"]];
+
+        return this.isEqual("selectIsNotNull1", data, expected);
+    }
+
+    selectIsNull1() {
+        let stmt = "select * from authors where id is null";
+
+        let data = new Sql()
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["AUTHORS.ID","AUTHORS.FIRST_NAME","AUTHORS.LAST_NAME"]];
+
+        return this.isEqual("selectIsNull1", data, expected);
+    }
+
+
     innerJoin1() {
         let stmt = "SELECT books.id, books.title, authors.first_name, authors.last_name " +
             "FROM books " +
@@ -236,7 +268,7 @@ class SqlTester {
         ["7", "Applied AI", "Jack", "Smart"],
         ["8", "My Last Book", "Ellen", "Writer"]];
 
-        this.isEqual("innerJoinAlias2b", data, expected);
+        return this.isEqual("innerJoinAlias2b", data, expected);
     }
 
     join2() {
@@ -1105,6 +1137,8 @@ class SqlTester {
             success = this.isEqual("selectFuncs5", data, expected);
             attempts++;
         }
+
+        return success;
     }
 
     selectFuncInFunc1() {
@@ -1710,77 +1744,81 @@ testerSql();
 //  *** DEBUG END  ***/
 
 function testerSql() {
+    let result = true;
     let tester = new SqlTester();
 
-    tester.selectAll1();
-    tester.innerJoin1();
-    tester.innerJoinAlias1();
-    tester.innerJoinAlias2();
-    tester.join2();
-    tester.join3();
-    tester.joinLimit1();
-    tester.leftJoin1();
-    tester.rightJoin1();
-    tester.fullJoin1();
-    tester.fullJoin2();
-    tester.whereIn1();
-    tester.whereIn2();
-    tester.whereIn3();
-    tester.whereIn4();
-    tester.whereNotIn1();
-    tester.whereAndOr1();
-    tester.whereAndOr2();
-    tester.groupBy1();
-    tester.groupBy2();
-    tester.groupBy3();
-    tester.groupBy4();
-    tester.avgSelect1();
-    tester.funcsSelect2();
-    tester.innerSelect1();
-    tester.whereLike1();
-    tester.whereLike2();
-    tester.whereNotLike1();
-    tester.union1();
-    tester.unionBind1();
-    tester.unionAll1();
-    tester.except1();
-    tester.intersect1();
-    tester.orderByDesc1();
-    tester.orderByDesc2();
-    tester.distinct1();
-    tester.selectMath1();
-    tester.selectMathFunc1();
-    tester.selectFuncs2();
-    tester.selectFuncs3();
-    tester.selectFuncs4();
-    tester.selectFuncs5();
-    tester.selectFuncInFunc1();
-    tester.selectFuncInFunc2();
-    tester.selectIF1();
-    tester.selectIF2();
-    tester.selectIF3();
-    tester.selectIF4();
-    tester.selectWhereCalc1();
-    tester.selectWhereCalc2();
-    tester.selectCase1();
-    tester.selectCase2();
-    tester.selectAlias1();
-    tester.groupPivot1();
-    tester.groupPivot2();
-    tester.groupPivot3();
-    tester.groupFunc1();
-    tester.selectInGroupByPivot1();
-    tester.selectInGroupByPivot2();
-    tester.selectInGroupByPivot3();
-    tester.selectBadTable1();
-    tester.selectBadMath1();
-    tester.selectBadField1();
-    tester.selectBadField2();
-    tester.selectBadField3();
-    tester.selectBadOp1();
-    tester.selectBadAs1();
-    tester.selectBadConstant1();
-    tester.selectBadConstant2();
+    result = result && tester.selectAll1(); 
+    result = result && tester.selectIsNotNull1();
+    result = result && tester.selectIsNull1();
+    result = result && tester.innerJoin1();
+    result = result && tester.innerJoinAlias1();
+    result = result && tester.innerJoinAlias2();
+    result = result && tester.join2();
+    result = result && tester.join3();
+    result = result && tester.joinLimit1();
+    result = result && tester.leftJoin1();
+    result = result && tester.rightJoin1();
+    result = result && tester.fullJoin1();
+    result = result && tester.fullJoin2();
+    result = result && tester.whereIn1();
+    result = result && tester.whereIn2();
+    result = result && tester.whereIn3();
+    result = result && tester.whereIn4();
+    result = result && tester.whereNotIn1();
+    result = result && tester.whereAndOr1();
+    result = result && tester.whereAndOr2();
+    result = result && tester.groupBy1();
+    result = result && tester.groupBy2();
+    result = result && tester.groupBy3();
+    result = result && tester.groupBy4();
+    result = result && tester.avgSelect1();
+    result = result && tester.funcsSelect2();
+    result = result && tester.innerSelect1();
+    result = result && tester.whereLike1();
+    result = result && tester.whereLike2();
+    result = result && tester.whereNotLike1();
+    result = result && tester.union1();
+    result = result && tester.unionBind1();
+    result = result && tester.unionAll1();
+    result = result && tester.except1();
+    result = result && tester.intersect1();
+    result = result && tester.orderByDesc1();
+    result = result && tester.orderByDesc2();
+    result = result && tester.distinct1();
+    result = result && tester.selectMath1();
+    result = result && tester.selectMathFunc1();
+    result = result && tester.selectFuncs2();
+    result = result && tester.selectFuncs3();
+    result = result && tester.selectFuncs4();
+    result = result && tester.selectFuncs5();
+    result = result && tester.selectFuncInFunc1();
+    result = result && tester.selectFuncInFunc2();
+    result = result && tester.selectIF1();
+    result = result && tester.selectIF2();
+    result = result && tester.selectIF3();
+    result = result && tester.selectIF4();
+    result = result && tester.selectWhereCalc1();
+    result = result && tester.selectWhereCalc2();
+    result = result && tester.selectCase1();
+    result = result && tester.selectCase2();
+    result = result && tester.selectAlias1();
+    result = result && tester.groupPivot1();
+    result = result && tester.groupPivot2();
+    result = result && tester.groupPivot3();
+    result = result && tester.groupFunc1();
+    result = result && tester.selectInGroupByPivot1();
+    result = result && tester.selectInGroupByPivot2();
+    result = result && tester.selectInGroupByPivot3();
+    result = result && tester.selectBadTable1();
+    result = result && tester.selectBadMath1();
+    result = result && tester.selectBadField1();
+    result = result && tester.selectBadField2();
+    result = result && tester.selectBadField3();
+    result = result && tester.selectBadOp1();
+    result = result && tester.selectBadAs1();
+    result = result && tester.selectBadConstant1();
+    result = result && tester.selectBadConstant2();
 
     Logger.log("===  E N D   O F   T E S T S  ===");
+    return result;
 }

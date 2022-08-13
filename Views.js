@@ -25,6 +25,8 @@ class SelectTables {
         this.sqlServerFunctionCache = new Map();
         this.virtualFields = new VirtualFields();
         this.dataJoin = new JoinTables([], this.virtualFields);
+        if (! tableInfo.has(this.primaryTable.toUpperCase()))
+            throw new Error("Invalid table name: " + this.primaryTable);
         this.masterTableInfo = tableInfo.get(this.primaryTable.toUpperCase());
 
         //  Keep a list of all possible fields from all tables.
@@ -162,7 +164,10 @@ class SelectTables {
             leftValue = fieldTable.tableData[masterRecordID][fieldCol];
         }
         else if (fieldCalculatedField != "") {
-            leftValue = this.evaluateCalculatedField(fieldCalculatedField, masterRecordID);
+            if (fieldCalculatedField.toUpperCase() == "NULL")
+                leftValue = "NULL";
+            else
+                leftValue = this.evaluateCalculatedField(fieldCalculatedField, masterRecordID);
         }
 
         return leftValue;
@@ -222,6 +227,14 @@ class SelectTables {
 
             case "NOT IN":
                 keep = !(this.inCondition(leftValue, rightValue));
+                break;
+
+            case "IS NOT":
+                keep = ! (this.isCondition(leftValue, rightValue));
+                break;
+
+            case "IS":
+                keep =  this.isCondition(leftValue, rightValue);
                 break;
 
             default:
@@ -981,6 +994,10 @@ class SelectTables {
         let index = items.indexOf(leftValue);
 
         return index != -1;
+    }
+
+    isCondition(leftValue, rightValue) {
+        return (leftValue == "" && rightValue == "NULL");
     }
 
     /**
