@@ -124,26 +124,14 @@ class SqlTester {
     }
 
     selectAll1() {
-        let stmt = "select * from authors";
-
-        let data = new Sql()
-            .addTableData("authors", this.authorsTable())
-            .enableColumnTitle(true)
-            .execute(stmt);
-
-        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
-        ["11", "Ellen", "Writer"],
-        ["12", "Olga", "Savelieva"],
-        ["13", "Jack", "Smart"],
-        ["14", "Donald", "Brain"],
-        ["15", "Yao", "Dou"]];
-
-        return this.isEqual("selectAll1", data, expected);
+        return this.selectAllAuthors("selectAll1", "select * from authors");
     }
 
     selectIsNotNull1() {
-        let stmt = "select * from authors where id is not null";
+        return this.selectAllAuthors("selectIsNotNull1", "select * from authors where id is not null");
+    }
 
+    selectAllAuthors(functionName, stmt) {
         let data = new Sql()
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
@@ -156,7 +144,7 @@ class SqlTester {
         ["14", "Donald", "Brain"],
         ["15", "Yao", "Dou"]];
 
-        return this.isEqual("selectIsNotNull1", data, expected);
+        return this.isEqual(functionName, data, expected);
     }
 
     selectIsNull1() {
