@@ -131,6 +131,7 @@ example:
 1.  First parameter is an array of:  a) table name, b) Range of data, c) cache seconds
 2.  Select statement.
 3.  Include column title or not.
+4.  Optional BIND variable data.  There should be one data item listed PER question mark in the SELECT statement.
 
 NOTE:
 1.  First ROW of data MUST be the column name.
