@@ -1,10 +1,16 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
-export { Sql };
+export { Sql, gsSQL, parseTableSettings };
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
 import { sql2ast } from './SimpleParser.js';
 import { SelectTables } from './Views.js';
+
+class Logger {
+    static log(msg) {
+        console.log(msg);
+    }
+}
 //  *** DEBUG END  ***/
 
 /**
@@ -36,7 +42,7 @@ function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
  * @param {String} tableStr 
  * @returns {any[][]}
  */
-function parseTableSettings(tableStr) {
+function parseTableSettings(tableStr, randomOrder=true) {
     let tableList = [];
 
     let tableGroup = SelectTables.parseForParams(tableStr, "[", "]");
@@ -64,7 +70,8 @@ function parseTableSettings(tableStr) {
 
     //  If called at the same time, loading similar tables in similar order - all processes
     //  just wait for table - but if loaded in different order, each process could be loading something.
-    tableList = tableList.sort(() => Math.random() - 0.5);
+    if (randomOrder)
+        tableList = tableList.sort(() => Math.random() - 0.5);
 
     return tableList;
 }
@@ -123,7 +130,7 @@ class Sql {
     }
 
     /**
-     * 
+     * The BIND data is a sheet named range that will be read and used for bind data.
      * @param {String} value 
      * @returns {Sql}
      */

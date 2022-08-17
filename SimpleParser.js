@@ -1,7 +1,6 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
 export { sql2ast, sqlCondition2JsCondition };
-import { Logger } from './SqlTest.js';
 //  *** DEBUG END  ***/
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
@@ -270,16 +269,6 @@ function sql2ast(query, parseCond) {
         return selectResult;
     };
 
-    analysis['SET'] = function (str) {
-        let setResult = protect_split(',', str);
-        setResult = setResult.filter(function (item) {
-            return item !== '';
-        }).map(function (item) {
-            return { expression: item };
-        });
-        return setResult;
-    };
-
     analysis['FROM'] = analysis['DELETE FROM'] = analysis['UPDATE'] = function (str) {
         let fromResult = str.split(',');
         fromResult = fromResult.map(function (item) {
@@ -321,6 +310,9 @@ function sql2ast(query, parseCond) {
                 tmp['column'] = trim(order_by[1]);
                 tmp['order'] = trim(order_by[2]);
                 if (order_by[2] === undefined) {
+                    let orderParts = item.trim().split(" ");
+                    if (orderParts.length > 1)
+                        throw new Error("Invalid ORDER BY: " + item);
                     tmp['order'] = "ASC";
                 }
                 orderByResult.push(tmp);
@@ -365,33 +357,6 @@ function sql2ast(query, parseCond) {
         limitResult['nb'] = parseInt(str);
         limitResult['from'] = 0;
         return limitResult;
-    };
-
-    analysis['INSERT INTO'] = function (str) {
-        let insert = /([\w\.]+)\s*(\(([\w\., ]+)\))?/gi;
-        insert = insert.exec(str);
-        let insertResult = {};
-        insertResult['table'] = trim(insert[1]);
-        if (typeof insert[3] != 'undefined') {
-            insertResult['columns'] = insert[3].split(',');
-            insertResult['columns'] = insertResult['columns'].map(function (item) {
-                return trim(item);
-            });
-        }
-        return insertResult;
-    };
-
-    analysis['VALUES'] = function (str) {
-        str = trim(str);
-        if (str[0] != '(') str = '(' + str;	// If query has "VALUES(...)" instead of "VALUES (...)"
-        let groups = protect_split(',', str);
-        let valuesResult = [];
-        groups.forEach(function (group) {
-            group = group.replace(/^\(/g, '').replace(/\)$/g, '');
-            group = protect_split(',', group);
-            valuesResult.push(group);
-        });
-        return valuesResult;
     };
 
     analysis['HAVING'] = function (str) {
@@ -760,19 +725,6 @@ CondLexer.prototype = {
         return { type: 'bindVariable', value: tokenValue };
     },
 };
-
-// Tokenise a string (only useful for debug)
-CondLexer.tokenize = function (source) {
-    let lexer = new CondLexer(source);
-    let tokens = [];
-    do {
-        let token = lexer.readNextToken();
-        if (token.type != 'empty') tokens.push(token);
-    }
-    while (lexer.currentChar);
-    return tokens;
-};
-
 
 // Constructor
 function CondParser(source) {

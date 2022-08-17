@@ -3,7 +3,13 @@
 export { Table, Schema };
 import { DERIVEDTABLE, VirtualFields, VirtualField } from './Views.js';
 import { TableData } from './TableData.js';
-import { Logger } from './SqlTest.js';
+
+class Logger {
+    static log(msg) {
+        console.log(msg);
+    }
+}
+
 //  *** DEBUG END  ***/
 
 class Table {
@@ -32,15 +38,7 @@ class Table {
     }
 
     /**
-     * 
-     * @returns {Boolean}
-     */
-    isDerivedTable() {
-        return this.schema.isDerivedTable;
-    }
-
-    /**
-     * 
+     * Load sheets named range of data into table.
      * @param {String} namedRange 
      * @param {Number} cacheSeconds
      * @returns {Table}
@@ -114,15 +112,6 @@ class Table {
     }
 
     /**
-     * Get number of records in table.
-     * @returns {Number}
-     */
-    getRecordCount() {
-        //  First row is TITLES - so not part of data.
-        return this.tableData.length - 1;
-    }
-
-    /**
      * 
      * @returns {String[]}
      */
@@ -179,12 +168,6 @@ class Table {
      */
     addIndex(fieldName) {
         fieldName = fieldName.trim().toUpperCase();
-
-        if (this.schema.getFieldColumn(fieldName) == -1) {
-            Logger.log("Table: " + this.tableName + ". Add Index: " + fieldName + ". Error:  Does not exist");
-            return
-        }
-
         let fieldValuesMap = new Map();
 
         let fieldIndex = this.schema.getFieldColumn(fieldName);
@@ -218,18 +201,9 @@ class Table {
         if (searchFieldCol == -1)
             return rows;
 
-        if (this.indexes.has(fieldName)) {
-            let fieldValuesMap = this.indexes.get(fieldName);
-            if (fieldValuesMap.has(searchValue))
-                return fieldValuesMap.get(searchValue);
-            return rows;
-        }
-
-        for (let i = 1; i < this.tableData.length; i++) {
-            if (this.tableData[i][searchFieldCol] == searchValue)
-                rows.push(i);
-        }
-
+        let fieldValuesMap = this.indexes.get(fieldName);
+        if (fieldValuesMap.has(searchValue))
+            return fieldValuesMap.get(searchValue);
         return rows;
     }
 

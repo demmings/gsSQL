@@ -1,6 +1,6 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***  
-import { Sql } from './Sql.js';
+import { Sql, parseTableSettings } from './Sql.js';
 export { Logger };
 
 class Logger {
@@ -155,7 +155,7 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["AUTHORS.ID","AUTHORS.FIRST_NAME","AUTHORS.LAST_NAME"]];
+        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"]];
 
         return this.isEqual("selectIsNull1", data, expected);
     }
@@ -605,6 +605,44 @@ class SqlTester {
         return this.isEqual("whereAndOr2", data, expected);
     }
 
+    selectAgainNewBinds1() {
+        let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
+
+        let sqlObj = new Sql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .addBindParameter('05/01/2022')
+            .addBindParameter('05/04/2022')
+            .addBindParameter('9');
+
+        let data = sqlObj.execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022"]];
+
+        let result = this.isEqual("selectAgainNewBinds1a", data, expected);
+
+        data = sqlObj.clearBindParameters()
+            .addBindParameter('05/02/2022')
+            .addBindParameter('05/04/2022')
+            .addBindParameter('9')
+            .execute(stmt);
+
+        expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022"]];
+
+        return result && this.isEqual("selectAgainNewBinds1b", data, expected);
+    }
+
     groupBy1() {
         let stmt = "select bookSales.book_id, SUM(bookSales.Quantity) from bookSales group by book_id";
 
@@ -1037,6 +1075,28 @@ class SqlTester {
         ["7", 100, 17.99, 18, "I72", "7206"]];
 
         return this.isEqual("selectMathFunc1", data, expected);
+    }
+
+    selectMathFunc2() {
+        let stmt = "select book_id, quantity, price, ABS(quantity-10), CEILING(price), floor(price), log(quantity), log10(quantity), power(quantity, 2), sqrt(quantity)  from bookSales";
+
+        let data = new Sql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["book_id", "quantity", "price", "ABS(quantity-10)", "CEILING(price)", "floor(price)", "log(quantity)", "log10(quantity)", "power(quantity, 2)", "sqrt(quantity)"],
+        ["9", 10, 34.95, 0, 35, 34, 3.321928094887362, 1, 100, 3.1622776601683795],
+        ["8", 3, 29.95, 7, 30, 29, 1.584962500721156, 0.47712125471966244, 9, 1.7320508075688772],
+        ["7", 5, 18.99, 5, 19, 18, 2.321928094887362, 0.6989700043360189, 25, 2.23606797749979],
+        ["9", 1, 59.99, 9, 60, 59, 0, 0, 1, 1],
+        ["1", 1, 90, 9, 90, 90, 0, 0, 1, 1],
+        ["2", 100, 65.49, 90, 66, 65, 6.643856189774724, 2, 10000, 10],
+        ["3", 150, 24.95, 140, 25, 24, 7.22881869049588, 2.1760912590556813, 22500, 12.24744871391589],
+        ["4", 50, 19.99, 40, 20, 19, 5.643856189774724, 1.6989700043360187, 2500, 7.0710678118654755],
+        ["7", 1, 33.97, 9, 34, 33, 0, 0, 1, 1], ["7", 100, 17.99, 90, 18, 17, 6.643856189774724, 2, 10000, 10]];
+
+        return this.isEqual("selectMathFunc2", data, expected);
     }
 
     selectFuncs2() {
@@ -1532,6 +1592,15 @@ class SqlTester {
         return this.isEqual("selectInGroupByPivot3", data, expected);
     }
 
+    parseTableSettings1() {
+        let data = parseTableSettings("['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people','peopleRange']", false);
+        let expected = [["authors", "authorsNamedRange", "60"],
+        ["editors", "editorsRange", "30"],
+        ["people", "peopleRange", 0]];
+
+        return this.isEqual("parseTableSettings1", data, expected);
+    }
+
     selectBadTable1() {
         let stmt = "SELECT quantity, price, quantity * price from booksail where price * quantity > 100";
 
@@ -1623,6 +1692,24 @@ class SqlTester {
         return this.isFail("selectBadField3", ex);
     }
 
+    selectBadField4() {
+        let stmt = "SELECT invoice, SUMM(quantity) from booksales group by invoice";
+
+        let testSQL = new Sql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadField4", ex);
+    }
+
     selectBadOp1() {
         let stmt = "SELECT  quantity, Sum(price) from booksales where price >>! 0 ";
 
@@ -1695,6 +1782,128 @@ class SqlTester {
         return this.isFail("selectBadConstant2", ex);
     }
 
+    nonSelect1() {
+        let stmt = "delete from booksales where price > 1O0 ";
+
+        let testSQL = new Sql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("nonSelect1", ex);
+    }
+
+    badJoin1() {
+        let stmt = "SELECT books.id, books.title, authors.first_name, authors.last_name " +
+            "FROM books " +
+            "INNER JOIN authors " +
+            "ON books.author_id = authors.di " +
+            "ORDER BY books.id";
+
+        let testSQL = new Sql()
+            .addTableData("books", this.bookTable())
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badJoin1", ex);
+    }
+
+    badJoin2() {
+        let stmt = "SELECT books.id, books.title, authors.first_name, authors.last_name " +
+            "FROM books " +
+            "INNER JOIN authors " +
+            "ON books.author_di = authors.id " +
+            "ORDER BY books.id";
+
+        let testSQL = new Sql()
+            .addTableData("books", this.bookTable())
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badJoin2", ex);
+    }
+
+    badOrderBy1() {
+        let stmt = "select * from bookSales order by DATE DSC, customer_id asc";
+
+        let testSQL = new Sql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badOrderBy1", ex);
+
+    }
+
+    badOrderBy2() {
+        let stmt = "select * from bookSales order by ORDER_DATE";
+
+        let testSQL = new Sql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badOrderBy2", ex);
+
+    }
+
+    bindVariableMissing() {
+        let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
+
+        let testSQL = new Sql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .addBindParameter('05/01/2022')
+            .addBindParameter('05/04/2022')
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("bindVariableMissing", ex);
+    }
+
     isFail(functionName, exceptionErr) {
         if (exceptionErr != "") {
             Logger.log(functionName + "  Captured Error:  " + exceptionErr)
@@ -1735,7 +1944,7 @@ function testerSql() {
     let result = true;
     let tester = new SqlTester();
 
-    result = result && tester.selectAll1(); 
+    result = result && tester.selectAll1();
     result = result && tester.selectIsNotNull1();
     result = result && tester.selectIsNull1();
     result = result && tester.innerJoin1();
@@ -1756,6 +1965,7 @@ function testerSql() {
     result = result && tester.whereAndOr1();
     result = result && tester.whereAndOr2();
     result = result && tester.groupBy1();
+    result = result && tester.selectAgainNewBinds1();
     result = result && tester.groupBy2();
     result = result && tester.groupBy3();
     result = result && tester.groupBy4();
@@ -1775,6 +1985,7 @@ function testerSql() {
     result = result && tester.distinct1();
     result = result && tester.selectMath1();
     result = result && tester.selectMathFunc1();
+    result = result && tester.selectMathFunc2();
     result = result && tester.selectFuncs2();
     result = result && tester.selectFuncs3();
     result = result && tester.selectFuncs4();
@@ -1802,11 +2013,23 @@ function testerSql() {
     result = result && tester.selectBadField1();
     result = result && tester.selectBadField2();
     result = result && tester.selectBadField3();
+    result = result && tester.selectBadField4();
     result = result && tester.selectBadOp1();
     result = result && tester.selectBadAs1();
     result = result && tester.selectBadConstant1();
     result = result && tester.selectBadConstant2();
+    result = result && tester.nonSelect1();
+    result = result && tester.badJoin1();
+    result = result && tester.badJoin2();
+    result = result && tester.badOrderBy1();
+    result = result && tester.badOrderBy2();
+    result = result && tester.bindVariableMissing();
+
+    //  Sql.js unit tests.
+    result = result && tester.parseTableSettings1();
 
     Logger.log("===  E N D   O F   T E S T S  ===");
     return result;
 }
+
+

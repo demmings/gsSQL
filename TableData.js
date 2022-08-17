@@ -1,8 +1,13 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
 export { TableData };
-import { Logger } from './SqlTest.js';
 import { Sql} from './Sql.js';
+
+class Logger {
+    static log(msg) {
+        console.log(msg);
+    }
+}
 //  *** DEBUG END  ***/
 
 function testTableData() {

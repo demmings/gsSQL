@@ -4,7 +4,6 @@ export { DERIVEDTABLE, VirtualFields, VirtualField, SelectTables };
 import { Table } from './Table.js';
 import { Sql } from './Sql.js';
 import { sqlCondition2JsCondition } from './SimpleParser.js';
-import { Logger } from './SqlTest.js';
 //  *** DEBUG END  ***/
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
@@ -819,6 +818,10 @@ class SelectTables {
                 else
                     this.sortByColumnASC(selectedData, selectColumn);
             }
+            else {
+                throw new Error("Invalid ORDER BY: " + orderField.column);
+            }
+                
         }
     }
 
