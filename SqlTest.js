@@ -1602,10 +1602,9 @@ class SqlTester {
     }
 
     parseTableSettings2() {
-        let data = [];
         let ex = "";
         try {
-            data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people']], false);
+            parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people']], false);
         }
         catch (exceptionErr) {
             ex = exceptionErr;
