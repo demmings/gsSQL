@@ -14,9 +14,18 @@ class Logger {
 //  *** DEBUG END  ***/
 
 /**
- * 
- * @param {String} tableArr - "[tableName, sheetRange, cacheSeconds=60],[name,range,cache],..."
- * @param {String} statement - SQL (e.g.:  'select * from tableName')
+ * Query any sheet range using standard SQL SELECT syntax.
+ * Parameter 1.  Define all tables referenced in SELECT. This is a DOUBLE ARRAY and is done using the curly bracket {{a,b,c}; {a,b,c}} syntax.
+ *   a)  table name - the table name referenced in SELECT for indicated range.
+ *   b)  sheet range - either NAMED RANGE or A1 notation.  This input is a string.  The first row of each range MUST be unique column titles.
+ *   c)  cache seconds - optional time loaded range held in cache.
+ * Parameter 2.  SELECT statement.  All regular syntax is supported including JOIN.
+ *   note i)  Bind variables (?) are replaced by bind data specified later.
+ *   note ii)  PIVOT field supported.  Similar to QUERY. e.g.  "SELECT date, sum(quantity) from sales group by date pivot customer_id".
+ * Parameter 3. Output result column title (true/false)
+ * Parameter 4... Optional bind variables.  List as many as required to match ? in SELECT.
+ * @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds}; {"name","range",cache};...}"
+ * @param {String} statement - SQL (e.g.:  'select * from expenses')
  * @param {Boolean} columnTitle - TRUE will add column title to output (default=FALSE)
  * @param {...any} bindings - Bind variables to match '?' in SQL statement.
  * @returns {any[][]}
@@ -39,33 +48,25 @@ function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
 
 /**
  * 
- * @param {String} tableStr 
+ * @param {any[][]} tableArr 
+ * @param {Boolean} randomOrder
  * @returns {any[][]}
  */
-function parseTableSettings(tableStr, randomOrder=true) {
+function parseTableSettings(tableArr, randomOrder=true) {
     let tableList = [];
 
-    let tableGroup = SelectTables.parseForParams(tableStr, "[", "]");
-    if (tableGroup.length == 0)
-        throw new Error("Missing table definition [name,range,cache]");
+    if (tableArr.length == 0)
+        throw new Error('Missing table definition {{"name","range",cache};{...}}');
 
-    for (let table of tableGroup) {
-        let indexOfOpenBracket = table.indexOf("[");
-        let indexOfLastBracket = table.lastIndexOf("]");
-        
-        let params = table.substring(indexOfOpenBracket+1, indexOfLastBracket);
-
-        /** @type {any[]} */
-        let items = params.split(",");
-        for (let i = 0; i < items.length; i++)
-            items[i] = items[i].replace(/['"]+/g, '').trim();
-
-        if (items.length == 2)
-            items.push(0);      //  default 0 second cache.
-        if (items.length != 3)
+    /** @type {any[]} */
+    let table;
+    for (table of tableArr) {
+        if (table.length == 2)
+            table.push(0);      //  default 0 second cache.
+        if (table.length != 3)
             throw new Error ("Invalid table definition [name,range,cache]");
 
-        tableList.push(items);
+        tableList.push(table);
     }
 
     //  If called at the same time, loading similar tables in similar order - all processes

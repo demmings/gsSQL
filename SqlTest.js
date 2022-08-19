@@ -1593,12 +1593,25 @@ class SqlTester {
     }
 
     parseTableSettings1() {
-        let data = parseTableSettings("['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people','peopleRange']", false);
-        let expected = [["authors", "authorsNamedRange", "60"],
-        ["editors", "editorsRange", "30"],
+        let data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people','peopleRange']], false);
+        let expected = [["authors", "authorsNamedRange", 60],
+        ["editors", "editorsRange", 30],
         ["people", "peopleRange", 0]];
 
         return this.isEqual("parseTableSettings1", data, expected);
+    }
+
+    parseTableSettings2() {
+        let data = [];
+        let ex = "";
+        try {
+            data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people']], false);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("parseTableSettings2", ex);
     }
 
     selectBadTable1() {
@@ -2027,9 +2040,9 @@ function testerSql() {
 
     //  Sql.js unit tests.
     result = result && tester.parseTableSettings1();
+    result = result && tester.parseTableSettings2();
 
-    Logger.log("===  E N D   O F   T E S T S  ===");
+    tester.isEqual("===  E N D   O F   T E S T S  ===", true, result);
+
     return result;
 }
-
-
