@@ -24,7 +24,7 @@ class SelectTables {
         this.sqlServerFunctionCache = new Map();
         this.virtualFields = new VirtualFields();
         this.dataJoin = new JoinTables([], this.virtualFields);
-        if (! tableInfo.has(this.primaryTable.toUpperCase()))
+        if (!tableInfo.has(this.primaryTable.toUpperCase()))
             throw new Error("Invalid table name: " + this.primaryTable);
         this.masterTableInfo = tableInfo.get(this.primaryTable.toUpperCase());
 
@@ -157,7 +157,7 @@ class SelectTables {
         let fieldCalculatedField = "";
 
         [fieldTable, fieldCol, fieldConstant, fieldCalculatedField] = fieldConditions;
-        
+
         let leftValue = fieldConstant;
         if (fieldCol >= 0) {
             leftValue = fieldTable.tableData[masterRecordID][fieldCol];
@@ -229,11 +229,11 @@ class SelectTables {
                 break;
 
             case "IS NOT":
-                keep = ! (this.isCondition(leftValue, rightValue));
+                keep = !(this.isCondition(leftValue, rightValue));
                 break;
 
             case "IS":
-                keep =  this.isCondition(leftValue, rightValue);
+                keep = this.isCondition(leftValue, rightValue);
                 break;
 
             default:
@@ -315,8 +315,8 @@ class SelectTables {
             //  c) The 'masterRecordID' is referencing masterTable, so fields from
             //  other tables should be excluded.
             if (vField.fieldName == "*" ||
-            (this.masterTableInfo.tableName != vField.tableInfo.tableName && vField.fieldName.indexOf(".") == -1) ||
-            (this.masterTable != vField.tableInfo))
+                (this.masterTableInfo.tableName != vField.tableInfo.tableName && vField.fieldName.indexOf(".") == -1) ||
+                (this.masterTable != vField.tableInfo))
                 continue;
 
             //  Get the DATA from this field.  We then build a series of LET statments
@@ -821,7 +821,7 @@ class SelectTables {
             else {
                 throw new Error("Invalid ORDER BY: " + orderField.column);
             }
-                
+
         }
     }
 
@@ -1298,7 +1298,7 @@ class VirtualFields {
         }
 
         return [columnName, aggregateFunctionName, calculatedField];
-    }   
+    }
 
     /**
      * 
@@ -1491,7 +1491,7 @@ class JoinTables {
                     .setRightField(rightFieldInfo)
                     .setLeftRecords(leftJoinRecordIDs)
                     .setIsOuterJoin(true)
-                    .createTable();                
+                    .createTable();
 
                 let rightJoinRecordIDs = this.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
                 let rightDerivedTable = new DerivedTable()
@@ -1499,7 +1499,7 @@ class JoinTables {
                     .setRightField(leftFieldInfo)
                     .setLeftRecords(rightJoinRecordIDs)
                     .setIsOuterJoin(true)
-                    .createTable();  
+                    .createTable();
 
                 derivedTable.tableInfo.concat(rightDerivedTable.tableInfo);
 

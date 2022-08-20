@@ -605,6 +605,30 @@ class SqlTester {
         return this.isEqual("whereAndOr2", data, expected);
     }
 
+    whereAndNotEqual2() {
+        let stmt = "select * from bookSales where date >= ? AND date <= ? And book_id <> ?";
+
+        let data = new Sql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .addBindParameter('05/01/2022')
+            .addBindParameter('05/04/2022')
+            .addBindParameter('9')
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022"]];
+
+        return this.isEqual("whereAndNotEqual2", data, expected);
+    }
+
     selectAgainNewBinds1() {
         let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
 
@@ -1593,7 +1617,7 @@ class SqlTester {
     }
 
     parseTableSettings1() {
-        let data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people','peopleRange']], false);
+        let data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], false);
         let expected = [["authors", "authorsNamedRange", 60],
         ["editors", "editorsRange", 30],
         ["people", "peopleRange", 0]];
@@ -1976,6 +2000,7 @@ function testerSql() {
     result = result && tester.whereNotIn1();
     result = result && tester.whereAndOr1();
     result = result && tester.whereAndOr2();
+    result = result && tester.whereAndNotEqual2();
     result = result && tester.groupBy1();
     result = result && tester.selectAgainNewBinds1();
     result = result && tester.groupBy2();
