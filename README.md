@@ -164,3 +164,21 @@ Known Issues:
 2)  Moderate amount of error checking.  When developing your SQL SELECT statements and something is not correct or not supported, the application may just fail without giving any real indication of the problem.  This needs improvements.
 
 3)  Not really an issue, but the use of bind variables does not mean that the SELECT is compiled and reused.  It is only to make your SELECT easier to read.
+
+# Install
+* Install files to your node_modules folder by using NPM.  This is installed as a package, but Google App Script (GAS) files do not 'require' or 'import'.  Copy the .js files from the /src folder into the location where you have your current google script files and then 'clasp push'.  The @customfunction "gsSQL" will be usable right away.  The class "Sql" is also available from your current javascript application.
+```
+    npm install @demmings/gssql
+```
+
+* I have included a sanity check after you have installed to your node_modules folder.  Look for "@demmings/gssql" folder.  
+```
+   npm test
+```
+
+* To find where your node_modules folder is just type:
+```
+   npm root
+```
+
+* If you have not configured CLASP, you can always just copy and paste into the .gs files using "App Script" inside of Google Sheets.  Go to "Extensions" and then "Apps Script".   Click on the "+" to add a file and paste in the contents of each script.  The "src/SqlTest.js" is optional and is only needed if you wish to run the test suite from within Google Sheets itself. 
