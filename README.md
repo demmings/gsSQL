@@ -8,6 +8,9 @@
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=demmings_gsSQL&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=demmings_gsSQL)
 [![CodeQL](https://github.com/demmings/gsSQL/actions/workflows/codeql.yml/badge.svg)](https://github.com/demmings/gsSQL/actions/workflows/codeql.yml)
 
+[![NPM](https://nodei.co/npm/@demmings/gssql.png?compact=true)](https://npmjs.org/package/@demmings/gssql)
+[![npm version](https://badge.fury.io/js/@demmings%2Fgssql.png)](https://badge.fury.io/js/@demmings%2Fgssql)
+
 # gsSQL
 The Google Sheets ***QUERY*** function is very flexible and powerful.  However it is:
 
