@@ -4,7 +4,7 @@
   "description": "Google Sheets QUERY function replacement using real SQL select syntax.",
   "main": "testGsSql.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node ./testGsSql.js"
   },
   "repository": {
     "type": "git",
