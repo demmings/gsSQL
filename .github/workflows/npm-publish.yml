@@ -14,11 +14,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: '14.x'
+          node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
       - name: Install dependencies 🔧
         run: npm install
       - name: Publish package on NPM 📦
-        run: npm publish --access public
+        run: 
+          npm ci
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
