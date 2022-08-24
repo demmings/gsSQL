@@ -11,6 +11,9 @@
     "type": "git",
     "url": "git+https://github.com/demmings/gsSQL.git"
   },
+  "publishConfig": {
+    "registry":"https://npm.pkg.github.com"
+  },
   "keywords": [
     "Google",
     "Sheets",
