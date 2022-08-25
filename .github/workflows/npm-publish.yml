@@ -16,12 +16,12 @@ jobs:
         with:
           node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
-      - name: whoami
-        run:
-          npm whoami
       - name: Install dependencies 🔧
         run: 
           npm install
+      - name: whoami
+        run:
+          npm whoami
       - name: NPM ci
         run: 
           npm ci
