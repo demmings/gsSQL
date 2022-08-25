@@ -19,9 +19,9 @@ jobs:
       - name: Install dependencies 🔧
         run: 
           npm install
-      - name: whoami
+      - name: npm login
         run:
-          npm whoami
+          npm login
       - name: NPM ci
         run: 
           npm ci
