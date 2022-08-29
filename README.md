@@ -126,10 +126,14 @@ Sql() Methods:
         1)  stmt:  SQL SELECT statement to run.  
             Returns a double array of data (first row is column title - if enabled).
 
-Using from SHEETS as a custom function.
-example:
+# Using from SHEETS.
+   Custom Function example:
 
-        =gsSQL({{"masterTransactions", "Master Transactions!$A$1:$I", 60}; {"accounts", "accountNamesData", 3600}}, "SELECT * FROM accounts WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = ? ", true, "TFSA")
+```
+        =gsSQL({{"masterTransactions", "Master Transactions!$A$1:$I", 60}; {"accounts", "accountNamesData", 3600}}, 
+            "SELECT * FROM accounts WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = ? ", 
+            true, "TFSA")
+```
         
 1.  First parameter is an array of:  a) table name, b) Range of data, c) cache seconds
 2.  Select statement.
