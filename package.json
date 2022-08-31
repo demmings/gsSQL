@@ -1,6 +1,6 @@
 {
   "name": "@demmings/gssql",
-  "version": "1.1.0",
+  "version": "1.0.1",
   "description": "Google Sheets QUERY function replacement using real SQL select syntax.",
   "main": "testGsSql.js",
   "files": ["./src"],
@@ -10,9 +10,6 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/demmings/gsSQL.git"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "keywords": [
     "Google",
