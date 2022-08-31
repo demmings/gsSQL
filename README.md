@@ -157,7 +157,7 @@ SELECT * FROM books WHERE author_id IN (select id from authors where first_name 
 9.  BIND variables simplify the use of date comparisons.  The QUERY statement requires that you format the date in your SELECT.  Any DATE BIND variables are converted automatically.  Just specify the named range or A1 range in your gsSQL statement (without quotes) for each parameter and in your SELECT, just substitute with a question mark.  Here is an example from my sheet:
 
 ```
-=-gsSQL("[['mastertransactions', 'Master Transactions!$A$1:$I',60]]","select sum(amount) from mastertransactions where account = ? and expense_category = ? and transaction_date >= ? and transaction_date <= ?", false, myName, "Savings - TFSA", startIncomeDate, endIncomeDate)
+=-gsSQL({{"mastertransactions", "Master Transactions!$A$1:$I",60}},"select sum(amount) from mastertransactions where account = ? and expense_category = ? and transaction_date >= ? and transaction_date <= ?", false, myName, "Savings - TFSA", startIncomeDate, endIncomeDate)
 ```
 
 # WARNING:
