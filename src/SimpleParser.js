@@ -880,11 +880,11 @@ function resolveSqlCondition(logic, terms) {
 
     for (let cond of terms) {
         if (typeof cond.logic == 'undefined') {
-            if (jsCondition != "") {
-                if (logic == "AND")
-                    jsCondition += " && ";
-                else if (logic == "OR")
-                    jsCondition += " || ";
+            if (jsCondition != "" && logic == "AND") {
+                jsCondition += " && ";
+            }
+            else if (jsCondition != "" && logic == "OR") {
+                jsCondition += " || ";
             }
 
             jsCondition += " " + cond.left;
