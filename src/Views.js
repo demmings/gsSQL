@@ -489,7 +489,8 @@ class SelectTables {
             //  we summarize all records into ONE.
             if (this.getConglomerateFieldCount() > 0) {
                 let compressedData = [];
-                compressedData.push(this.conglomerateRecord(viewTableData));
+                let conglomerate = new ConglomerateRecord(this.virtualFields.selectVirtualFields);
+                compressedData.push(conglomerate.squish(viewTableData));
                 viewTableData = compressedData;
             }
         }
@@ -520,11 +521,13 @@ class SelectTables {
 
         let groupedData = [];
         let groupRecords = [];
+        let conglomerate = new ConglomerateRecord(this.virtualFields.selectVirtualFields);
+
         let lastKey = this.createGroupByKey(selectedData[0], astGroupBy);
         for (let row of selectedData) {
             let newKey = this.createGroupByKey(row, astGroupBy);
             if (newKey != lastKey) {
-                groupedData.push(this.conglomerateRecord(groupRecords));
+                groupedData.push(conglomerate.squish(groupRecords));
 
                 lastKey = newKey;
                 groupRecords = [];
@@ -533,77 +536,9 @@ class SelectTables {
         }
 
         if (groupRecords.length > 0)
-            groupedData.push(this.conglomerateRecord(groupRecords));
+            groupedData.push(conglomerate.squish(groupRecords));
 
         return groupedData;
-    }
-
-    /**
-     * 
-     * @param {any[][]} groupRecords 
-     * @returns {any[]}
-     */
-    conglomerateRecord(groupRecords) {
-        let row = [];
-        if (groupRecords.length == 0)
-            return row;
-
-        /** @type {SelectField} */
-        let field;
-        let i = 0;
-        for (field of this.virtualFields.selectVirtualFields) {
-            if (field.aggregateFunction == "")
-                row.push(groupRecords[0][i]);
-            else {
-                let groupValue = 0;
-                let avgCounter = 0;
-                let first = true;
-
-                for (let groupRow of groupRecords) {
-                    if (groupRow[i] == 'null')
-                        continue;
-
-                    let data = parseFloat(groupRow[i]);
-                    data = (isNaN(data)) ? 0 : data;
-
-                    switch (field.aggregateFunction) {
-                        case "SUM":
-                            groupValue += data;
-                            break;
-                        case "COUNT":
-                            groupValue++;
-                            break;
-                        case "MIN":
-                            if (first)
-                                groupValue = data;
-                            if (data < groupValue)
-                                groupValue = data;
-                            break;
-                        case "MAX":
-                            if (first)
-                                groupValue = data;
-                            if (data > groupValue)
-                                groupValue = data;
-                            break;
-                        case "AVG":
-                            avgCounter++;
-                            groupValue += data;
-                            break;
-                        default:
-                            throw new Error("Invalid aggregate function: " + field.aggregateFunction);
-                    }
-                    first = false;
-                }
-
-                if (field.aggregateFunction == "AVG")
-                    groupValue = groupValue / avgCounter;
-
-                row.push(groupValue);
-            }
-            i++;
-
-        }
-        return row;
     }
 
     /**
@@ -1746,5 +1681,105 @@ class SqlServerFunctions {
         }
 
         return functionString;
+    }
+}
+
+class ConglomerateRecord {
+    /**
+     * 
+     * @param {SelectField[]} virtualFields 
+     */
+    constructor(virtualFields) {
+        this.selectVirtualFields = virtualFields;
+    }
+
+    /**
+     * 
+     * @param {any[]} groupRecords 
+     * @returns 
+     */
+    squish(groupRecords) {
+        let row = [];
+        if (groupRecords.length == 0)
+            return row;
+
+        /** @type {SelectField} */
+        let field;
+        let i = 0;
+        for (field of this.selectVirtualFields) {
+            if (field.aggregateFunction == "")
+                row.push(groupRecords[0][i]);
+            else {
+                row.push(this.aggregateColumn(field, groupRecords, i));
+            }
+            i++;
+        }
+        return row;
+    }
+
+    /**
+     * 
+     * @param {SelectField} field 
+     * @param {any[]} groupRecords 
+     * @param {Number} columnIndex 
+     * @returns {Number}
+     */
+    aggregateColumn(field, groupRecords, columnIndex) {
+        let groupValue = 0;
+        let avgCounter = 0;
+        let first = true;
+
+        for (let groupRow of groupRecords) {
+            if (groupRow[columnIndex] == 'null')
+                continue;
+
+            let data = parseFloat(groupRow[columnIndex]);
+            data = (isNaN(data)) ? 0 : data;
+
+            switch (field.aggregateFunction) {
+                case "SUM":
+                    groupValue += data;
+                    break;
+                case "COUNT":
+                    groupValue++;
+                    break;
+                case "MIN":
+                    groupValue = this.minCase(first, groupValue, data);
+                    break;
+                case "MAX":
+                    groupValue = this.maxCase(first, groupValue, data);
+                    break;
+                case "AVG":
+                    avgCounter++;
+                    groupValue += data;
+                    break;
+                default:
+                    throw new Error("Invalid aggregate function: " + field.aggregateFunction);
+            }
+            first = false;
+        }
+
+        if (field.aggregateFunction == "AVG")
+            groupValue = groupValue / avgCounter;
+
+        return groupValue;
+    }
+
+    minCase(first, groupValue, data) {
+        if (first)
+            groupValue = data;
+        if (data < groupValue)
+            groupValue = data;
+
+        return groupValue;
+    }
+
+    maxCase(first, groupValue, data) {
+        if (first)
+            groupValue = data;
+        if (data > groupValue)
+            groupValue = data;
+
+        return groupValue;
     }
 }
