@@ -1549,9 +1549,7 @@ class SqlServerFunctions {
         for (let func of sqlFunctions) {
             let args = SelectTables.parseForFunctions(functionString, func);
 
-            if (func == "CASE") {
-                [args, functionString] = this.startCase(functionString);
-            }
+            [args, functionString] = this.caseStart(func, args, functionString);
 
             while (args != null && args.length > 0) {
                 // Split on COMMA, except within brackets.
@@ -1563,16 +1561,13 @@ class SqlServerFunctions {
                         replacement = "Math.abs(" + parms[0] + ")";
                         break;
                     case "CASE":
-                        replacement = this.whenCase(args);
+                        replacement = this.caseWhen(args);
                         break;
                     case "CEILING":
                         replacement = "Math.ceil(" + parms[0] + ")";
                         break;
                     case "CHARINDEX":
-                        if (typeof parms[2] == 'undefined')
-                            replacement = parms[1] + ".indexOf(" + parms[0] + ") + 1";
-                        else
-                            replacement = parms[1] + ".indexOf(" + parms[0] + "," + parms[2] + " -1) + 1";
+                        replacement = this.charIndex(parms);
                         break;
                     case "FLOOR":
                         replacement = "Math.floor(" + parms[0] + ")";
@@ -1646,36 +1641,78 @@ class SqlServerFunctions {
 
                 functionString = functionString.replace(args[0], replacement);
 
-                if (func == "CASE")
-                    args = functionString.match(this.matchCaseWhenThenStr);
-                else
-                    args = SelectTables.parseForFunctions(functionString, func);
-
+                args = this.parseFunctionArgs(func, functionString);
             }
 
-            if (func == "CASE")
-                functionString = this.endCase(functionString);
+            functionString = this.caseEnd(func, functionString);
         }
 
         return functionString;
     }
 
-    startCase(functionString) {
-        let args = functionString.match(/CASE(.*?)END/i);
+    /**
+     * 
+     * @param {String} func 
+     * @param {String} functionString 
+     * @returns {String[]}
+     */
+    parseFunctionArgs(func, functionString) {
+        let args = [];
 
-        if (args != null && args.length > 1) {
-            this.firstCase = true;
-            this.originalFunctionString = functionString;
-            this.originalCaseStatement = args[0];
-            functionString = args[1];
+        if (func == "CASE")
+            args = functionString.match(this.matchCaseWhenThenStr);
+        else
+            args = SelectTables.parseForFunctions(functionString, func);
 
-            args = args[1].match(this.matchCaseWhenThenStr);
+        return args;
+    }
+
+    /**
+     * 
+     * @param {any[]} parms 
+     * @returns {String}
+     */
+    charIndex(parms) {
+        let replacement = "";
+
+        if (typeof parms[2] == 'undefined')
+            replacement = parms[1] + ".indexOf(" + parms[0] + ") + 1";
+        else
+            replacement = parms[1] + ".indexOf(" + parms[0] + "," + parms[2] + " -1) + 1";
+
+        return replacement;
+    }
+
+    /**
+     * 
+     * @param {String} func 
+     * @param {any[]} args 
+     * @param {String} functionString 
+     * @returns {[any[], String]}
+     */
+    caseStart(func, args, functionString) {
+        if (func == "CASE") {
+            args = functionString.match(/CASE(.*?)END/i);
+
+            if (args != null && args.length > 1) {
+                this.firstCase = true;
+                this.originalFunctionString = functionString;
+                this.originalCaseStatement = args[0];
+                functionString = args[1];
+
+                args = args[1].match(this.matchCaseWhenThenStr);
+            }
         }
 
         return [args, functionString];
     }
 
-    whenCase(args) {
+    /**
+     * 
+     * @param {any[]} args 
+     * @returns {String}
+     */
+    caseWhen(args) {
         let replacement = "";
 
         if (args.length > 2) {
@@ -1696,8 +1733,14 @@ class SqlServerFunctions {
         return replacement;
     }
 
-    endCase(functionString) {
-        if (this.originalFunctionString != "") {
+    /**
+     * 
+     * @param {String} func 
+     * @param {String} functionString 
+     * @returns {String}
+     */
+    caseEnd(func, functionString) {
+        if (func == "CASE" && this.originalFunctionString != "") {
             functionString += "})();";      //  end of lambda.
             functionString = this.originalFunctionString.replace(this.originalCaseStatement, functionString);
         }
