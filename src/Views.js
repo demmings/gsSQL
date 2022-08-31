@@ -353,151 +353,8 @@ class SelectTables {
         if (this.sqlServerFunctionCache.has(calculatedFormula))
             return this.sqlServerFunctionCache.get(calculatedFormula);
 
-        let sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
-            "LTRIM", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
-            "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER"];
-
-        let functionString = this.toUpperCaseExceptQuoted(calculatedFormula);
-        let firstCase = true;
-        let matchStr;
-
-        for (let func of sqlFunctions) {
-            let args = SelectTables.parseForFunctions(functionString, func);
-
-            let originalCaseStatement = "";
-            let originalFunctionString = "";
-
-            if (func == "CASE") {
-                args = functionString.match(/CASE(.*?)END/i);
-
-                if (args != null && args.length > 1) {
-                    firstCase = true;
-                    originalFunctionString = functionString;
-                    originalCaseStatement = args[0];
-                    functionString = args[1];
-                    matchStr = /WHEN(.*?)THEN(.*?)(?=WHEN|ELSE|$)|ELSE(.*?)(?=$)/;
-                    args = args[1].match(matchStr);
-                }
-            }
-
-            while (args != null && args.length > 0) {
-                // Split on COMMA, except within brackets.
-                let parms = typeof args[1] == 'undefined' ? [] : SelectTables.parseForParams(args[1]);
-
-                let replacement = "";
-                switch (func) {
-                    case "ABS":
-                        replacement = "Math.abs(" + parms[0] + ")";
-                        break;
-                    case "CASE":
-                        if (args.length > 2) {
-                            if (typeof args[1] == 'undefined' && typeof args[2] == 'undefined') {
-                                replacement = "else return " + args[3] + ";";
-                            }
-                            else {
-                                if (firstCase) {
-                                    replacement = "(() => {if (";
-                                    firstCase = false;
-                                }
-                                else
-                                    replacement = "else if (";
-                                replacement += sqlCondition2JsCondition(args[1]) + ") return " + args[2] + " ;";
-                            }
-                        }
-                        break;
-                    case "CEILING":
-                        replacement = "Math.ceil(" + parms[0] + ")";
-                        break;
-                    case "CHARINDEX":
-                        if (typeof parms[2] == 'undefined')
-                            replacement = parms[1] + ".indexOf(" + parms[0] + ") + 1";
-                        else
-                            replacement = parms[1] + ".indexOf(" + parms[0] + "," + parms[2] + " -1) + 1";
-                        break;
-                    case "FLOOR":
-                        replacement = "Math.floor(" + parms[0] + ")";
-                        break;
-                    case "IF":
-                        let ifCond = sqlCondition2JsCondition(parms[0]);
-                        replacement = ifCond + " ? " + parms[1] + " : " + parms[2] + ";";
-                        break;
-                    case "LEFT":
-                        replacement = parms[0] + ".substring(0," + parms[1] + ")";
-                        break;
-                    case "LEN":
-                    case "LENGTH":
-                        replacement = parms[0] + ".length";
-                        break;
-                    case "LOG":
-                        replacement = "Math.log2(" + parms[0] + ")";
-                        break;
-                    case "LOG10":
-                        replacement = "Math.log10(" + parms[0] + ")";
-                        break;
-                    case "LOWER":
-                        replacement = parms[0] + ".toLowerCase()";
-                        break;
-                    case "LTRIM":
-                        replacement = parms[0] + ".trimStart()";
-                        break;
-                    case "NOW":
-                        replacement = "new Date().toLocaleString()";
-                        break;
-                    case "POWER":
-                        replacement = "Math.pow(" + parms[0] + "," + parms[1] + ")";
-                        break;
-                    case "RAND":
-                        replacement = "Math.random()";
-                        break;
-                    case "REPLICATE":
-                        replacement = parms[0] + ".repeat(" + parms[1] + ")";
-                        break;
-                    case "REVERSE":
-                        replacement = parms[0] + '.split("").reverse().join("")';
-                        break;
-                    case "RIGHT":
-                        replacement = parms[0] + ".slice(" + parms[0] + ".length - " + parms[1] + ")";
-                        break;
-                    case "ROUND":
-                        replacement = "Math.round(" + parms[0] + ")";
-                        break;
-                    case "RTRIM":
-                        replacement = parms[0] + ".trimEnd()";
-                        break;
-                    case "SPACE":
-                        replacement = "' '.repeat(" + parms[0] + ")";
-                        break;
-                    case "STUFF":
-                        replacement = parms[0] + ".substring(0," + parms[1] + "-1" + ") + " + parms[3] + " + " + parms[0] + ".substring(" + parms[1] + " + " + parms[2] + " - 1)";
-                        break;
-                    case "SUBSTRING":
-                        replacement = parms[0] + ".substring(" + parms[1] + " - 1, " + parms[1] + " + " + parms[2] + " - 1)";
-                        break;
-                    case "SQRT":
-                        replacement = "Math.sqrt(" + parms[0] + ")";
-                        break;
-                    case "TRIM":
-                        replacement = parms[0] + ".trim()";
-                        break;
-                    case "UPPER":
-                        replacement = parms[0] + ".toUpperCase()";
-                        break;
-                }
-
-                functionString = functionString.replace(args[0], replacement);
-
-                if (func == "CASE")
-                    args = functionString.match(matchStr);
-                else
-                    args = SelectTables.parseForFunctions(functionString, func);
-
-            }
-
-            if (originalCaseStatement != "") {
-                functionString += "})();";      //  end of lambda.
-                functionString = originalFunctionString.replace(originalCaseStatement, functionString);
-            }
-        }
+        let func = new SqlServerFunctions();
+        let functionString = func.convertToJs(calculatedFormula);
 
         //  No need to recalculate for each row.
         this.sqlServerFunctionCache.set(calculatedFormula, functionString);
@@ -510,7 +367,7 @@ class SelectTables {
      * @param {String} srcString 
      * @returns {String}
      */
-    toUpperCaseExceptQuoted(srcString) {
+    static toUpperCaseExceptQuoted(srcString) {
         let finalString = "";
         let inQuotes = "";
 
@@ -1674,5 +1531,177 @@ class DerivedTable {
         let titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames();
         let rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames();
         return titleRow.concat(rightFieldNames);
+    }
+}
+
+class SqlServerFunctions {
+    convertToJs(calculatedFormula) {
+        const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+            "LTRIM", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
+            "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER"];
+        this.matchCaseWhenThenStr = /WHEN(.*?)THEN(.*?)(?=WHEN|ELSE|$)|ELSE(.*?)(?=$)/;
+        this.originalCaseStatement = "";
+        this.originalFunctionString = "";
+        this.firstCase = true;
+
+        let functionString = SelectTables.toUpperCaseExceptQuoted(calculatedFormula);
+
+        for (let func of sqlFunctions) {
+            let args = SelectTables.parseForFunctions(functionString, func);
+
+            if (func == "CASE") {
+                [args, functionString] = this.startCase(functionString);
+            }
+
+            while (args != null && args.length > 0) {
+                // Split on COMMA, except within brackets.
+                let parms = typeof args[1] == 'undefined' ? [] : SelectTables.parseForParams(args[1]);
+
+                let replacement = "";
+                switch (func) {
+                    case "ABS":
+                        replacement = "Math.abs(" + parms[0] + ")";
+                        break;
+                    case "CASE":
+                        replacement = this.whenCase(args);
+                        break;
+                    case "CEILING":
+                        replacement = "Math.ceil(" + parms[0] + ")";
+                        break;
+                    case "CHARINDEX":
+                        if (typeof parms[2] == 'undefined')
+                            replacement = parms[1] + ".indexOf(" + parms[0] + ") + 1";
+                        else
+                            replacement = parms[1] + ".indexOf(" + parms[0] + "," + parms[2] + " -1) + 1";
+                        break;
+                    case "FLOOR":
+                        replacement = "Math.floor(" + parms[0] + ")";
+                        break;
+                    case "IF":
+                        let ifCond = sqlCondition2JsCondition(parms[0]);
+                        replacement = ifCond + " ? " + parms[1] + " : " + parms[2] + ";";
+                        break;
+                    case "LEFT":
+                        replacement = parms[0] + ".substring(0," + parms[1] + ")";
+                        break;
+                    case "LEN":
+                    case "LENGTH":
+                        replacement = parms[0] + ".length";
+                        break;
+                    case "LOG":
+                        replacement = "Math.log2(" + parms[0] + ")";
+                        break;
+                    case "LOG10":
+                        replacement = "Math.log10(" + parms[0] + ")";
+                        break;
+                    case "LOWER":
+                        replacement = parms[0] + ".toLowerCase()";
+                        break;
+                    case "LTRIM":
+                        replacement = parms[0] + ".trimStart()";
+                        break;
+                    case "NOW":
+                        replacement = "new Date().toLocaleString()";
+                        break;
+                    case "POWER":
+                        replacement = "Math.pow(" + parms[0] + "," + parms[1] + ")";
+                        break;
+                    case "RAND":
+                        replacement = "Math.random()";
+                        break;
+                    case "REPLICATE":
+                        replacement = parms[0] + ".repeat(" + parms[1] + ")";
+                        break;
+                    case "REVERSE":
+                        replacement = parms[0] + '.split("").reverse().join("")';
+                        break;
+                    case "RIGHT":
+                        replacement = parms[0] + ".slice(" + parms[0] + ".length - " + parms[1] + ")";
+                        break;
+                    case "ROUND":
+                        replacement = "Math.round(" + parms[0] + ")";
+                        break;
+                    case "RTRIM":
+                        replacement = parms[0] + ".trimEnd()";
+                        break;
+                    case "SPACE":
+                        replacement = "' '.repeat(" + parms[0] + ")";
+                        break;
+                    case "STUFF":
+                        replacement = parms[0] + ".substring(0," + parms[1] + "-1" + ") + " + parms[3] + " + " + parms[0] + ".substring(" + parms[1] + " + " + parms[2] + " - 1)";
+                        break;
+                    case "SUBSTRING":
+                        replacement = parms[0] + ".substring(" + parms[1] + " - 1, " + parms[1] + " + " + parms[2] + " - 1)";
+                        break;
+                    case "SQRT":
+                        replacement = "Math.sqrt(" + parms[0] + ")";
+                        break;
+                    case "TRIM":
+                        replacement = parms[0] + ".trim()";
+                        break;
+                    case "UPPER":
+                        replacement = parms[0] + ".toUpperCase()";
+                        break;
+                }
+
+                functionString = functionString.replace(args[0], replacement);
+
+                if (func == "CASE")
+                    args = functionString.match(this.matchCaseWhenThenStr);
+                else
+                    args = SelectTables.parseForFunctions(functionString, func);
+
+            }
+
+            if (func == "CASE")
+                functionString = this.endCase(functionString);
+        }
+
+        return functionString;
+    }
+
+    startCase(functionString) {
+        let args = functionString.match(/CASE(.*?)END/i);
+
+        if (args != null && args.length > 1) {
+            this.firstCase = true;
+            this.originalFunctionString = functionString;
+            this.originalCaseStatement = args[0];
+            functionString = args[1];
+
+            args = args[1].match(this.matchCaseWhenThenStr);
+        }
+
+        return [args, functionString];
+    }
+
+    whenCase(args) {
+        let replacement = "";
+
+        if (args.length > 2) {
+            if (typeof args[1] == 'undefined' && typeof args[2] == 'undefined') {
+                replacement = "else return " + args[3] + ";";
+            }
+            else {
+                if (this.firstCase) {
+                    replacement = "(() => {if (";
+                    this.firstCase = false;
+                }
+                else
+                    replacement = "else if (";
+                replacement += sqlCondition2JsCondition(args[1]) + ") return " + args[2] + " ;";
+            }
+        }
+
+        return replacement;
+    }
+
+    endCase(functionString) {
+        if (this.originalFunctionString != "") {
+            functionString += "})();";      //  end of lambda.
+            functionString = this.originalFunctionString.replace(this.originalCaseStatement, functionString);
+        }
+
+        return functionString;
     }
 }
