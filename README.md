@@ -14,6 +14,17 @@
 [![GitHub Super-Linter](https://github.com/demmings/gsSQL/workflows/Lint%20Code%20Base/badge.svg)](https://github.com/marketplace/actions/super-linter)
 
 # gsSQL
+* Simple and standard SQL SELECT syntax to extract data from your google sheets.  For a simple example where we have sheets that are treated as a table:
+
+```
+=gsSQL("select name_of_institution as 'Name of Institution', transaction_date as 'Transaction Date', balance as 'Balance' 
+        from 'master transactions' 
+        where name_of_institution in (select account_name from accounts where type = 'Bank') 
+            and balance is not null and transaction_date >= '01/01/2021' and transaction_date <= '12/31/2021' 
+        order by transaction_date")
+
+```
+
 The Google Sheets ***QUERY*** function is very flexible and powerful.  However it is:
 
 - Only available as a function in sheets.  It cannot be used to query data within your apps script (GAS).
