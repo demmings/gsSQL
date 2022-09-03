@@ -33,7 +33,7 @@ class Logger {
  * @returns {any[][]}
  * @customfunction
  */
-function gsSQL(statement, tableArr=[], columnTitle = true, ...bindings) {
+function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {
     let tableList = parseTableSettings(tableArr, statement);
 
     Logger.log("gsSQL: tableList=" + tableList + ".  Statement=" + statement + ". List Len=" + tableList.length);
@@ -55,7 +55,7 @@ function gsSQL(statement, tableArr=[], columnTitle = true, ...bindings) {
  * @param {Boolean} randomOrder
  * @returns {any[][]}
  */
-function parseTableSettings(tableArr, statement="", randomOrder=true) {
+function parseTableSettings(tableArr, statement = "", randomOrder = true) {
     let tableList = [];
 
     //  Get table names from the SELECT statement when no table range info is given.
@@ -78,7 +78,7 @@ function parseTableSettings(tableArr, statement="", randomOrder=true) {
         if (table[1] == "")
             table[1] = table[0];    //  If empty range, assumes TABLE NAME is the SHEET NAME and loads entire sheet.
         if (table.length != 3)
-            throw new Error ("Invalid table definition [name,range,cache]");
+            throw new Error("Invalid table definition [name,range,cache]");
 
         tableList.push(table);
     }
@@ -223,19 +223,49 @@ class Sql {
     getTableAlias(tableName, ast) {
         let tableAlias = "";
         tableName = tableName.toUpperCase();
-        let astTableBlocks = ['FROM', 'JOIN'];
-        let astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+
+        tableAlias = this.getTableAliasFromJoin(tableAlias, tableName, ast);
+        tableAlias = this.getTableAliasUnion(tableAlias, tableName, ast);
+        tableAlias = this.getTableAliasWhereIn(tableAlias, tableName, ast);
+        tableAlias = this.getTableAliasWhereTerms(tableAlias, tableName, ast);
+
+        return tableAlias;
+    }
+
+    /**
+     * 
+     * @param {String} tableAlias 
+     * @param {String} tableName 
+     * @param {Object} ast 
+     * @returns {String}
+     */
+    getTableAliasFromJoin(tableAlias, tableName, ast) {
+        const astTableBlocks = ['FROM', 'JOIN'];
+
         let i = 0;
         while (tableAlias == "" && i < astTableBlocks.length) {
             tableAlias = this.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
             i++;
         }
 
-        i = 0;
+        return tableAlias;
+    }
+
+    /**
+     * 
+     * @param {String} tableAlias 
+     * @param {String} tableName 
+     * @param {Object} ast 
+     * @returns {String}
+     */
+    getTableAliasUnion(tableAlias, tableName, ast) {
+        const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+
+        let i = 0;
         while (tableAlias == "" && i < astRecursiveTableBlocks.length) {
             if (typeof ast[astRecursiveTableBlocks[i]] != 'undefined') {
-                for (let j = 0; j < ast[astRecursiveTableBlocks[i]].length; j++) {
-                    tableAlias = this.getTableAlias(tableName, ast[astRecursiveTableBlocks[i]][j]);
+                for (let unionAst of ast[astRecursiveTableBlocks[i]]) {
+                    tableAlias = this.getTableAlias(tableName, unionAst);
 
                     if (tableAlias != "")
                         break;
@@ -244,6 +274,17 @@ class Sql {
             i++;
         }
 
+        return tableAlias;
+    }
+
+    /**
+     * 
+     * @param {String} tableAlias 
+     * @param {String} tableName 
+     * @param {Object} ast 
+     * @returns {String}
+     */
+    getTableAliasWhereIn(tableAlias, tableName, ast) {
         if (tableAlias == "" && typeof ast["WHERE"] != 'undefined' && ast["WHERE"].operator == "IN") {
             tableAlias = this.getTableAlias(tableName, ast["WHERE"].right);
         }
@@ -252,6 +293,17 @@ class Sql {
             tableAlias = this.getTableAlias(tableName, ast.right);
         }
 
+        return tableAlias;
+    }
+
+    /**
+     * 
+     * @param {String} tableAlias 
+     * @param {String} tableName 
+     * @param {Object} ast 
+     * @returns {String}
+     */
+    getTableAliasWhereTerms(tableAlias, tableName, ast) {
         if (tableAlias == "" && typeof ast["WHERE"] != 'undefined' && typeof ast["WHERE"].terms != 'undefined') {
             for (let term of ast["WHERE"].terms) {
                 if (tableAlias == "")
@@ -269,14 +321,13 @@ class Sql {
      */
     static getReferencedTableNames(statement) {
         let tableSet = new Set();
-        let ast = sql2ast(statement);  
+        let ast = sql2ast(statement);
 
         Sql.extractAstTables(ast, tableSet);
-        
+
         let tableList = [];
         // @ts-ignore
-        for (let table of tableSet)
-        {
+        for (let table of tableSet) {
             tableList.push([table]);
         }
 
@@ -289,9 +340,20 @@ class Sql {
      * @param {Set} tableSet 
      */
     static extractAstTables(ast, tableSet) {
+        Sql.getTableNamesFromOrJoin(ast, tableSet);
+        Sql.getTableNamesUnion(ast, tableSet);
+        Sql.getTableNamesWhereIn(ast, tableSet);
+        Sql.getTableNamesWhereTerms(ast, tableSet);
+    }
+
+    /**
+     * 
+     * @param {Object} ast 
+     * @param {Set} tableSet 
+     */
+    static getTableNamesFromOrJoin(ast, tableSet) {
         const astTableBlocks = ['FROM', 'JOIN'];
-        const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
-       
+
         for (let astBlock of astTableBlocks) {
             if (typeof ast[astBlock] == 'undefined')
                 continue;
@@ -299,17 +361,33 @@ class Sql {
             let blockData = ast[astBlock];
             for (let astItem of blockData) {
                 tableSet.add(astItem.table.toUpperCase());
-            }    
+            }
         }
+    }
+
+    /**
+     * 
+     * @param {Object} ast 
+     * @param {Set} tableSet 
+     */
+    static getTableNamesUnion(ast, tableSet) {
+        const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
 
         for (let block of astRecursiveTableBlocks) {
-            if (typeof ast[block] != 'undefined') { 
-                for (let i = 0; i < ast[block].length; i++) {
-                    this.extractAstTables(ast[block][i], tableSet);
+            if (typeof ast[block] != 'undefined') {
+                for (let unionAst of ast[block]) {
+                    this.extractAstTables(unionAst, tableSet);
                 }
             }
         }
+    }
 
+    /**
+     * 
+     * @param {Object} ast 
+     * @param {Set} tableSet 
+     */
+    static getTableNamesWhereIn(ast, tableSet) {
         //  where IN ().
         if (typeof ast["WHERE"] != 'undefined' && ast["WHERE"].operator == "IN") {
             this.extractAstTables(ast["WHERE"].right, tableSet);
@@ -318,7 +396,14 @@ class Sql {
         if (ast.operator == "IN") {
             this.extractAstTables(ast.right, tableSet);
         }
-
+    }
+    
+    /**
+     * 
+     * @param {Object} ast 
+     * @param {Set} tableSet 
+     */
+    static getTableNamesWhereTerms(ast, tableSet) {
         if (typeof ast["WHERE"] != 'undefined' && typeof ast["WHERE"].terms != 'undefined') {
             for (let term of ast["WHERE"].terms) {
                 this.extractAstTables(term, tableSet);
@@ -513,15 +598,14 @@ class Sql {
         for (let type of unionTypes) {
             if (typeof ast[type] != 'undefined') {
                 let unionSQL = new Sql()
-                .setBindValues(this.bindParameters)
-                .setTables(this.tables);
+                    .setBindValues(this.bindParameters)
+                    .setTables(this.tables);
                 for (let union of ast[type]) {
                     let unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
-                        throw new Error("Invalid " + type +  ".  Selected field counts do not match.");
-    
-                    switch (type)
-                    {
+                        throw new Error("Invalid " + type + ".  Selected field counts do not match.");
+
+                    switch (type) {
                         case "UNION":
                             //  Remove duplicates.
                             viewTableData = this.appendUniqueRows(viewTableData, unionData);
@@ -540,10 +624,10 @@ class Sql {
                         case "EXCEPT":
                             //  Remove from first table all rows that match in second table.
                             viewTableData = this.exceptRows(viewTableData, unionData);
-                            break;                                               
+                            break;
                     }
                 }
-            }            
+            }
         }
 
         return viewTableData;
