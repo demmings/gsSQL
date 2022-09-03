@@ -150,12 +150,13 @@ Sql() Methods:
 2.  Array of:  a) table name, b) Range of data, c) cache seconds
     * If the table referenced in the SELECT is the name of a SHEET, this parameter is optional.  For example:  
       "select * from transactions"  and you have a sheet called "transactions" and the first row of the sheet has unique column
-      titles, it is not necessary to defined the array of table definitions.  However, if you want to specify a specific range
+      titles, it is not necessary to define the array of table definitions.  However, if you want to specify a specific range
       or set a cache holding seconds, you need to specify this paramter.
     * If the sheet name contains spaces, you need to use single quotes around the table name in your select, like
       "select * from 'master transactions'" if your sheet name is called 'master transactions'.
     * Use the CURLY bracket notations to create the double array of table definitions.
-3.  Include column title or not.
+    * For RANGE of DATA,  either used NAMED RANGE, A1 notation range, SHEET NAME or empty (table name used as sheet name).  This input is a string.       The first row of each range MUST be unique column titles.
+3.  Include column title in output or not.
 4.  Optional BIND variable data.  There should be one data item listed PER question mark in the SELECT statement.
 
 NOTE:
