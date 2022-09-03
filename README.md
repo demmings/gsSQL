@@ -11,6 +11,8 @@
 [![NPM](https://nodei.co/npm/@demmings/gssql.png?compact=true)](https://npmjs.org/package/@demmings/gssql)
 [![npm version](https://badge.fury.io/js/@demmings%2Fgssql.png)](https://badge.fury.io/js/@demmings%2Fgssql)
 
+[![GitHub Super-Linter](https://github.com/demmings/gsSQL/workflows/Lint%20Code%20Base/badge.svg)](https://github.com/marketplace/actions/super-linter)
+
 # gsSQL
 The Google Sheets ***QUERY*** function is very flexible and powerful.  However it is:
 
