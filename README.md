@@ -132,14 +132,31 @@ Sql() Methods:
    Custom Function example:
 
 ```
-        =gsSQL({{"masterTransactions", "Master Transactions!$A$1:$I", 60}; {"accounts", "accountNamesData", 3600}}, 
-            "SELECT * FROM accounts WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = ? ", 
-            true, "TFSA")
+        =gsSQL("SELECT * FROM masterTransactions WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = ? ",
+        {{"masterTransactions", "Master Transactions!$A$1:$I", 60}; {"accounts", "accountNamesData", 3600}},      
+           true, "TFSA")
+```
+
+   Example 2, if you have google sheets named 'Master Transactions' and  'accounts', you can use the simple select without any other parameters.
+   By default, the cache is 60 seconds and column titles are output.
+   
+```   
+
+        =gsSQL("SELECT * FROM 'Master Transactions' WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = 'TFSA' ")
+        
 ```
         
-1.  First parameter is an array of:  a) table name, b) Range of data, c) cache seconds
-2.  Select statement.
-3.  Include column title or not.
+1.  Select statement.
+2.  Array of:  a) table name, b) Range of data, c) cache seconds
+    * If the table referenced in the SELECT is the name of a SHEET, this parameter is optional.  For example:  
+      "select * from transactions"  and you have a sheet called "transactions" and the first row of the sheet has unique column
+      titles, it is not necessary to define the array of table definitions.  However, if you want to specify a specific range
+      or set a cache holding seconds, you need to specify this paramter.
+    * If the sheet name contains spaces, you need to use single quotes around the table name in your select, like
+      "select * from 'master transactions'" if your sheet name is called 'master transactions'.
+    * Use the CURLY bracket notations to create the double array of table definitions.
+    * For RANGE of DATA,  either used NAMED RANGE, A1 notation range, SHEET NAME or empty (table name used as sheet name).  This input is a string.       The first row of each range MUST be unique column titles.
+3.  Include column title in output or not.
 4.  Optional BIND variable data.  There should be one data item listed PER question mark in the SELECT statement.
 
 NOTE:
