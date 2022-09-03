@@ -18,6 +18,7 @@ function SqlLiveDataTest() {
     let tester = new SqlTester();
 
     tester.liveTest1();
+    tester.liveTest2();
 }
 
 
@@ -546,6 +547,32 @@ class SqlTester {
         return this.isEqual("whereIn4", data, expected);
     }
 
+    whereIn5() {
+        let stmt = "SELECT * " +
+            "FROM books " +
+            "WHERE author_id IN (select a.id from authors as a where first_name = ?) " +
+            "or editor_id in (select e.id from editors as e where last_name = ?) " +
+            "or title = ? " +
+            "ORDER BY title";
+
+        let data = new Sql()
+            .addTableData("books", this.bookTable())
+            .addTableData("authors", this.authorsTable())
+            .addTableData("editors", this.editorsTable())
+            .enableColumnTitle(true)
+            .addBindParameter('Donald')
+            .addBindParameter('Roberts')
+            .addBindParameter('Oranges')
+            .execute(stmt);
+
+        let expected = [["BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID"],
+        ["4", "Dream Your Life", "original", "11", "24", ""],
+        ["3", "Lovely Love", "original", "14", "24", ""],
+        ["5", "Oranges", "translated", "12", "25", "31"]];
+
+        return this.isEqual("whereIn5", data, expected);
+    }
+
     whereNotIn1() {
         let stmt = "SELECT books.id, books.title, books.author_id " +
             "FROM books " +
@@ -903,6 +930,34 @@ class SqlTester {
         ["51", "Daniel", "Smart"]];
 
         return this.isEqual("union1", data, expected);
+    }
+
+    unionAlias1() {
+        let stmt = "select a.id, a.first_name, a.last_name from authors as a UNION select e.id, e.first_name, e.last_name from editors as e";
+
+        let data = new Sql()
+            .addTableData("authors", this.authorsTable())
+            .addTableData("editors", this.editorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["a.id", "a.first_name", "a.last_name"],
+        ["11", "Ellen", "Writer"],
+        ["12", "Olga", "Savelieva"],
+        ["13", "Jack", "Smart"],
+        ["14", "Donald", "Brain"],
+        ["15", "Yao", "Dou"],
+        ["21", "Daniel", "Brown"],
+        ["22", "Mark", "Johnson"],
+        ["23", "Maria", "Evans"],
+        ["24", "Cathrine", "Roberts"],
+        ["25", "Sebastian", "Wright"],
+        ["26", "Barbara", "Jones"],
+        ["27", "Matthew", "Smith"],
+        ["50", "Jack", "Dumb"],
+        ["51", "Daniel", "Smart"]];
+
+        return this.isEqual("unionAlias1", data, expected);
     }
 
     unionBind1() {
@@ -1476,7 +1531,7 @@ class SqlTester {
 
         let data = new Sql()
             .addTableData('mastertransactions', 'Master Transactions!$A$1:$I')
-            .addTableData('budgetCategories', 'budgetIncomeCategoriesTable')
+            .addTableData('budgetCategories', 'budgetIncomeCategories')
             .enableColumnTitle(true)
             .execute(stmt);
 
@@ -1488,6 +1543,22 @@ class SqlTester {
         [100, 17.99, 1799]];
 
         return this.isEqual("liveTest1", data, expected);
+
+    }
+
+    liveTest2() {
+        let stmt = "select name_of_institution, transaction_date, balance from 'master transactions' where name_of_institution in (select account_name from accounts where type = 'Bank') and balance is not null and transaction_date >= ? and transaction_date <= ?";
+
+        let data = gsSQL(stmt, [], false, 'startBankingDate', 'endBankingDate');
+
+        let expected = [["QTY", "Pricing", "Money"],
+        [10, 34.95, 350],
+        [100, 65.49, 6549],
+        [150, 24.95, 3743],
+        [50, 19.99, 999],
+        [100, 17.99, 1799]];
+
+        return this.isEqual("liveTest2", data, expected);
 
     }
 
@@ -1617,24 +1688,63 @@ class SqlTester {
     }
 
     parseTableSettings1() {
-        let data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], false);
+        let data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
         let expected = [["authors", "authorsNamedRange", 60],
         ["editors", "editorsRange", 30],
-        ["people", "peopleRange", 0]];
+        ["people", "peopleRange", 60]];
 
         return this.isEqual("parseTableSettings1", data, expected);
     }
 
     parseTableSettings2() {
-        let ex = "";
-        try {
-            parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people']], false);
-        }
-        catch (exceptionErr) {
-            ex = exceptionErr;
-        }
+        let data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people']], "", false);
+        let expected = [["authors", "authorsNamedRange", 60],
+        ["editors", "editorsRange", 30],
+        ["people", "people", 60]];
+        return this.isEqual("parseTableSettings2", data, expected);
+    }
 
-        return this.isFail("parseTableSettings2", ex);
+    parseTableSettings3() {
+        let stmt = "select *, books.title, authors.first_name, editors.first_name, customer.name, customer.email, booksales.quantity from bookSales " +
+            "LEFT JOIN books ON booksales.book_id = books.id " +
+            "LEFT JOIN authors on books.author_id = authors.id " +
+            "LEFT JOIN editors on books.editor_id = editors.id " +
+            "LEFT JOIN customer on bookSales.customer_id = customer.id " +
+            "WHERE customer.email NOT LIKE '%gmail.com' " +
+            "UNION select * from bookSales2";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKSALES", "BOOKSALES", 60],
+        ["BOOKS", "BOOKS", 60],
+        ["AUTHORS", "AUTHORS", 60],
+        ["EDITORS", "EDITORS", 60],
+        ["CUSTOMER", "CUSTOMER", 60],
+        ["BOOKSALES2", "BOOKSALES2", 60]];
+        return this.isEqual("parseTableSettings3", data, expected);
+    }
+
+    parseTableSettings4() {
+        let stmt = "select * from 'master transactions' where account in (select account_name from accounts) ";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["'MASTER TRANSACTIONS'", "'MASTER TRANSACTIONS'", 60],
+        ["ACCOUNTS", "ACCOUNTS", 60]];
+        return this.isEqual("parseTableSettings4", data, expected);
+    }
+
+    parseTableSettings5() {
+        let stmt = "SELECT * " +
+            "FROM books " +
+            "WHERE author_id IN (select a.id from authors as a where first_name = ?) " +
+            "or editor_id in (select e.id from editors as e where last_name = ?) " +
+            "or title = ? " +
+            "ORDER BY title";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKS", "BOOKS", 60],
+        ["AUTHORS", "AUTHORS", 60],
+        ["EDITORS", "EDITORS", 60]];
+        return this.isEqual("parseTableSettings5", data, expected);
     }
 
     selectBadTable1() {
@@ -1940,6 +2050,56 @@ class SqlTester {
         return this.isFail("bindVariableMissing", ex);
     }
 
+    selectNoFrom() {
+        let stmt = "SELECT quantity, prices for booksales ";
+
+        let testSQL = new Sql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectNoFrom", ex);
+    }
+
+    badParseTableSettings1() {
+        let ex = "";
+        try {
+            let data = parseTableSettings([['authors', 'authorsNamedRange', true, 60], ['editors', 'editorsRange', 30], ['people']], "", false);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badParseTableSettings1", ex);
+    }
+
+    pivotGroupByMissing() {
+        let stmt = "select sum(quantity) from bookSales where date > ? AND date < ? OR book_id = ? pivot customer_id";
+
+        let testSQL = new Sql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .addBindParameter('05/01/2022')
+            .addBindParameter('05/04/2022')
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("pivotGroupByMissing", ex);
+    }
+
     isFail(functionName, exceptionErr) {
         if (exceptionErr != "") {
             Logger.log(functionName + "  Captured Error:  " + exceptionErr)
@@ -1997,6 +2157,7 @@ function testerSql() {
     result = result && tester.whereIn2();
     result = result && tester.whereIn3();
     result = result && tester.whereIn4();
+    result = result && tester.whereIn5();
     result = result && tester.whereNotIn1();
     result = result && tester.whereAndOr1();
     result = result && tester.whereAndOr2();
@@ -2013,6 +2174,7 @@ function testerSql() {
     result = result && tester.whereLike2();
     result = result && tester.whereNotLike1();
     result = result && tester.union1();
+    result = result && tester.unionAlias1();
     result = result && tester.unionBind1();
     result = result && tester.unionAll1();
     result = result && tester.except1();
@@ -2061,10 +2223,16 @@ function testerSql() {
     result = result && tester.badOrderBy1();
     result = result && tester.badOrderBy2();
     result = result && tester.bindVariableMissing();
+    result = result && tester.selectNoFrom();
+    result = result && tester.pivotGroupByMissing();
 
     //  Sql.js unit tests.
     result = result && tester.parseTableSettings1();
     result = result && tester.parseTableSettings2();
+    result = result && tester.parseTableSettings3();
+    result = result && tester.parseTableSettings4();
+    result = result && tester.parseTableSettings5();
+    result = result && tester.badParseTableSettings1();
 
     tester.isEqual("===  E N D   O F   T E S T S  ===", true, result);
 

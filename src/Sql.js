@@ -15,24 +15,26 @@ class Logger {
 
 /**
  * Query any sheet range using standard SQL SELECT syntax.
- * Parameter 1.  Define all tables referenced in SELECT. This is a DOUBLE ARRAY and is done using the curly bracket {{a,b,c}; {a,b,c}} syntax.
- *   a)  table name - the table name referenced in SELECT for indicated range.
- *   b)  sheet range - either NAMED RANGE or A1 notation.  This input is a string.  The first row of each range MUST be unique column titles.
- *   c)  cache seconds - optional time loaded range held in cache.
- * Parameter 2.  SELECT statement.  All regular syntax is supported including JOIN.
+ * Parameter 1.  SELECT statement.  All regular syntax is supported including JOIN. 
  *   note i)  Bind variables (?) are replaced by bind data specified later.
  *   note ii)  PIVOT field supported.  Similar to QUERY. e.g.  "SELECT date, sum(quantity) from sales group by date pivot customer_id".
- * Parameter 3. Output result column title (true/false)
- * Parameter 4... Optional bind variables.  List as many as required to match ? in SELECT.
- * @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds}; {"name","range",cache};...}"
+ *   note iii) If parm 2 not used and sheet name contains a space, use single quotes around table name.
+ * Parameter 2. (optional. referenced tables assumed to be SHEET NAME with column titles)    
+ *   Define all tables referenced in SELECT. This is a DOUBLE ARRAY and is done using the curly bracket {{a,b,c}; {a,b,c}} syntax.
+ *   a)  table name - the table name referenced in SELECT for indicated range.
+ *   b)  sheet range - (optional) either NAMED RANGE, A1 notation range, SHEET NAME or empty (table name used as sheet name).  This input is a string.  The first row of each range MUST be unique column titles.
+ *   c)  cache seconds - (optional) time loaded range held in cache.  default=60.   
+ * Parameter 3. (optional) Output result column title (true/false). default=true.   
+ * Parameter 4... (optional) Bind variables.  List as many as required to match ? in SELECT.
  * @param {String} statement - SQL (e.g.:  'select * from expenses')
- * @param {Boolean} columnTitle - TRUE will add column title to output (default=FALSE)
+ * @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds}; {"name","range",cache};...}"
+ * @param {Boolean} columnTitle - TRUE will add column title to output (default=TRUE)
  * @param {...any} bindings - Bind variables to match '?' in SQL statement.
  * @returns {any[][]}
  * @customfunction
  */
-function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
-    let tableList = parseTableSettings(tableArr);
+function gsSQL(statement, tableArr=[], columnTitle = true, ...bindings) {
+    let tableList = parseTableSettings(tableArr, statement);
 
     Logger.log("gsSQL: tableList=" + tableList + ".  Statement=" + statement + ". List Len=" + tableList.length);
 
@@ -49,20 +51,32 @@ function gsSQL(tableArr, statement, columnTitle = false, ...bindings) {
 /**
  * 
  * @param {any[][]} tableArr 
+ * @param {String} statement
  * @param {Boolean} randomOrder
  * @returns {any[][]}
  */
-function parseTableSettings(tableArr, randomOrder=true) {
+function parseTableSettings(tableArr, statement="", randomOrder=true) {
     let tableList = [];
 
-    if (tableArr.length == 0)
-        throw new Error('Missing table definition {{"name","range",cache};{...}}');
+    //  Get table names from the SELECT statement when no table range info is given.
+    if (tableArr.length == 0 && statement != "") {
+        tableArr = Sql.getReferencedTableNames(statement);
+    }
 
+    if (tableArr.length == 0) {
+        throw new Error('Missing table definition {{"name","range",cache};{...}}');
+    }
+
+    Logger.log("tableArr" + tableArr);
     /** @type {any[]} */
     let table;
     for (table of tableArr) {
+        if (table.length == 1)
+            table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
         if (table.length == 2)
-            table.push(0);      //  default 0 second cache.
+            table.push(60);      //  default 0 second cache.
+        if (table[1] == "")
+            table[1] = table[0];    //  If empty range, assumes TABLE NAME is the SHEET NAME and loads entire sheet.
         if (table.length != 3)
             throw new Error ("Invalid table definition [name,range,cache]");
 
@@ -219,12 +233,97 @@ class Sql {
 
         i = 0;
         while (tableAlias == "" && i < astRecursiveTableBlocks.length) {
-            if (typeof ast[astRecursiveTableBlocks[i]] != 'undefined')
-                tableAlias = this.getTableAlias(tableName, ast[astRecursiveTableBlocks[i]]);
+            if (typeof ast[astRecursiveTableBlocks[i]] != 'undefined') {
+                for (let j = 0; j < ast[astRecursiveTableBlocks[i]].length; j++) {
+                    tableAlias = this.getTableAlias(tableName, ast[astRecursiveTableBlocks[i]][j]);
+
+                    if (tableAlias != "")
+                        break;
+                }
+            }
             i++;
         }
 
+        if (tableAlias == "" && typeof ast["WHERE"] != 'undefined' && ast["WHERE"].operator == "IN") {
+            tableAlias = this.getTableAlias(tableName, ast["WHERE"].right);
+        }
+
+        if (tableAlias == "" && ast.operator == "IN") {
+            tableAlias = this.getTableAlias(tableName, ast.right);
+        }
+
+        if (tableAlias == "" && typeof ast["WHERE"] != 'undefined' && typeof ast["WHERE"].terms != 'undefined') {
+            for (let term of ast["WHERE"].terms) {
+                if (tableAlias == "")
+                    tableAlias = this.getTableAlias(tableName, term);
+            }
+        }
+
         return tableAlias;
+    }
+
+    /**
+     * 
+     * @param {String} statement 
+     * @returns {String[][]}
+     */
+    static getReferencedTableNames(statement) {
+        let tableSet = new Set();
+        let ast = sql2ast(statement);  
+
+        Sql.extractAstTables(ast, tableSet);
+        
+        let tableList = [];
+        // @ts-ignore
+        for (let table of tableSet)
+        {
+            tableList.push([table]);
+        }
+
+        return tableList;
+    }
+
+    /**
+     * 
+     * @param {Object} ast 
+     * @param {Set} tableSet 
+     */
+    static extractAstTables(ast, tableSet) {
+        const astTableBlocks = ['FROM', 'JOIN'];
+        const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+       
+        for (let astBlock of astTableBlocks) {
+            if (typeof ast[astBlock] == 'undefined')
+                continue;
+
+            let blockData = ast[astBlock];
+            for (let astItem of blockData) {
+                tableSet.add(astItem.table.toUpperCase());
+            }    
+        }
+
+        for (let block of astRecursiveTableBlocks) {
+            if (typeof ast[block] != 'undefined') { 
+                for (let i = 0; i < ast[block].length; i++) {
+                    this.extractAstTables(ast[block][i], tableSet);
+                }
+            }
+        }
+
+        //  where IN ().
+        if (typeof ast["WHERE"] != 'undefined' && ast["WHERE"].operator == "IN") {
+            this.extractAstTables(ast["WHERE"].right, tableSet);
+        }
+
+        if (ast.operator == "IN") {
+            this.extractAstTables(ast.right, tableSet);
+        }
+
+        if (typeof ast["WHERE"] != 'undefined' && typeof ast["WHERE"].terms != 'undefined') {
+            for (let term of ast["WHERE"].terms) {
+                this.extractAstTables(term, tableSet);
+            }
+        }
     }
 
     /**

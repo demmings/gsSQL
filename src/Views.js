@@ -792,7 +792,7 @@ class SelectTables {
     }
 
     isCondition(leftValue, rightValue) {
-        return (leftValue == "" && rightValue == "NULL");
+        return (leftValue === "" && rightValue == "NULL");
     }
 
     /**

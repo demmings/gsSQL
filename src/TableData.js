@@ -1,7 +1,7 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
 export { TableData };
-import { Sql} from './Sql.js';
+import { Sql } from './Sql.js';
 
 class Logger {
     static log(msg) {
@@ -65,10 +65,7 @@ class TableData {
         let arrData;
 
         if (seconds <= 0) {
-            let range = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange);
-            if (range == null)
-                throw new Error("Invalid table range specified:  " + namedRange);
-            return range.getValues();
+            return this.loadValuesFromRangeOrSheet(namedRange);
         }
         else if (seconds > 21600) {
             cache = new ScriptSettings();
@@ -179,7 +176,7 @@ class TableData {
         //  Give up and load from SHEETS directly.
         if (arrData == null) {
             Logger.log("waitForRangeToLoad - give up.  Read directly. " + namedRange);
-            arrData = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange).getValues();
+            arrData = this.loadValuesFromRangeOrSheet(namedRange);
 
             if (this.isRangeLoading(cache, namedRange)) {
                 //  Other process probably timed out and left status hanging.
@@ -216,7 +213,7 @@ class TableData {
         try {
             lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) {
-            throw new Error ("Cache lock failed");
+            throw new Error("Cache lock failed");
         }
 
         //  It is possible that just before getting the lock, another process started caching.
@@ -230,13 +227,48 @@ class TableData {
         lock.releaseLock();
 
         //  Load data from SHEETS.
-        arrData = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange).getValues();
+        arrData = this.loadValuesFromRangeOrSheet(namedRange);
 
         Logger.log("Just LOADED from SHEET: " + arrData.length);
 
         this.cachePutArray(cache, namedRange, cacheSeconds, arrData);
 
         return arrData;
+    }
+
+    /**
+     * 
+     * @param {String} namedRange 
+     * @returns {any[]}
+     */
+    loadValuesFromRangeOrSheet(namedRange) {
+        let output = [];
+
+        try {
+            let sheetNamedRange = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange);
+
+            if (sheetNamedRange == null) {
+                //  This may be a SHEET NAME, so try getting SHEET RANGE.
+                if (namedRange.startsWith("'") && namedRange.endsWith("'")) {
+                    namedRange = namedRange.substring(1, namedRange.length-1);
+                }
+                let sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(namedRange);
+                if (sheetHandle == null)
+                    throw new Error("Invalid table range specified:  " + namedRange);
+
+                let lastColumn = sheetHandle.getLastColumn();
+                let lastRow = sheetHandle.getLastRow();
+                output = sheetHandle.getSheetValues(1, 1, lastRow, lastColumn);
+            }
+            else {
+                output = sheetNamedRange.getValues();
+            }
+        }
+        catch (ex) {
+            throw new Error("Error reading table data: " + namedRange);
+        }
+
+        return output;
     }
 
     /**
@@ -247,7 +279,7 @@ class TableData {
      * @param {any[][]} arrData 
      */
     cachePutArray(cache, namedRange, cacheSeconds, arrData) {
-        let cacheStatusName =this.cacheStatusName(namedRange);
+        let cacheStatusName = this.cacheStatusName(namedRange);
         let json = JSON.stringify(arrData);
 
         //  Split up data (for re-assembly on get() later)
@@ -268,7 +300,7 @@ class TableData {
         let lock = LockService.getScriptLock();
         try {
             lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
-        } catch (e) { 
+        } catch (e) {
             throw new Error("Cache lock failed");
         }
         cache.putAll(putObject, cacheSeconds);
@@ -361,9 +393,9 @@ class TableData {
 }
 
 const TABLE = {
-    STATUS : "__STATUS__",
-    LOADING : "LOADING",
-    BLOCKS : "BLOCKS="
+    STATUS: "__STATUS__",
+    LOADING: "LOADING",
+    BLOCKS: "BLOCKS="
 }
 
 
