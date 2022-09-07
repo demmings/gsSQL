@@ -6,9 +6,9 @@ export { sql2ast, sqlCondition2JsCondition };
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 
 function trim(str) {
-    if (typeof str == 'string') 
+    if (typeof str == 'string')
         return str.trim();
-    else    
+    else
         return str;
 }
 
@@ -42,7 +42,9 @@ function protect_split(separator, str) {
 function protect(str) {
     let result = '#';
     let length = str.length;
-    for (let i = 0; i < length; i++) result += str[i] + "#";
+    for (let i = 0; i < length; i++) {
+        result += str[i] + "#";
+    }
     return result;
 }
 
@@ -61,6 +63,9 @@ function unprotect(str) {
  * @param {Object} replaceFunction
  */
 function hideInnerSql(str, parts_name_escaped, replaceFunction) {
+    if (str.indexOf("(") == -1 && str.indexOf(")") == -1)
+        return str;
+
     let bracketCount = 0;
     let endCount = -1;
 
@@ -81,9 +86,6 @@ function hideInnerSql(str, parts_name_escaped, replaceFunction) {
                 let query = str.substring(i, endCount + 1);
 
                 // Hide words defined as separator but written inside brackets in the query
-                //query = query.replace(/\((.+?)\)|"(.+?)"|'(.+?)'|`(.+?)`/gi, function (match) {
-                //    return match.replace(new RegExp(parts_name_escaped.join('|'), 'gi'), protect);
-                //});
                 query = query.replace(new RegExp(parts_name_escaped.join('|'), 'gi'), replaceFunction);
 
                 str = str.substring(0, i) + query + str.substring(endCount + 1);
@@ -159,11 +161,7 @@ function makeSqlPartsSplitterRegEx(keywords) {
 
 
 // Parse a query
-// parseCond: (bool) parse conditions in WHERE and JOIN (default true)
-function sql2ast(query, parseCond) {
-    if (typeof parseCond == 'undefined' || parseCond === null)
-        parseCond = true;
-
+function sql2ast(query) {
     // Define which words can act as separator
     let keywords = ['SELECT', 'FROM', 'DELETE FROM', 'INSERT INTO', 'UPDATE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'VALUES', 'SET', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
     let parts_name = keywords.map(function (item) {
@@ -465,55 +463,54 @@ function sql2ast(query, parseCond) {
 
 
     // Parse conditions
-    if (parseCond) {
-        if (typeof result['WHERE'] == 'string') {
-            result['WHERE'] = CondParser.parse(result['WHERE']);
-        }
-        if (typeof result['HAVING'] == 'string') {
-            result['HAVING'] = CondParser.parse(result['HAVING']);
-        }
-        if (typeof result['JOIN'] != 'undefined') {
-            result['JOIN'].forEach(function (item, key) {
-                result['JOIN'][key]['cond'] = CondParser.parse(item['cond']);
-            });
-        }
+    if (typeof result['WHERE'] == 'string') {
+        result['WHERE'] = CondParser.parse(result['WHERE']);
+    }
+    if (typeof result['HAVING'] == 'string') {
+        result['HAVING'] = CondParser.parse(result['HAVING']);
+    }
+    if (typeof result['JOIN'] != 'undefined') {
+        result['JOIN'].forEach(function (item, key) {
+            result['JOIN'][key]['cond'] = CondParser.parse(item['cond']);
+        });
+    }
 
-        if (typeof result['UNION'] == 'string') {
-            result['UNION'] = [sql2ast(parseUnion(result['UNION']))];
-        }
-        else if (typeof result['UNION'] != 'undefined') {
-            for (let i = 0; i < result['UNION'].length; i++) {
-                result['UNION'][i] = sql2ast(parseUnion(result['UNION'][i]));
-            }
-        }
-
-        if (typeof result['UNION ALL'] == 'string') {
-            result['UNION ALL'] = [sql2ast(parseUnion(result['UNION ALL']))];
-        }
-        else if (typeof result['UNION ALL'] != 'undefined') {
-            for (let i = 0; i < result['UNION ALL'].length; i++) {
-                result['UNION ALL'][i] = sql2ast(parseUnion(result['UNION ALL'][i]));
-            }
-        }
-
-        if (typeof result['INTERSECT'] == 'string') {
-            result['INTERSECT'] = [sql2ast(parseUnion(result['INTERSECT']))];
-        }
-        else if (typeof result['INTERSECT'] != 'undefined') {
-            for (let i = 0; i < result['INTERSECT'].length; i++) {
-                result['INTERSECT'][i] = sql2ast(parseUnion(result['INTERSECT'][i]));
-            }
-        }
-
-        if (typeof result['EXCEPT'] == 'string') {
-            result['EXCEPT'] = [sql2ast(parseUnion(result['EXCEPT']))];
-        }
-        else if (typeof result['EXCEPT'] != 'undefined') {
-            for (let i = 0; i < result['EXCEPT'].length; i++) {
-                result['EXCEPT'][i] = sql2ast(parseUnion(result['EXCEPT'][i]));
-            }
+    if (typeof result['UNION'] == 'string') {
+        result['UNION'] = [sql2ast(parseUnion(result['UNION']))];
+    }
+    else if (typeof result['UNION'] != 'undefined') {
+        for (let i = 0; i < result['UNION'].length; i++) {
+            result['UNION'][i] = sql2ast(parseUnion(result['UNION'][i]));
         }
     }
+
+    if (typeof result['UNION ALL'] == 'string') {
+        result['UNION ALL'] = [sql2ast(parseUnion(result['UNION ALL']))];
+    }
+    else if (typeof result['UNION ALL'] != 'undefined') {
+        for (let i = 0; i < result['UNION ALL'].length; i++) {
+            result['UNION ALL'][i] = sql2ast(parseUnion(result['UNION ALL'][i]));
+        }
+    }
+
+    if (typeof result['INTERSECT'] == 'string') {
+        result['INTERSECT'] = [sql2ast(parseUnion(result['INTERSECT']))];
+    }
+    else if (typeof result['INTERSECT'] != 'undefined') {
+        for (let i = 0; i < result['INTERSECT'].length; i++) {
+            result['INTERSECT'][i] = sql2ast(parseUnion(result['INTERSECT'][i]));
+        }
+    }
+
+    if (typeof result['EXCEPT'] == 'string') {
+        result['EXCEPT'] = [sql2ast(parseUnion(result['EXCEPT']))];
+    }
+    else if (typeof result['EXCEPT'] != 'undefined') {
+        for (let i = 0; i < result['EXCEPT'].length; i++) {
+            result['EXCEPT'][i] = sql2ast(parseUnion(result['EXCEPT'][i]));
+        }
+    }
+
 
     return result;
 }
@@ -535,15 +532,15 @@ function parseUnion(inStr) {
 function getNameAndAlias(item) {
     let alias = "";
     let lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
-    if (lastAs != -1) { 
+    if (lastAs != -1) {
         let s = item.substring(lastAs + 4).trim();
-        if (s.length > 0 ) {
+        if (s.length > 0) {
             alias = s;
             //  Remove quotes, if any.
             if ((s.startsWith("'") && s.endsWith("'")) ||
                 (s.startsWith('"') && s.endsWith('"')) ||
                 (s.startsWith('[') && s.endsWith(']')))
-                alias = s.substring(1, s.length-1);
+                alias = s.substring(1, s.length - 1);
 
             //  Remove everything after 'AS'.
             item = item.substring(0, lastAs);
@@ -856,7 +853,7 @@ CondParser.prototype = {
             this.readNextToken();
         }
         else if (this.currentToken.type == 'bindVariable') {
-            astNode = this.currentToken.value;    
+            astNode = this.currentToken.value;
             this.readNextToken();
         }
 

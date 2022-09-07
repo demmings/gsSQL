@@ -1633,6 +1633,19 @@ class SqlTester {
         return this.isEqual("groupFunc1", data, expected);
     }
 
+    groupFunc2() {
+        let stmt = "select bookSales.date, SUM(if(customer_id = 'C1', bookSales.Quantity,0)), SUM(if(customer_id = 'C2', bookSales.Quantity,0)) from bookSales where customer_id = '1010' group by date";
+
+        let data = new Sql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(false)
+            .execute(stmt);
+
+        let expected = [];
+
+        return this.isEqual("groupFunc2", data, expected);
+    }
+
     selectInGroupByPivot1() {
         let stmt = "select bookSales.date, SUM(bookSales.Quantity) from bookSales where customer_id in (select id from customers)  group by date pivot customer_id";
 
@@ -2068,6 +2081,26 @@ class SqlTester {
         return this.isFail("selectNoFrom", ex);
     }
 
+    selectNoTitles() {
+        let stmt = "SELECT quantity, prices from booksales ";
+        let dataTable = this.bookSalesTable();
+        dataTable.shift();
+        let ex = "";
+
+        try {
+            let testSQL = new Sql()
+                .addTableData("booksales", dataTable)
+                .enableColumnTitle(true);
+
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectNoTitles", ex);
+    }
+
     badParseTableSettings1() {
         let ex = "";
         try {
@@ -2098,6 +2131,25 @@ class SqlTester {
         }
 
         return this.isFail("pivotGroupByMissing", ex);
+    }
+
+    badUnion1() {
+        let stmt = "select * from authors UNION select * from customers";
+
+        let testSQL = new Sql()
+            .addTableData("authors", this.authorsTable())
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badUnion1", ex);
     }
 
     isFail(functionName, exceptionErr) {
@@ -2204,6 +2256,7 @@ function testerSql() {
     result = result && tester.groupPivot2();
     result = result && tester.groupPivot3();
     result = result && tester.groupFunc1();
+    result = result && tester.groupFunc2();
     result = result && tester.selectInGroupByPivot1();
     result = result && tester.selectInGroupByPivot2();
     result = result && tester.selectInGroupByPivot3();
@@ -2224,7 +2277,9 @@ function testerSql() {
     result = result && tester.badOrderBy2();
     result = result && tester.bindVariableMissing();
     result = result && tester.selectNoFrom();
+    result = result && tester.selectNoTitles();
     result = result && tester.pivotGroupByMissing();
+    result = result && tester.badUnion1();
 
     //  Sql.js unit tests.
     result = result && tester.parseTableSettings1();

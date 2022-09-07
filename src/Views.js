@@ -125,9 +125,6 @@ class SelectTables {
             let leftValue = this.getConditionValue(leftFieldConditions, masterRecordID);
             let rightValue = this.getConditionValue(rightFieldConditions, masterRecordID);
 
-            if (leftValue == null || rightValue == null)
-                continue;
-
             if (leftValue instanceof Date || rightValue instanceof Date) {
                 leftValue = this.dateToMs(leftValue);
                 rightValue = this.dateToMs(rightValue);
@@ -252,9 +249,6 @@ class SelectTables {
         let virtualData = [];
 
         for (let masterRecordID of recordIDs) {
-            if (this.masterTable.tableData[masterRecordID] == undefined)
-                continue;
-
             let newRow = [];
 
             /** @type {SelectField} */
@@ -322,8 +316,9 @@ class SelectTables {
             //  Get the DATA from this field.  We then build a series of LET statments
             //  and we assign that data to the field name that might be found in a calculated field.
             let varData = vField.getData(masterRecordID);
-            if (typeof vField.getData(masterRecordID) == "string" || vField.getData(masterRecordID) instanceof Date)
-                varData = "'" + vField.getData(masterRecordID) + "'";
+            if (typeof varData == "string" || varData instanceof Date) {
+                varData = "'" + varData + "'";
+            }
 
             if (vField.fieldName.indexOf(".") == -1)
                 myVars += "let " + vField.fieldName + " = " + varData + ";";
@@ -995,9 +990,6 @@ class VirtualFields {
         for (let fld of this.virtualFieldList) {
             if (fld.tableInfo.tableName == DERIVEDTABLE) {
                 newVirtualFields.push(fld);
-            }
-            else if (this.virtualFieldMap.has(fld.fieldName)) {
-                this.virtualFieldMap.delete(fld.fieldName);
             }
         }
 

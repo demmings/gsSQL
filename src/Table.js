@@ -377,9 +377,15 @@ class Schema {
         let titleRow = this.tableData[0];
 
         let colNum = 0;
+        let fieldVariants;
         for (let baseColumnName of titleRow) {
             //  Find possible variations of the field column name.
-            let fieldVariants = this.getColumnNameVariants(baseColumnName);
+            try {
+                fieldVariants = this.getColumnNameVariants(baseColumnName);
+            }
+            catch (ex) {
+                throw new Error("Invalid column title: " + baseColumnName);
+            }
             let columnName = fieldVariants[0];
 
             this.setFieldVariantsColumNumber(fieldVariants, colNum);
