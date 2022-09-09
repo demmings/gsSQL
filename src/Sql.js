@@ -59,11 +59,11 @@ function parseTableSettings(tableArr, statement = "", randomOrder = true) {
     let tableList = [];
 
     //  Get table names from the SELECT statement when no table range info is given.
-    if (tableArr.length == 0 && statement != "") {
+    if (tableArr.length === 0 && statement !== "") {
         tableArr = Sql.getReferencedTableNames(statement);
     }
 
-    if (tableArr.length == 0) {
+    if (tableArr.length === 0) {
         throw new Error('Missing table definition {{"name","range",cache};{...}}');
     }
 
@@ -71,13 +71,13 @@ function parseTableSettings(tableArr, statement = "", randomOrder = true) {
     /** @type {any[]} */
     let table;
     for (table of tableArr) {
-        if (table.length == 1)
+        if (table.length === 1)
             table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
-        if (table.length == 2)
+        if (table.length === 2)
             table.push(60);      //  default 0 second cache.
-        if (table[1] == "")
+        if (table[1] === "")
             table[1] = table[0];    //  If empty range, assumes TABLE NAME is the SHEET NAME and loads entire sheet.
-        if (table.length != 3)
+        if (table.length !== 3)
             throw new Error("Invalid table definition [name,range,cache]");
 
         tableList.push(table);
@@ -196,7 +196,7 @@ class Sql {
                 .loadSchema();
         }
 
-        if (typeof this.ast['SELECT'] != 'undefined')
+        if (typeof this.ast['SELECT'] !== 'undefined')
             sqlData = this.select(this.ast);
         else
             throw new Error("Only SELECT statements are supported.");
@@ -243,7 +243,7 @@ class Sql {
         const astTableBlocks = ['FROM', 'JOIN'];
 
         let i = 0;
-        while (tableAlias == "" && i < astTableBlocks.length) {
+        while (tableAlias === "" && i < astTableBlocks.length) {
             tableAlias = this.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
             i++;
         }
@@ -262,12 +262,12 @@ class Sql {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
 
         let i = 0;
-        while (tableAlias == "" && i < astRecursiveTableBlocks.length) {
-            if (typeof ast[astRecursiveTableBlocks[i]] != 'undefined') {
+        while (tableAlias === "" && i < astRecursiveTableBlocks.length) {
+            if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
                 for (let unionAst of ast[astRecursiveTableBlocks[i]]) {
                     tableAlias = this.getTableAlias(tableName, unionAst);
 
-                    if (tableAlias != "")
+                    if (tableAlias !== "")
                         break;
                 }
             }
@@ -285,11 +285,11 @@ class Sql {
      * @returns {String}
      */
     getTableAliasWhereIn(tableAlias, tableName, ast) {
-        if (tableAlias == "" && typeof ast["WHERE"] != 'undefined' && ast["WHERE"].operator == "IN") {
+        if (tableAlias === "" && typeof ast["WHERE"] !== 'undefined' && ast["WHERE"].operator === "IN") {
             tableAlias = this.getTableAlias(tableName, ast["WHERE"].right);
         }
 
-        if (tableAlias == "" && ast.operator == "IN") {
+        if (tableAlias === "" && ast.operator === "IN") {
             tableAlias = this.getTableAlias(tableName, ast.right);
         }
 
@@ -304,9 +304,9 @@ class Sql {
      * @returns {String}
      */
     getTableAliasWhereTerms(tableAlias, tableName, ast) {
-        if (tableAlias == "" && typeof ast["WHERE"] != 'undefined' && typeof ast["WHERE"].terms != 'undefined') {
+        if (tableAlias === "" && typeof ast["WHERE"] !== 'undefined' && typeof ast["WHERE"].terms !== 'undefined') {
             for (let term of ast["WHERE"].terms) {
-                if (tableAlias == "")
+                if (tableAlias === "")
                     tableAlias = this.getTableAlias(tableName, term);
             }
         }
@@ -355,7 +355,7 @@ class Sql {
         const astTableBlocks = ['FROM', 'JOIN'];
 
         for (let astBlock of astTableBlocks) {
-            if (typeof ast[astBlock] == 'undefined')
+            if (typeof ast[astBlock] === 'undefined')
                 continue;
 
             let blockData = ast[astBlock];
@@ -374,7 +374,7 @@ class Sql {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
 
         for (let block of astRecursiveTableBlocks) {
-            if (typeof ast[block] != 'undefined') {
+            if (typeof ast[block] !== 'undefined') {
                 for (let unionAst of ast[block]) {
                     this.extractAstTables(unionAst, tableSet);
                 }
@@ -389,11 +389,11 @@ class Sql {
      */
     static getTableNamesWhereIn(ast, tableSet) {
         //  where IN ().
-        if (typeof ast["WHERE"] != 'undefined' && ast["WHERE"].operator == "IN") {
+        if (typeof ast["WHERE"] !== 'undefined' && ast["WHERE"].operator === "IN") {
             this.extractAstTables(ast["WHERE"].right, tableSet);
         }
 
-        if (ast.operator == "IN") {
+        if (ast.operator === "IN") {
             this.extractAstTables(ast.right, tableSet);
         }
     }
@@ -404,7 +404,7 @@ class Sql {
      * @param {Set} tableSet 
      */
     static getTableNamesWhereTerms(ast, tableSet) {
-        if (typeof ast["WHERE"] != 'undefined' && typeof ast["WHERE"].terms != 'undefined') {
+        if (typeof ast["WHERE"] !== 'undefined' && typeof ast["WHERE"].terms !== 'undefined') {
             for (let term of ast["WHERE"].terms) {
                 this.extractAstTables(term, tableSet);
             }
@@ -419,11 +419,11 @@ class Sql {
      * @returns {String}
      */
     locateAstTableAlias(tableName, ast, astBlock) {
-        if (typeof ast[astBlock] == 'undefined')
+        if (typeof ast[astBlock] === 'undefined')
             return "";
 
         for (let astItem of ast[astBlock]) {
-            if (tableName == astItem.table.toUpperCase() && astItem.as != "") {
+            if (tableName === astItem.table.toUpperCase() && astItem.as !== "") {
                 return astItem.as;
             }
         }
@@ -440,7 +440,7 @@ class Sql {
         let recordIDs = [];
         let viewTableData = [];
 
-        if (typeof ast['FROM'] == 'undefined')
+        if (typeof ast['FROM'] === 'undefined')
             throw new Error("Missing keyword FROM");
 
         //  Manipulate AST to add GROUP BY if DISTINCT keyword.
@@ -466,7 +466,7 @@ class Sql {
         //  Sort our selected data.
         view.orderBy(ast, viewTableData);
 
-        if (typeof ast['LIMIT'] != 'undefined') {
+        if (typeof ast['LIMIT'] !== 'undefined') {
             let maxItems = ast['LIMIT'].nb;
             if (viewTableData.length > maxItems)
                 viewTableData.splice(maxItems);
@@ -477,7 +477,7 @@ class Sql {
 
         if (this.columnTitle)
             viewTableData.unshift(view.getColumnTitles());
-        else if (viewTableData.length == 1 && viewTableData[0].length == 0)
+        else if (viewTableData.length === 1 && viewTableData[0].length === 0)
             viewTableData[0] = [""];
 
         return viewTableData;
@@ -496,7 +496,7 @@ class Sql {
             if (firstField.startsWith("DISTINCT")) {
                 astFields[0].name = firstField.replace("DISTINCT", "").trim();
 
-                if (typeof ast['GROUP BY'] == 'undefined') {
+                if (typeof ast['GROUP BY'] === 'undefined') {
                     let groupBy = [];
 
                     for (let astItem of astFields) {
@@ -518,8 +518,8 @@ class Sql {
      */
     pivotField(ast) {
         //  If we are doing a PIVOT, it then requires a GROUP BY.
-        if (typeof ast['PIVOT'] != 'undefined') {
-            if (typeof ast['GROUP BY'] == 'undefined')
+        if (typeof ast['PIVOT'] !== 'undefined') {
+            if (typeof ast['GROUP BY'] === 'undefined')
                 throw new Error("PIVOT requires GROUP BY");
         }
         else
@@ -575,7 +575,7 @@ class Sql {
 
                 for (let fld of pivotFieldData) {
                     let caseTxt = matches[0] + "(CASE WHEN " + ast['PIVOT'][0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 'null' END)";
-                    let asField = fld[0] + " " + (typeof selectField.as != 'undefined' && selectField.as != "" ? selectField.as : selectField.name);
+                    let asField = fld[0] + " " + (typeof selectField.as !== 'undefined' && selectField.as !== "" ? selectField.as : selectField.name);
                     newPivotAstFields.push({ name: caseTxt, as: asField });
                 }
             }
@@ -596,13 +596,13 @@ class Sql {
         let unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
 
         for (let type of unionTypes) {
-            if (typeof ast[type] != 'undefined') {
+            if (typeof ast[type] !== 'undefined') {
                 let unionSQL = new Sql()
                     .setBindValues(this.bindParameters)
                     .setTables(this.tables);
                 for (let union of ast[type]) {
                     let unionData = unionSQL.select(union);
-                    if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length != unionData[0].length)
+                    if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length !== unionData[0].length)
                         throw new Error("Invalid " + type + ".  Selected field counts do not match.");
 
                     switch (type) {

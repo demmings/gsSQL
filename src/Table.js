@@ -182,7 +182,7 @@ class Table {
         for (let i = 1; i < this.tableData.length; i++) {
             let value = this.tableData[i][fieldIndex];
 
-            if (value != "") {
+            if (value !== "") {
                 let rowNumbers = [];
                 if (fieldValuesMap.has(value))
                     rowNumbers = fieldValuesMap.get(value);
@@ -292,7 +292,7 @@ class Schema {
 
         // @ts-ignore
         for (let key of this.fields.keys()) {
-            if (key != "*")
+            if (key !== "*")
                 fieldNames.push(key);
         }
 
@@ -378,7 +378,7 @@ class Schema {
         this.fields = new Map();
         this.virtualFields = new VirtualFields();
 
-        if (this.tableData.length == 0)
+        if (this.tableData.length === 0)
             return this;
 
         /** @type {any[]} */
@@ -398,7 +398,7 @@ class Schema {
 
             this.setFieldVariantsColumNumber(fieldVariants, colNum);
 
-            if (columnName != "") {
+            if (columnName !== "") {
                 let virtualField = new VirtualField(columnName, this.tableInfo, colNum);
                 this.virtualFields.add(virtualField);
             }
@@ -423,9 +423,9 @@ class Schema {
         let columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
         let fullColumnName = columnName;
         let fullColumnAliasName = "";
-        if (columnName.indexOf(".") == -1) {
+        if (columnName.indexOf(".") === -1) {
             fullColumnName = this.tableName + "." + columnName;
-            if (this.tableAlias != "")
+            if (this.tableAlias !== "")
                 fullColumnAliasName = this.tableAlias + "." + columnName;
         }
 
@@ -444,13 +444,13 @@ class Schema {
 
         [columnName, fullColumnName, fullColumnAliasName] = fieldVariants;
 
-        if (columnName != "") {
+        if (columnName !== "") {
             this.fields.set(columnName, colNum);
 
             if (!this.isDerivedTable) {
                 this.fields.set(fullColumnName, colNum);
 
-                if (fullColumnAliasName != "") {
+                if (fullColumnAliasName !== "") {
                     this.fields.set(fullColumnAliasName, colNum);
                 }
             }

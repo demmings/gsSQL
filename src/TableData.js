@@ -42,7 +42,7 @@ class TableData {
     * @returns {any[][]}
     */
     loadTableData(namedRange, cacheSeconds = 0) {
-        if (typeof namedRange == 'undefined' || namedRange == "")
+        if (typeof namedRange === 'undefined' || namedRange === "")
             return [];
 
         Logger.log("loadTableData: " + namedRange + ". Seconds=" + cacheSeconds);
@@ -144,7 +144,7 @@ class TableData {
         let loading = false;
         let cacheData = cache.get(this.cacheStatusName(namedRange));
 
-        if (cacheData !== null && cacheData == TABLE.LOADING) {
+        if (cacheData !== null && cacheData === TABLE.LOADING) {
             loading = true;
         }
 
@@ -328,12 +328,12 @@ class TableData {
         }
         else {
             Logger.log("Cache Status: " + cacheStatusName + ". Value=" + cacheStatus);
-            if (cacheStatus == TABLE.LOADING)
+            if (cacheStatus === TABLE.LOADING)
                 return null;
         }
 
         let blockStr = cacheStatus.substring(cacheStatus.indexOf(TABLE.BLOCKS) + TABLE.BLOCKS.length);
-        if (blockStr != "") {
+        if (blockStr !== "") {
             let blocks = parseInt(blockStr);
             for (let i = 1; i <= blocks; i++) {
                 let blockName = namedRange + ":" + i.toString();

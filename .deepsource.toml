@@ -6,5 +6,6 @@ enabled = true
 
 exclude_patterns = [
   "SqlTest.js",
-  "./SqlTest.js"
+  "./SqlTest.js",
+  "src/SqlTest.js"
 ]
