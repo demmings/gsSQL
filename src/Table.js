@@ -309,7 +309,7 @@ class Schema {
 
         // @ts-ignore
         for (const [key, value] of this.fields.entries()) {
-            if (value != null) {
+            if (value !== null) {
                 let fieldParts = key.split(".");
                 if (typeof fieldNames[value] === 'undefined' ||
                     (fieldParts.length === 2 && (fieldParts[0] === this.tableName || this.isDerivedTable)))

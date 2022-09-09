@@ -107,7 +107,7 @@ function sqlStatementSplitter(src) {
     let reg = makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
 
     let matchedUnions = src.match(reg);
-    if (matchedUnions == null || matchedUnions.length == 0)
+    if (matchedUnions === null || matchedUnions.length == 0)
         return src;
 
     let prefix = "";
@@ -249,11 +249,11 @@ function sql2ast(query) {
             let splitPattern = /[\s()*/%+-]+/g;
             let terms = item.split(splitPattern);
 
-            if (terms != null) {
+            if (terms !== null) {
                 let aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
                 terms = (aggFunc.indexOf(terms[0].toUpperCase()) == -1) ? terms : null;
             }
-            if (item != "*" && terms != null && terms.length > 1) {
+            if (item != "*" && terms !== null && terms.length > 1) {
                 return {
                     name: item,
                     terms: terms,

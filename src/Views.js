@@ -43,7 +43,7 @@ class SelectTables {
      * @param {any[]} ast 
      */
     join(ast) {
-        if (typeof ast['JOIN'] != 'undefined')
+        if (typeof ast['JOIN'] !== 'undefined')
             this.dataJoin = new JoinTables(ast['JOIN'], this.virtualFields);
     }
 
@@ -56,7 +56,7 @@ class SelectTables {
         let sqlData = [];
 
         let conditions;
-        if (typeof ast['WHERE'] != 'undefined') {
+        if (typeof ast['WHERE'] !== 'undefined') {
             conditions = ast['WHERE'];
         }
         else {
@@ -64,7 +64,7 @@ class SelectTables {
             conditions = { operator: "=", left: "\"A\"", right: "\"A\"" };
         }
 
-        if (typeof conditions.logic == 'undefined')
+        if (typeof conditions.logic === 'undefined')
             sqlData = this.resolveCondition("OR", [conditions]);
         else
             sqlData = this.resolveCondition(conditions.logic, conditions.terms);
@@ -82,7 +82,7 @@ class SelectTables {
         let recordIDs = [];
 
         for (let cond of terms) {
-            if (typeof cond.logic == 'undefined') {
+            if (typeof cond.logic === 'undefined') {
                 recordIDs.push(this.getRecordIDs(cond));
             }
             else {
@@ -91,10 +91,10 @@ class SelectTables {
         }
 
         let result = [];
-        if (logic == "AND") {
+        if (logic === "AND") {
             result = recordIDs.reduce((a, b) => a.filter(c => b.includes(c)));
         }
-        if (logic == "OR") {
+        if (logic === "OR") {
             //  OR Logic
             let tempArr = [];
             for (let arr of recordIDs) {
@@ -159,8 +159,8 @@ class SelectTables {
         if (fieldCol >= 0) {
             leftValue = fieldTable.tableData[masterRecordID][fieldCol];
         }
-        else if (fieldCalculatedField != "") {
-            if (fieldCalculatedField.toUpperCase() == "NULL")
+        else if (fieldCalculatedField !== "") {
+            if (fieldCalculatedField.toUpperCase() === "NULL")
                 leftValue = "NULL";
             else
                 leftValue = this.evaluateCalculatedField(fieldCalculatedField, masterRecordID);
@@ -182,7 +182,7 @@ class SelectTables {
 
         switch (operator) {
             case "=":
-                keep = leftValue == rightValue;
+                keep = leftValue === rightValue;
                 break;
 
             case ">":
@@ -202,11 +202,11 @@ class SelectTables {
                 break;
 
             case "<>":
-                keep = leftValue != rightValue;
+                keep = leftValue !== rightValue;
                 break;
 
             case "!=":
-                keep = leftValue != rightValue;
+                keep = leftValue !== rightValue;
                 break;
 
             case "LIKE":
@@ -256,7 +256,7 @@ class SelectTables {
             for (field of this.virtualFields.selectVirtualFields) {
                 if (field.fieldInfo !== null)
                     newRow.push(field.fieldInfo.getData(masterRecordID));
-                else if (field.calculatedFormula != "") {
+                else if (field.calculatedFormula !== "") {
                     let result = this.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
                     newRow.push(result);
                 }
@@ -308,19 +308,19 @@ class SelectTables {
             //  b) Non primary table fields require full notation for column
             //  c) The 'masterRecordID' is referencing masterTable, so fields from
             //  other tables should be excluded.
-            if (vField.fieldName == "*" ||
-                (this.masterTableInfo.tableName != vField.tableInfo.tableName && vField.fieldName.indexOf(".") == -1) ||
-                (this.masterTable != vField.tableInfo))
+            if (vField.fieldName === "*" ||
+                (this.masterTableInfo.tableName !== vField.tableInfo.tableName && vField.fieldName.indexOf(".") === -1) ||
+                (this.masterTable !== vField.tableInfo))
                 continue;
 
             //  Get the DATA from this field.  We then build a series of LET statments
             //  and we assign that data to the field name that might be found in a calculated field.
             let varData = vField.getData(masterRecordID);
-            if (typeof varData == "string" || varData instanceof Date) {
+            if (typeof varData === "string" || varData instanceof Date) {
                 varData = "'" + varData + "'";
             }
 
-            if (vField.fieldName.indexOf(".") == -1)
+            if (vField.fieldName.indexOf(".") === -1)
                 myVars += "let " + vField.fieldName + " = " + varData + ";";
             else {
                 let parts = vField.fieldName.split(".");
@@ -369,13 +369,13 @@ class SelectTables {
         for (let i = 0; i < srcString.length; i++) {
             let c = srcString.charAt(i);
 
-            if (inQuotes == "") {
-                if (c == '"' || c == "'")
+            if (inQuotes === "") {
+                if (c === '"' || c === "'")
                     inQuotes = c;
                 c = c.toUpperCase();
             }
             else {
-                if (c == inQuotes)
+                if (c === inQuotes)
                     inQuotes = "";
             }
 
@@ -397,17 +397,17 @@ class SelectTables {
 
         let matchStr = new RegExp(expMatch.replace("%1", func));
         let startMatchPos = functionString.search(matchStr);
-        if (startMatchPos != -1) {
+        if (startMatchPos !== -1) {
             let searchStr = functionString.substring(startMatchPos);
             let i = searchStr.indexOf("(");
             let startLeft = i;
             let leftBracket = 1;
             for (i = i + 1; i < searchStr.length; i++) {
                 let c = searchStr.charAt(i);
-                if (c == "(") leftBracket++;
-                if (c == ")") leftBracket--;
+                if (c === "(") leftBracket++;
+                if (c === ")") leftBracket--;
 
-                if (leftBracket == 0) {
+                if (leftBracket === 0) {
                     args.push(searchStr.substring(0, i + 1));
                     args.push(searchStr.substring(startLeft + 1, i));
                     return args;
@@ -431,18 +431,18 @@ class SelectTables {
         for (let i = 0; i < paramString.length; i++) {
             let c = paramString.charAt(i);
 
-            if (c == "," && bracketCount == 0) {
+            if (c === "," && bracketCount === 0) {
                 args.push(paramString.substring(start, i));
                 start = i + 1;
             }
-            else if (c == startBracket)
+            else if (c === startBracket)
                 bracketCount++;
-            else if (c == endBracket)
+            else if (c === endBracket)
                 bracketCount--;
         }
 
         let lastStr = paramString.substring(start);
-        if (lastStr != "")
+        if (lastStr !== "")
             args.push(lastStr);
 
         return args;
@@ -457,7 +457,7 @@ class SelectTables {
         /** @type {SelectField} */
         let field;
         for (field of this.virtualFields.selectVirtualFields) {
-            if (field.aggregateFunction != "")
+            if (field.aggregateFunction !== "")
                 count++;
         }
 
@@ -472,10 +472,10 @@ class SelectTables {
      */
     groupBy(ast, viewTableData) {
 
-        if (typeof ast['GROUP BY'] != 'undefined') {
+        if (typeof ast['GROUP BY'] !== 'undefined') {
             viewTableData = this.groupByFields(ast['GROUP BY'], viewTableData);
 
-            if (typeof ast['HAVING'] != 'undefined') {
+            if (typeof ast['HAVING'] !== 'undefined') {
                 viewTableData = this.having(ast['HAVING'], viewTableData);
             }
         }
@@ -500,7 +500,7 @@ class SelectTables {
     * @returns {any[][]}
     */
     groupByFields(astGroupBy, selectedData) {
-        if (selectedData.length == 0)
+        if (selectedData.length === 0)
             return selectedData;
 
         //  Sort the least important first, and most important last.
@@ -509,7 +509,7 @@ class SelectTables {
         for (let orderField of astGroupBy) {
             let selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
 
-            if (selectColumn != -1) {
+            if (selectColumn !== -1) {
                 this.sortByColumnASC(selectedData, selectColumn);
             }
         }
@@ -521,7 +521,7 @@ class SelectTables {
         let lastKey = this.createGroupByKey(selectedData[0], astGroupBy);
         for (let row of selectedData) {
             let newKey = this.createGroupByKey(row, astGroupBy);
-            if (newKey != lastKey) {
+            if (newKey !== lastKey) {
                 groupedData.push(conglomerate.squish(groupRecords));
 
                 lastKey = newKey;
@@ -547,7 +547,7 @@ class SelectTables {
 
         for (let orderField of astGroupBy) {
             let selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
-            if (selectColumn != -1)
+            if (selectColumn !== -1)
                 key += row[selectColumn].toString();
         }
 
@@ -588,7 +588,7 @@ class SelectTables {
      * @param {any[][]} selectedData 
      */
     orderBy(ast, selectedData) {
-        if (typeof ast['ORDER BY'] == 'undefined')
+        if (typeof ast['ORDER BY'] === 'undefined')
             return;
 
         let astOrderby = ast['ORDER BY']
@@ -599,8 +599,8 @@ class SelectTables {
         for (let orderField of reverseOrderBy) {
             let selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
 
-            if (selectColumn != -1) {
-                if (orderField.order == "DESC")
+            if (selectColumn !== -1) {
+                if (orderField.order === "DESC")
                     this.sortByColumnDESC(selectedData, selectColumn);
                 else
                     this.sortByColumnASC(selectedData, selectColumn);
@@ -684,7 +684,7 @@ class SelectTables {
         let calculatedField = "";
 
         //  Maybe a SELECT within...
-        if (typeof fieldCondition['SELECT'] != 'undefined') {
+        if (typeof fieldCondition['SELECT'] !== 'undefined') {
             let inSQL = new Sql().setTables(this.tableInfo);
             inSQL.setBindValues(this.bindVariables);
             let inData = inSQL.select(fieldCondition);
@@ -692,9 +692,9 @@ class SelectTables {
         }
         else if (this.isStringConstant(fieldCondition))
             constantData = this.extractStringConstant(fieldCondition);
-        else if (fieldCondition == '?') {
+        else if (fieldCondition === '?') {
             //  Bind variable data.
-            if (this.bindVariables.length == 0)
+            if (this.bindVariables.length === 0)
                 throw new Error("Bind variable mismatch");
             constantData = this.bindVariables.shift();
         }
@@ -755,9 +755,9 @@ class SelectTables {
             month = value.getMonth();
             dayNum = value.getDate();
         }
-        else if (typeof value == "string") {
+        else if (typeof value === "string") {
             let dateParts = value.split("/");
-            if (dateParts.length == 3) {
+            if (dateParts.length === 3) {
                 year = parseInt(dateParts[2]);
                 month = parseInt(dateParts[0]) - 1;
                 dayNum = parseInt(dateParts[1]);
@@ -779,7 +779,7 @@ class SelectTables {
         let expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
 
         let result = leftValue.search(expanded);
-        return result != -1;
+        return result !== -1;
     }
 
     /**
@@ -795,7 +795,7 @@ class SelectTables {
 
         let index = items.indexOf(leftValue);
 
-        return index != -1;
+        return index !== -1;
     }
 
     /**
@@ -805,7 +805,7 @@ class SelectTables {
      * @returns {Boolean}
      */
     isCondition(leftValue, rightValue) {
-        return (leftValue === "" && rightValue == "NULL");
+        return (leftValue === "" && rightValue === "NULL");
     }
 
     /**
@@ -857,8 +857,8 @@ class VirtualFields {
         let originalTable = originalField.tableInfo.tableName;
 
         for (let fld of this.virtualFieldList) {
-            if (originalCol == fld.tableColumn &&
-                originalTable == fld.tableInfo.tableName) {
+            if (originalCol === fld.tableColumn &&
+                originalTable === fld.tableInfo.tableName) {
                 //  Keep field object, just replace contents.
                 fld.tableColumn = newField.tableColumn;
                 fld.tableInfo = newField.tableInfo;
@@ -898,7 +898,7 @@ class VirtualFields {
      * @returns {VirtualField}
      */
     getFieldInfo(field) {
-        if (field === null || typeof field != "string")
+        if (field === null || typeof field !== "string")
             throw new Error("SELECT syntax error.  Failed to retrieve field info.");
 
         field = field.trim().toUpperCase();
@@ -919,16 +919,16 @@ class VirtualFields {
     isSameField(name1, name2) {
         let isSame = false;
         let leftVirtual = name1;
-        if (typeof name1 == "string")
+        if (typeof name1 === "string")
             leftVirtual = this.getFieldInfo(name1);
 
         let rightVirtual = name2;
-        if (typeof name2 == "string")
+        if (typeof name2 === "string")
             rightVirtual = this.getFieldInfo(name2);
 
         if (leftVirtual !== null && rightVirtual !== null &&
-            leftVirtual.tableInfo.tableName == rightVirtual.tableInfo.tableName &&
-            leftVirtual.tableColumn == rightVirtual.tableColumn) {
+            leftVirtual.tableInfo.tableName === rightVirtual.tableInfo.tableName &&
+            leftVirtual.tableColumn === rightVirtual.tableColumn) {
             isSame = true;
         }
         return isSame;
@@ -973,11 +973,11 @@ class VirtualFields {
 
             for (let field of validFieldNames) {
                 let tableColumn = tableObject.getFieldColumn(field);
-                if (tableColumn != -1) {
+                if (tableColumn !== -1) {
                     //  If we have the same field name more than once (without the full DOT notation)
                     //  we only want the one for the primary table.
                     if (this.hasField(field)) {
-                        if (tableName.toUpperCase() != primaryTable.toUpperCase())
+                        if (tableName.toUpperCase() !== primaryTable.toUpperCase())
                             continue;
                     }
                     let virtualField = new VirtualField(field, tableObject, tableColumn);
@@ -1006,7 +1006,7 @@ class VirtualFields {
         /** @type {VirtualField[]} */
         let newVirtualFields = [];
         for (let fld of this.virtualFieldList) {
-            if (fld.tableInfo.tableName == DERIVEDTABLE) {
+            if (fld.tableInfo.tableName === DERIVEDTABLE) {
                 newVirtualFields.push(fld);
             }
         }
@@ -1022,7 +1022,7 @@ class VirtualFields {
      */
     expandWildcardFields(masterTableInfo, astFields) {
         for (let i = 0; i < astFields.length; i++) {
-            if (astFields[i].name == "*") {
+            if (astFields[i].name === "*") {
                 //  Replace wildcard will actual field names from master table.
                 let masterTableFields = [];
                 let allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames();
@@ -1051,7 +1051,7 @@ class VirtualFields {
 
         for (let selField of astFields) {
             let [columnName, aggregateFunctionName, calculatedField] = this.getSelectFieldNames(selField);
-            this.columnTitles.push(typeof selField.as != 'undefined' && selField.as != "" ? selField.as : selField.name);
+            this.columnTitles.push(typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
             if (calculatedField === null && this.hasField(columnName)) {
                 let fieldInfo = this.getFieldInfo(columnName);
@@ -1086,7 +1086,7 @@ class VirtualFields {
     getSelectFieldNames(selField) {
         let columnName = selField.name;
         let aggregateFunctionName = "";
-        let calculatedField = (typeof selField.terms == 'undefined') ? null : selField.terms;
+        let calculatedField = (typeof selField.terms === 'undefined') ? null : selField.terms;
 
         if (calculatedField === null && !this.hasField(columnName)) {
             const functionNameRegex = /^\w+\s*(?=\()/;
@@ -1109,7 +1109,7 @@ class VirtualFields {
      */
     getSelectFieldColumn(fieldName) {
         for (let i = 0; i < this.selectVirtualFields.length; i++) {
-            if (this.isSameField(this.selectVirtualFields[i].fieldInfo, fieldName) && this.selectVirtualFields[i].aggregateFunction == "")
+            if (this.isSameField(this.selectVirtualFields[i].fieldInfo, fieldName) && this.selectVirtualFields[i].aggregateFunction === "")
                 return i;
         }
 
@@ -1336,15 +1336,15 @@ class JoinTables {
 
             let joinRows = rightField.tableInfo.search(rightField.fieldName, keyMasterJoinField);
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
-            if (joinRows.length == 0) {
-                if (type == "inner")
+            if (joinRows.length === 0) {
+                if (type === "inner")
                     continue;
 
                 leftRecordsIDs[leftTableRecordNum] = [-1];
             }
             else {
                 //  Excludes all match recordgs (is outer the right word for this?)
-                if (type == "outer")
+                if (type === "outer")
                     continue;
 
                 leftRecordsIDs[leftTableRecordNum] = joinRows;
@@ -1424,8 +1424,8 @@ class DerivedTable {
         let joinedData = [this.getCombinedColumnTitles(this.leftField, this.rightField)];
 
         for (let i = 1; i < this.leftField.tableInfo.tableData.length; i++) {
-            if (typeof this.leftRecords[i] != "undefined") {
-                if (typeof this.rightField.tableInfo.tableData[this.leftRecords[i][0]] == "undefined")
+            if (typeof this.leftRecords[i] !== "undefined") {
+                if (typeof this.rightField.tableInfo.tableData[this.leftRecords[i][0]] === "undefined")
                     joinedData.push(this.leftField.tableInfo.tableData[i].concat(emptyRightRow));
                 else {
                     let maxJoin = this.isOuterJoin ? this.leftRecords[i].length : 1;
@@ -1503,7 +1503,7 @@ class SqlServerFunctions {
 
             while (args !== null && args.length > 0) {
                 // Split on COMMA, except within brackets.
-                let parms = typeof args[1] == 'undefined' ? [] : SelectTables.parseForParams(args[1]);
+                let parms = typeof args[1] === 'undefined' ? [] : SelectTables.parseForParams(args[1]);
 
                 let replacement = "";
                 switch (func) {
@@ -1609,7 +1609,7 @@ class SqlServerFunctions {
     parseFunctionArgs(func, functionString) {
         let args = [];
 
-        if (func == "CASE")
+        if (func === "CASE")
             args = functionString.match(this.matchCaseWhenThenStr);
         else
             args = SelectTables.parseForFunctions(functionString, func);
@@ -1625,7 +1625,7 @@ class SqlServerFunctions {
     charIndex(parms) {
         let replacement = "";
 
-        if (typeof parms[2] == 'undefined')
+        if (typeof parms[2] === 'undefined')
             replacement = parms[1] + ".indexOf(" + parms[0] + ") + 1";
         else
             replacement = parms[1] + ".indexOf(" + parms[0] + "," + parms[2] + " -1) + 1";
@@ -1641,7 +1641,7 @@ class SqlServerFunctions {
      * @returns {[any[], String]}
      */
     caseStart(func, args, functionString) {
-        if (func == "CASE") {
+        if (func === "CASE") {
             args = functionString.match(/CASE(.*?)END/i);
 
             if (args !== null && args.length > 1) {
@@ -1666,7 +1666,7 @@ class SqlServerFunctions {
         let replacement = "";
 
         if (args.length > 2) {
-            if (typeof args[1] == 'undefined' && typeof args[2] == 'undefined') {
+            if (typeof args[1] === 'undefined' && typeof args[2] === 'undefined') {
                 replacement = "else return " + args[3] + ";";
             }
             else {
@@ -1690,7 +1690,7 @@ class SqlServerFunctions {
      * @returns {String}
      */
     caseEnd(func, functionString) {
-        if (func == "CASE" && this.originalFunctionString != "") {
+        if (func === "CASE" && this.originalFunctionString !== "") {
             functionString += "})();";      //  end of lambda.
             functionString = this.originalFunctionString.replace(this.originalCaseStatement, functionString);
         }
@@ -1715,14 +1715,14 @@ class ConglomerateRecord {
      */
     squish(groupRecords) {
         let row = [];
-        if (groupRecords.length == 0)
+        if (groupRecords.length === 0)
             return row;
 
         /** @type {SelectField} */
         let field;
         let i = 0;
         for (field of this.selectVirtualFields) {
-            if (field.aggregateFunction == "")
+            if (field.aggregateFunction === "")
                 row.push(groupRecords[0][i]);
             else {
                 row.push(this.aggregateColumn(field, groupRecords, i));
@@ -1745,7 +1745,7 @@ class ConglomerateRecord {
         let first = true;
 
         for (let groupRow of groupRecords) {
-            if (groupRow[columnIndex] == 'null')
+            if (groupRow[columnIndex] === 'null')
                 continue;
 
             let data = parseFloat(groupRow[columnIndex]);
@@ -1774,7 +1774,7 @@ class ConglomerateRecord {
             first = false;
         }
 
-        if (field.aggregateFunction == "AVG")
+        if (field.aggregateFunction === "AVG")
             groupValue = groupValue / avgCounter;
 
         return groupValue;
