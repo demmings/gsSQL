@@ -48,8 +48,11 @@ jobs:
       # Run Linter against code base #
       ################################
       - name: Lint Code Base
-        uses: github/super-linter@v4
+        uses: github/super-linter@v4.9.5
         env:
           VALIDATE_ALL_CODEBASE: true
+          VALIDATE_JAVASCRIPT_ES: true
+          FILTER_REGEX_INCLUDE: .*src/.*
+          FILTER_REGEX_EXCLUDE: .*src/SqlTest.js
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
