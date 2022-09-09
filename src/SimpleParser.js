@@ -623,14 +623,20 @@ CondLexer.prototype = {
     readWord: function () {
         let tokenValue = "";
         let nb_brackets = 0;
-        let string = false;
+        let isString = false;
+        let startQuote = "";
         while (/./.test(this.currentChar)) {
             // Check if we are in a string
-            if (!string && /['"`]/.test(this.currentChar)) string = this.currentChar;
-            else if (string && this.currentChar === string) string = false;
+            if (!isString && /['"`]/.test(this.currentChar)) {
+                isString = true;
+                startQuote = this.currentChar;
+            }
+            else if (isString && this.currentChar === startQuote) {
+                isString = false;
+            }
             else {
                 // Allow spaces inside functions (only if we are not in a string)
-                if (!string) {
+                if (!isString) {
                     // Token is finished if there is a closing bracket outside a string and with no opening
                     if (this.currentChar === ')' && nb_brackets <= 0)
                         break;

@@ -195,10 +195,8 @@ class TableData {
      * @returns {any[][]} - data from range
      */
     lockLoadAndCache(cache, namedRange, cacheSeconds) {
-        let arrData;
-
         //  Data is now loaded in cache.
-        arrData = this.cacheGetArray(cache, namedRange);
+        let arrData = this.cacheGetArray(cache, namedRange);
         if (arrData !== null) {
             return arrData;
         }

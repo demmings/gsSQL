@@ -1133,6 +1133,7 @@ class VirtualFields {
     }
 }
 
+/**  Defines all possible table fields including '*' and long/short form (i.e. table.column). */
 class VirtualField {
     /**
      * 
@@ -1159,6 +1160,7 @@ class VirtualField {
     }
 }
 
+/** Fields specified in SELECT statement. */
 class SelectField {
     /**
      * 
@@ -1188,6 +1190,7 @@ class SelectField {
     }
 }
 
+/** Handle the various JOIN table types. */
 class JoinTables {
     /**
      * 
@@ -1355,6 +1358,7 @@ class JoinTables {
     }
 }
 
+/**  The JOIN creates a new logical table. */
 class DerivedTable {
     constructor() {
         /** @type {VirtualField} */
