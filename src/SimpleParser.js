@@ -6,7 +6,7 @@ export { sql2ast, sqlCondition2JsCondition };
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 
 function trim(str) {
-    if (typeof str == 'string')
+    if (typeof str === 'string')
         return str.trim();
     else
         return str;
@@ -21,11 +21,11 @@ function protect_split(separator, str) {
     let new_str = "";
     for (let c of str) {
         if (!string && /['"`]/.test(c)) string = c;
-        else if (string && c == string) string = false;
-        else if (!string && c == '(') nb_brackets++;
-        else if (!string && c == ')') nb_brackets--;
+        else if (string && c === string) string = false;
+        else if (!string && c === '(') nb_brackets++;
+        else if (!string && c === ')') nb_brackets--;
 
-        if (c == separator && (nb_brackets > 0 || string)) new_str += sep;
+        if (c === separator && (nb_brackets > 0 || string)) new_str += sep;
         else new_str += c;
     }
     str = new_str;
@@ -63,7 +63,7 @@ function unprotect(str) {
  * @param {Object} replaceFunction
  */
 function hideInnerSql(str, parts_name_escaped, replaceFunction) {
-    if (str.indexOf("(") == -1 && str.indexOf(")") == -1)
+    if (str.indexOf("(") === -1 && str.indexOf(")") === -1)
         return str;
 
     let bracketCount = 0;
@@ -72,16 +72,16 @@ function hideInnerSql(str, parts_name_escaped, replaceFunction) {
     for (let i = str.length - 1; i >= 0; i--) {
         let c = str.charAt(i);
 
-        if (c == ")") {
+        if (c === ")") {
             bracketCount++;
 
-            if (bracketCount == 1) {
+            if (bracketCount === 1) {
                 endCount = i;
             }
         }
-        else if (c == "(") {
+        else if (c === "(") {
             bracketCount--;
-            if (bracketCount == 0) {
+            if (bracketCount === 0) {
 
                 let query = str.substring(i, endCount + 1);
 
@@ -107,7 +107,7 @@ function sqlStatementSplitter(src) {
     let reg = makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
 
     let matchedUnions = src.match(reg);
-    if (matchedUnions === null || matchedUnions.length == 0)
+    if (matchedUnions === null || matchedUnions.length === 0)
         return src;
 
     let prefix = "";
@@ -193,17 +193,17 @@ function sql2ast(query) {
 
         do {
             part = query.indexOf(item, pos);
-            if (part != -1) {
+            if (part !== -1) {
                 let realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, realNameCallback);
 
-                if (typeof parts_order[part] == 'undefined' || parts_order[part].length < realName.length) {
+                if (typeof parts_order[part] === 'undefined' || parts_order[part].length < realName.length) {
                     parts_order[part] = realName;	// Position won't be exact because the use of protect()  (above) and unprotect() alter the query string ; but we just need the order :)
                 }
 
                 pos = part + realName.length;
             }
         }
-        while (part != -1);
+        while (part !== -1);
     });
 
     // Delete duplicates (caused, for example, by JOIN and INNER JOIN)
@@ -214,7 +214,7 @@ function sql2ast(query) {
             busy_until = parseInt(key, 10) + item.length;
 
             // Replace JOIN by INNER JOIN
-            if (item == 'JOIN') parts_order[key] = 'INNER JOIN';
+            if (item === 'JOIN') parts_order[key] = 'INNER JOIN';
         }
     });
 
@@ -251,9 +251,9 @@ function sql2ast(query) {
 
             if (terms !== null) {
                 let aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
-                terms = (aggFunc.indexOf(terms[0].toUpperCase()) == -1) ? terms : null;
+                terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
             }
-            if (item != "*" && terms !== null && terms.length > 1) {
+            if (item !== "*" && terms !== null && terms.length > 1) {
                 return {
                     name: item,
                     terms: terms,
@@ -383,11 +383,11 @@ function sql2ast(query) {
     parts_order.forEach(function (item, _key) {
         item = item.toUpperCase();
         j++;
-        if (typeof analysis[item] != 'undefined') {
+        if (typeof analysis[item] !== 'undefined') {
             let part_result = analysis[item](parts[j]);
 
-            if (typeof result[item] != 'undefined') {
-                if (typeof result[item] == 'string' || typeof result[item][0] == 'undefined') {
+            if (typeof result[item] !== 'undefined') {
+                if (typeof result[item] === 'string' || typeof result[item][0] === 'undefined') {
                     let tmp = result[item];
                     result[item] = [];
                     result[item].push(tmp);
@@ -404,9 +404,9 @@ function sql2ast(query) {
     });
 
     // Reorganize joins
-    if (typeof result['LEFT JOIN'] != 'undefined') {
-        if (typeof result['JOIN'] == 'undefined') result['JOIN'] = [];
-        if (typeof result['LEFT JOIN'][0] != 'undefined') {
+    if (typeof result['LEFT JOIN'] !== 'undefined') {
+        if (typeof result['JOIN'] === 'undefined') result['JOIN'] = [];
+        if (typeof result['LEFT JOIN'][0] !== 'undefined') {
             result['LEFT JOIN'].forEach(function (item) {
                 item.type = 'left';
                 result['JOIN'].push(item);
@@ -418,9 +418,9 @@ function sql2ast(query) {
         }
         delete result['LEFT JOIN'];
     }
-    if (typeof result['INNER JOIN'] != 'undefined') {
-        if (typeof result['JOIN'] == 'undefined') result['JOIN'] = [];
-        if (typeof result['INNER JOIN'][0] != 'undefined') {
+    if (typeof result['INNER JOIN'] !== 'undefined') {
+        if (typeof result['JOIN'] === 'undefined') result['JOIN'] = [];
+        if (typeof result['INNER JOIN'][0] !== 'undefined') {
             result['INNER JOIN'].forEach(function (item) {
                 item.type = 'inner';
                 result['JOIN'].push(item);
@@ -432,9 +432,9 @@ function sql2ast(query) {
         }
         delete result['INNER JOIN'];
     }
-    if (typeof result['RIGHT JOIN'] != 'undefined') {
-        if (typeof result['JOIN'] == 'undefined') result['JOIN'] = [];
-        if (typeof result['RIGHT JOIN'][0] != 'undefined') {
+    if (typeof result['RIGHT JOIN'] !== 'undefined') {
+        if (typeof result['JOIN'] === 'undefined') result['JOIN'] = [];
+        if (typeof result['RIGHT JOIN'][0] !== 'undefined') {
             result['RIGHT JOIN'].forEach(function (item) {
                 item.type = 'right';
                 result['JOIN'].push(item);
@@ -446,9 +446,9 @@ function sql2ast(query) {
         }
         delete result['RIGHT JOIN'];
     }
-    if (typeof result['FULL JOIN'] != 'undefined') {
-        if (typeof result['JOIN'] == 'undefined') result['JOIN'] = [];
-        if (typeof result['FULL JOIN'][0] != 'undefined') {
+    if (typeof result['FULL JOIN'] !== 'undefined') {
+        if (typeof result['JOIN'] === 'undefined') result['JOIN'] = [];
+        if (typeof result['FULL JOIN'][0] !== 'undefined') {
             result['FULL JOIN'].forEach(function (item) {
                 item.type = 'full';
                 result['JOIN'].push(item);
@@ -463,49 +463,49 @@ function sql2ast(query) {
 
 
     // Parse conditions
-    if (typeof result['WHERE'] == 'string') {
+    if (typeof result['WHERE'] === 'string') {
         result['WHERE'] = CondParser.parse(result['WHERE']);
     }
-    if (typeof result['HAVING'] == 'string') {
+    if (typeof result['HAVING'] === 'string') {
         result['HAVING'] = CondParser.parse(result['HAVING']);
     }
-    if (typeof result['JOIN'] != 'undefined') {
+    if (typeof result['JOIN'] !== 'undefined') {
         result['JOIN'].forEach(function (item, key) {
             result['JOIN'][key]['cond'] = CondParser.parse(item['cond']);
         });
     }
 
-    if (typeof result['UNION'] == 'string') {
+    if (typeof result['UNION'] === 'string') {
         result['UNION'] = [sql2ast(parseUnion(result['UNION']))];
     }
-    else if (typeof result['UNION'] != 'undefined') {
+    else if (typeof result['UNION'] !== 'undefined') {
         for (let i = 0; i < result['UNION'].length; i++) {
             result['UNION'][i] = sql2ast(parseUnion(result['UNION'][i]));
         }
     }
 
-    if (typeof result['UNION ALL'] == 'string') {
+    if (typeof result['UNION ALL'] === 'string') {
         result['UNION ALL'] = [sql2ast(parseUnion(result['UNION ALL']))];
     }
-    else if (typeof result['UNION ALL'] != 'undefined') {
+    else if (typeof result['UNION ALL'] !== 'undefined') {
         for (let i = 0; i < result['UNION ALL'].length; i++) {
             result['UNION ALL'][i] = sql2ast(parseUnion(result['UNION ALL'][i]));
         }
     }
 
-    if (typeof result['INTERSECT'] == 'string') {
+    if (typeof result['INTERSECT'] === 'string') {
         result['INTERSECT'] = [sql2ast(parseUnion(result['INTERSECT']))];
     }
-    else if (typeof result['INTERSECT'] != 'undefined') {
+    else if (typeof result['INTERSECT'] !== 'undefined') {
         for (let i = 0; i < result['INTERSECT'].length; i++) {
             result['INTERSECT'][i] = sql2ast(parseUnion(result['INTERSECT'][i]));
         }
     }
 
-    if (typeof result['EXCEPT'] == 'string') {
+    if (typeof result['EXCEPT'] === 'string') {
         result['EXCEPT'] = [sql2ast(parseUnion(result['EXCEPT']))];
     }
-    else if (typeof result['EXCEPT'] != 'undefined') {
+    else if (typeof result['EXCEPT'] !== 'undefined') {
         for (let i = 0; i < result['EXCEPT'].length; i++) {
             result['EXCEPT'][i] = sql2ast(parseUnion(result['EXCEPT'][i]));
         }
@@ -532,7 +532,7 @@ function parseUnion(inStr) {
 function getNameAndAlias(item) {
     let alias = "";
     let lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
-    if (lastAs != -1) {
+    if (lastAs !== -1) {
         let s = item.substring(lastAs + 4).trim();
         if (s.length > 0) {
             alias = s;
@@ -557,12 +557,12 @@ function lastIndexOfOutsideLiteral(srcString, searchString) {
     for (let i = 0; i < srcString.length; i++) {
         let c = srcString.charAt(i);
 
-        if (inQuote != "") {
+        if (inQuote !== "") {
             //  The ending quote.
-            if ((inQuote == "'" && c == "'") || (inQuote == '"' && c == '"') || (inQuote == "[" && c == "]"))
+            if ((inQuote === "'" && c === "'") || (inQuote === '"' && c === '"') || (inQuote === "[" && c === "]"))
                 inQuote = "";
         }
-        else if ("\"'[".indexOf(c) != -1) {
+        else if ("\"'[".indexOf(c) !== -1) {
             //  The starting quote.
             inQuote = c;
         }
@@ -594,7 +594,7 @@ CondLexer.prototype = {
 
     // Read the next character (or return an empty string if cursor is at the end of the source)
     readNextChar: function () {
-        if (typeof this.source != 'string') this.currentChar = "";
+        if (typeof this.source !== 'string') this.currentChar = "";
         else this.currentChar = this.source[this.cursor++] || "";
     },
 
@@ -610,7 +610,7 @@ CondLexer.prototype = {
             return this.readOperator();
         if (/[\+\-*\/%]/.test(this.currentChar))
             return this.readMathOperator();
-        if (this.currentChar == '?')
+        if (this.currentChar === '?')
             return this.readBindVariable();
 
         if (this.currentChar === "") return { type: 'eot', value: '' };
@@ -627,17 +627,17 @@ CondLexer.prototype = {
         while (/./.test(this.currentChar)) {
             // Check if we are in a string
             if (!string && /['"`]/.test(this.currentChar)) string = this.currentChar;
-            else if (string && this.currentChar == string) string = false;
+            else if (string && this.currentChar === string) string = false;
             else {
                 // Allow spaces inside functions (only if we are not in a string)
                 if (!string) {
                     // Token is finished if there is a closing bracket outside a string and with no opening
-                    if (this.currentChar == ')' && nb_brackets <= 0)
+                    if (this.currentChar === ')' && nb_brackets <= 0)
                         break;
 
-                    if (this.currentChar == '(')
+                    if (this.currentChar === '(')
                         nb_brackets++;
-                    else if (this.currentChar == ')')
+                    else if (this.currentChar === ')')
                         nb_brackets--;
 
                     // Token is finished if there is a operator symbol outside a string
@@ -646,7 +646,7 @@ CondLexer.prototype = {
                 }
 
                 // Token is finished on the first space which is outside a string or a function
-                if (this.currentChar == ' ' && nb_brackets <= 0)
+                if (this.currentChar === ' ' && nb_brackets <= 0)
                     break;
             }
 
@@ -669,7 +669,7 @@ CondLexer.prototype = {
         tokenValue += this.currentChar;
         this.readNextChar();
 
-        while (this.currentChar != quote && this.currentChar !== "") {
+        while (this.currentChar !== quote && this.currentChar !== "") {
             tokenValue += this.currentChar;
             this.readNextChar();
         }
@@ -678,7 +678,7 @@ CondLexer.prototype = {
         this.readNextChar();
 
         // Handle this case : `table`.`column`
-        if (this.currentChar == '.') {
+        if (this.currentChar === '.') {
             tokenValue += this.currentChar;
             this.readNextChar();
             tokenValue += this.readString().value;
@@ -737,7 +737,7 @@ CondParser.prototype = {
     // Read the next token (skip empty tokens)
     readNextToken: function () {
         this.currentToken = this.lexer.readNextToken();
-        while (this.currentToken.type == 'empty')
+        while (this.currentToken.type === 'empty')
             this.currentToken = this.lexer.readNextToken();
         return this.currentToken;
     },
@@ -751,14 +751,14 @@ CondParser.prototype = {
     parseLogicalExpression: function () {
         let leftNode = this.parseConditionExpression();
 
-        while (this.currentToken.type == 'logic') {
+        while (this.currentToken.type === 'logic') {
             let logic = this.currentToken.value;
             this.readNextToken();
 
             let rightNode = this.parseConditionExpression();
 
             // If we are chaining the same logical operator, add nodes to existing object instead of creating another one
-            if (typeof leftNode.logic != 'undefined' && leftNode.logic == logic && typeof leftNode.terms != 'undefined')
+            if (typeof leftNode.logic !== 'undefined' && leftNode.logic === logic && typeof leftNode.terms !== 'undefined')
                 leftNode.terms.push(rightNode);
             else {
                 let terms = [leftNode, rightNode];
@@ -773,12 +773,12 @@ CondParser.prototype = {
     parseConditionExpression: function () {
         let leftNode = this.parseBaseExpression();
 
-        if (this.currentToken.type == 'operator') {
+        if (this.currentToken.type === 'operator') {
             let operator = this.currentToken.value;
             this.readNextToken();
 
             // If there are 2 adjacent operators, join them with a space (exemple: IS NOT)
-            if (this.currentToken.type == 'operator') {
+            if (this.currentToken.type === 'operator') {
                 operator += ' ' + this.currentToken.value;
                 this.readNextToken();
             }
@@ -797,31 +797,31 @@ CondParser.prototype = {
         let inCurrentToken;
 
         // If this is a word/string, return its value
-        if (this.currentToken.type == 'word' || this.currentToken.type == 'string') {
+        if (this.currentToken.type === 'word' || this.currentToken.type === 'string') {
             astNode = this.currentToken.value;
             this.readNextToken();
 
-            if (this.currentToken.type == 'mathoperator') {
+            if (this.currentToken.type === 'mathoperator') {
                 astNode += " " + this.currentToken.value;
                 this.readNextToken();
-                while ((this.currentToken.type == 'mathoperator' || this.currentToken.type == 'word') && this.currentToken.type != 'eot') {
+                while ((this.currentToken.type === 'mathoperator' || this.currentToken.type === 'word') && this.currentToken.type !== 'eot') {
                     astNode += " " + this.currentToken.value;
                     this.readNextToken();
                 }
             }
         }
         // If this is a group, skip brackets and parse the inside
-        else if (this.currentToken.type == 'group') {
+        else if (this.currentToken.type === 'group') {
             this.readNextToken();
             astNode = this.parseExpressionsRecursively();
 
-            let isSelectStatement = typeof astNode == "string" && astNode.toUpperCase() == 'SELECT';
+            let isSelectStatement = typeof astNode === "string" && astNode.toUpperCase() === 'SELECT';
 
-            if (operator == 'IN' || isSelectStatement) {
+            if (operator === 'IN' || isSelectStatement) {
                 inCurrentToken = this.currentToken;
-                while (inCurrentToken.type != 'group' && inCurrentToken.type != 'eot') {
+                while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
                     this.readNextToken();
-                    if (inCurrentToken.type != 'group') {
+                    if (inCurrentToken.type !== 'group') {
                         if (isSelectStatement)
                             astNode += " " + inCurrentToken.value;
                         else
@@ -839,9 +839,9 @@ CondParser.prototype = {
                 //  Are we within brackets of mathematicl expression ?
                 inCurrentToken = this.currentToken;
 
-                while (inCurrentToken.type != 'group' && inCurrentToken.type != 'eot') {
+                while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
                     this.readNextToken();
-                    if (inCurrentToken.type != 'group') {
+                    if (inCurrentToken.type !== 'group') {
                         astNode += " " + inCurrentToken.value;
                     }
 
@@ -852,7 +852,7 @@ CondParser.prototype = {
 
             this.readNextToken();
         }
-        else if (this.currentToken.type == 'bindVariable') {
+        else if (this.currentToken.type === 'bindVariable') {
             astNode = this.currentToken.value;
             this.readNextToken();
         }
@@ -876,16 +876,16 @@ function resolveSqlCondition(logic, terms) {
     let jsCondition = "";
 
     for (let cond of terms) {
-        if (typeof cond.logic == 'undefined') {
-            if (jsCondition != "" && logic == "AND") {
+        if (typeof cond.logic === 'undefined') {
+            if (jsCondition !== "" && logic === "AND") {
                 jsCondition += " && ";
             }
-            else if (jsCondition != "" && logic == "OR") {
+            else if (jsCondition !== "" && logic === "OR") {
                 jsCondition += " || ";
             }
 
             jsCondition += " " + cond.left;
-            if (cond.operator == "=")
+            if (cond.operator === "=")
                 jsCondition += " == ";
             else
                 jsCondition += " " + cond.operator;
@@ -904,9 +904,9 @@ function sqlCondition2JsCondition(cond) {
     let ast = sql2ast("SELECT A FROM c WHERE " + cond);
     let sqlData = "";
 
-    if (typeof ast['WHERE'] != 'undefined') {
+    if (typeof ast['WHERE'] !== 'undefined') {
         let conditions = ast['WHERE'];
-        if (typeof conditions.logic == 'undefined')
+        if (typeof conditions.logic === 'undefined')
             sqlData = resolveSqlCondition("OR", [conditions]);
         else
             sqlData = resolveSqlCondition(conditions.logic, conditions.terms);
