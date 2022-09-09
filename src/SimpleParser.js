@@ -302,12 +302,12 @@ function sql2ast(query) {
         let orderByResult = [];
         str.forEach(function (item, _key) {
             let order_by = /([\w\.]+)\s*(ASC|DESC)?/gi;
-            order_by = order_by.exec(item);
-            if (order_by !== null) {
+            let orderData = order_by.exec(item);
+            if (orderData !== null) {
                 let tmp = {};
-                tmp['column'] = trim(order_by[1]);
-                tmp['order'] = trim(order_by[2]);
-                if (order_by[2] === undefined) {
+                tmp['column'] = trim(orderData[1]);
+                tmp['order'] = trim(orderData[2]);
+                if (orderData[2] === undefined) {
                     let orderParts = item.trim().split(" ");
                     if (orderParts.length > 1)
                         throw new Error("Invalid ORDER BY: " + item);
@@ -324,10 +324,10 @@ function sql2ast(query) {
         let groupByResult = [];
         str.forEach(function (item, _key) {
             let group_by = /([\w\.]+)/gi;
-            group_by = group_by.exec(item);
-            if (group_by !== null) {
+            let groupData = group_by.exec(item);
+            if (groupData !== null) {
                 let tmp = {};
-                tmp['column'] = trim(group_by[1]);
+                tmp['column'] = trim(groupData[1]);
                 groupByResult.push(tmp);
             }
         });
@@ -339,10 +339,10 @@ function sql2ast(query) {
         let pivotResult = [];
         str.forEach(function (item, _key) {
             let pivotOn = /([\w\.]+)/gi;
-            pivotOn = pivotOn.exec(item);
-            if (pivotOn !== null) {
+            let pivotData = pivotOn.exec(item);
+            if (pivotData !== null) {
                 let tmp = {};
-                tmp['name'] = trim(pivotOn[1]);
+                tmp['name'] = trim(pivotData[1]);
                 tmp['as'] = "";
                 pivotResult.push(tmp);
             }
@@ -732,7 +732,7 @@ CondLexer.prototype = {
 // Constructor
 function CondParser(source) {
     this.lexer = new CondLexer(source);
-    this.currentToken = "";
+    this.currentToken = {};
 
     this.readNextToken();
 }
@@ -761,13 +761,13 @@ CondParser.prototype = {
             let logic = this.currentToken.value;
             this.readNextToken();
 
-            let rightNode = this.parseConditionExpression();
+            const rightNode = this.parseConditionExpression();
 
             // If we are chaining the same logical operator, add nodes to existing object instead of creating another one
             if (typeof leftNode.logic !== 'undefined' && leftNode.logic === logic && typeof leftNode.terms !== 'undefined')
                 leftNode.terms.push(rightNode);
             else {
-                let terms = [leftNode, rightNode];
+                const terms = [leftNode, rightNode];
                 leftNode = { 'logic': logic, 'terms': terms.slice(0) };
             }
         }
@@ -789,7 +789,7 @@ CondParser.prototype = {
                 this.readNextToken();
             }
 
-            let rightNode = this.parseBaseExpression(operator);
+            const rightNode = this.parseBaseExpression(operator);
 
             leftNode = { 'operator': operator, 'left': leftNode, 'right': rightNode };
         }
@@ -798,8 +798,13 @@ CondParser.prototype = {
     },
 
     // Parse base items
-    parseBaseExpression: function (operator) {
-        let astNode = "";
+    /**
+     * 
+     * @param {String} operator 
+     * @returns {Object}
+     */
+    parseBaseExpression: function (operator="") {
+        let astNode = {};
         let inCurrentToken;
 
         // If this is a word/string, return its value
@@ -821,7 +826,7 @@ CondParser.prototype = {
             this.readNextToken();
             astNode = this.parseExpressionsRecursively();
 
-            let isSelectStatement = typeof astNode === "string" && astNode.toUpperCase() === 'SELECT';
+            const isSelectStatement = typeof astNode === "string" && astNode.toUpperCase() === 'SELECT';
 
             if (operator === 'IN' || isSelectStatement) {
                 inCurrentToken = this.currentToken;
@@ -881,7 +886,7 @@ CondParser.parse = function (source) {
 function resolveSqlCondition(logic, terms) {
     let jsCondition = "";
 
-    for (let cond of terms) {
+    for (const cond of terms) {
         if (typeof cond.logic === 'undefined') {
             if (jsCondition !== "" && logic === "AND") {
                 jsCondition += " && ";
@@ -907,11 +912,11 @@ function resolveSqlCondition(logic, terms) {
 
 
 function sqlCondition2JsCondition(cond) {
-    let ast = sql2ast("SELECT A FROM c WHERE " + cond);
+    const ast = sql2ast("SELECT A FROM c WHERE " + cond);
     let sqlData = "";
 
     if (typeof ast['WHERE'] !== 'undefined') {
-        let conditions = ast['WHERE'];
+        const conditions = ast['WHERE'];
         if (typeof conditions.logic === 'undefined')
             sqlData = resolveSqlCondition("OR", [conditions]);
         else

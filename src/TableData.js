@@ -11,9 +11,9 @@ class Logger {
 //  *** DEBUG END  ***/
 
 function testTableData() {
-    let table = new TableData();
+    const table = new TableData();
 
-    let itemData = new Sql()
+    const itemData = new Sql()
         .addTableData('mastertransactions', 'Master Transactions!$A$1:$I', 60)
         .enableColumnTitle(true)
         .addBindNamedRangeParameter('startIncomeDate')
@@ -142,7 +142,7 @@ class TableData {
      */
     isRangeLoading(cache, namedRange) {
         let loading = false;
-        let cacheData = cache.get(this.cacheStatusName(namedRange));
+        const cacheData = cache.get(this.cacheStatusName(namedRange));
 
         if (cacheData !== null && cacheData === TABLE.LOADING) {
             loading = true;
@@ -161,7 +161,7 @@ class TableData {
      * @returns {any[][]}
      */
     waitForRangeToLoad(cache, namedRange, cacheSeconds) {
-        let start = new Date().getTime();
+        const start = new Date().getTime();
         let current = new Date().getTime();
 
         Logger.log("waitForRangeToLoad() - Start: " + namedRange);
@@ -207,7 +207,7 @@ class TableData {
         }
 
         //  Only change our CACHE STATUS if we have a lock.
-        let lock = LockService.getScriptLock();
+        const lock = LockService.getScriptLock();
         try {
             lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) {
@@ -243,19 +243,19 @@ class TableData {
         let output = [];
 
         try {
-            let sheetNamedRange = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange);
+            const sheetNamedRange = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange);
 
             if (sheetNamedRange === null) {
                 //  This may be a SHEET NAME, so try getting SHEET RANGE.
                 if (namedRange.startsWith("'") && namedRange.endsWith("'")) {
                     namedRange = namedRange.substring(1, namedRange.length-1);
                 }
-                let sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(namedRange);
+                const sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(namedRange);
                 if (sheetHandle === null)
                     throw new Error("Invalid table range specified:  " + namedRange);
 
-                let lastColumn = sheetHandle.getLastColumn();
-                let lastRow = sheetHandle.getLastRow();
+                const lastColumn = sheetHandle.getLastColumn();
+                const lastRow = sheetHandle.getLastRow();
                 output = sheetHandle.getSheetValues(1, 1, lastRow, lastColumn);
             }
             else {
@@ -277,25 +277,25 @@ class TableData {
      * @param {any[][]} arrData 
      */
     cachePutArray(cache, namedRange, cacheSeconds, arrData) {
-        let cacheStatusName = this.cacheStatusName(namedRange);
-        let json = JSON.stringify(arrData);
+        const cacheStatusName = this.cacheStatusName(namedRange);
+        const json = JSON.stringify(arrData);
 
         //  Split up data (for re-assembly on get() later)
         let splitCount = (json.length / (100 * 1024)) * 1.2;    // 1.2 - assumes some blocks may be bigger.
         splitCount = splitCount < 1 ? 1 : splitCount;
-        let arrayLength = Math.round(arrData.length / splitCount);
-        let putObject = {};
+        const arrayLength = Math.round(arrData.length / splitCount);
+        const putObject = {};
         let blockCount = 0;
         let startIndex = 0;
         while (startIndex < arrData.length) {
-            let arrayBlock = arrData.slice(startIndex, startIndex + arrayLength);
+            const arrayBlock = arrData.slice(startIndex, startIndex + arrayLength);
             blockCount++;
             startIndex += arrayLength;
             putObject[namedRange + ":" + blockCount.toString()] = JSON.stringify(arrayBlock);
         }
 
         //  Update status that cache is updated.
-        let lock = LockService.getScriptLock();
+        const lock = LockService.getScriptLock();
         try {
             lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) {
@@ -318,8 +318,8 @@ class TableData {
     cacheGetArray(cache, namedRange) {
         let arrData = [];
 
-        let cacheStatusName = this.cacheStatusName(namedRange);
-        let cacheStatus = cache.get(cacheStatusName);
+        const cacheStatusName = this.cacheStatusName(namedRange);
+        const cacheStatus = cache.get(cacheStatusName);
         if (cacheStatus === null) {
             Logger.log("Named Range Cache Status not found = " + cacheStatusName);
             return null;
@@ -330,19 +330,19 @@ class TableData {
                 return null;
         }
 
-        let blockStr = cacheStatus.substring(cacheStatus.indexOf(TABLE.BLOCKS) + TABLE.BLOCKS.length);
+        const blockStr = cacheStatus.substring(cacheStatus.indexOf(TABLE.BLOCKS) + TABLE.BLOCKS.length);
         if (blockStr !== "") {
-            let blocks = parseInt(blockStr);
+            const blocks = parseInt(blockStr);
             for (let i = 1; i <= blocks; i++) {
-                let blockName = namedRange + ":" + i.toString();
-                let jsonData = cache.get(blockName);
+                const blockName = namedRange + ":" + i.toString();
+                const jsonData = cache.get(blockName);
 
                 if (jsonData === null) {
                     Logger.log("Named Range Part not found. R=" + blockName);
                     return null;
                 }
 
-                let partArr = JSON.parse(jsonData);
+                const partArr = JSON.parse(jsonData);
                 if (this.verifyCachedData(partArr)) {
                     arrData = arrData.concat(partArr);
                 }
@@ -367,14 +367,13 @@ class TableData {
      * @param {any[][]} arrData 
      */
     fixJSONdates(arrData) {
-        let ISO_8601_FULL = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(([+-]\d\d:\d\d)|Z)?$/i
+        const ISO_8601_FULL = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(([+-]\d\d:\d\d)|Z)?$/i
 
-        for (let row of arrData) {
+        for (const row of arrData) {
             for (let i = 0; i < row.length; i++) {
-                let testStr = row[i];
+                const testStr = row[i];
                 if (ISO_8601_FULL.test(testStr)) {
-                    let date = new Date(testStr);
-                    row[i] = date;
+                    row[i] = new Date(testStr);
                 }
             }
         }
@@ -398,7 +397,7 @@ const TABLE = {
 
 
 function testMyScriptsettings() {
-    let testSettings = new ScriptSettings();
+    const testSettings = new ScriptSettings();
 
     testSettings.put("abcKEY", 123.45, 7);
     testSettings.put("defKEY", 234.56, 6);
@@ -431,13 +430,13 @@ class ScriptSettings {
      * @returns {any}
      */
     get(propertyKey) {
-        let myData = this.scriptProperties.getProperty(propertyKey);
+        const myData = this.scriptProperties.getProperty(propertyKey);
 
         if (myData === null)
             return null;
 
         /** @type {PropertyData} */
-        let myPropertyData = JSON.parse(myData);
+        const myPropertyData = JSON.parse(myData);
 
         return PropertyData.getData(myPropertyData);
     }
@@ -450,10 +449,10 @@ class ScriptSettings {
      */
     put(propertyKey, propertyData, daysToHold = 1) {
         //  Create our object with an expiry time.
-        let objData = new PropertyData(propertyData, daysToHold);
+        const objData = new PropertyData(propertyData, daysToHold);
 
         //  Our property needs to be a string
-        let jsonData = JSON.stringify(objData);
+        const jsonData = JSON.stringify(objData);
 
         this.scriptProperties.setProperty(propertyKey, jsonData);
     }
@@ -466,7 +465,7 @@ class ScriptSettings {
     putAll(propertyDataObject, daysToHold = 1) {
         const keys = Object.keys(propertyDataObject);
 
-        for (let key of keys) {
+        for (const key of keys) {
             this.put(key, propertyDataObject[key], daysToHold);
         }
     }
@@ -476,10 +475,10 @@ class ScriptSettings {
      * @param {Boolean} deleteAll - true - removes ALL script settings regardless of expiry time.
      */
     expire(deleteAll) {
-        let allKeys = this.scriptProperties.getKeys();
+        const allKeys = this.scriptProperties.getKeys();
 
-        for (let key of allKeys) {
-            let myData = this.scriptProperties.getProperty(key);
+        for (const key of allKeys) {
+            const myData = this.scriptProperties.getProperty(key);
 
             if (myData !==null) {
                 let propertyValue = null;
@@ -506,7 +505,7 @@ class PropertyData {
      * @param {Number} daysToHold 
      */
     constructor(propertyData, daysToHold) {
-        let someDate = new Date();
+        const someDate = new Date();
 
         /** @property {String} */
         this.myData = JSON.stringify(propertyData);
@@ -538,8 +537,8 @@ class PropertyData {
      * @returns 
      */
     static isExpired(obj) {
-        let someDate = new Date();
-        let expiryDate = new Date(obj.expiry);
+        const someDate = new Date();
+        const expiryDate = new Date(obj.expiry);
         return (expiryDate.getTime() < someDate.getTime())
     }
 }

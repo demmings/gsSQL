@@ -79,9 +79,9 @@ class SelectTables {
     * @returns {Number[]}
     */
     resolveCondition(logic, terms) {
-        let recordIDs = [];
+        const recordIDs = [];
 
-        for (let cond of terms) {
+        for (const cond of terms) {
             if (typeof cond.logic === 'undefined') {
                 recordIDs.push(this.getRecordIDs(cond));
             }
@@ -97,7 +97,7 @@ class SelectTables {
         if (logic === "OR") {
             //  OR Logic
             let tempArr = [];
-            for (let arr of recordIDs) {
+            for (const arr of recordIDs) {
                 tempArr = tempArr.concat(arr);
             }
             result = Array.from(new Set(tempArr));
@@ -113,10 +113,10 @@ class SelectTables {
     */
     getRecordIDs(condition) {
         /** @type {Number[]} */
-        let recordIDs = [];
+        const recordIDs = [];
 
-        let leftFieldConditions = this.resolveFieldCondition(condition.left);
-        let rightFieldConditions = this.resolveFieldCondition(condition.right);
+        const leftFieldConditions = this.resolveFieldCondition(condition.left);
+        const rightFieldConditions = this.resolveFieldCondition(condition.right);
 
         /** @type {Table} */
         this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.masterTableInfo;
@@ -246,10 +246,10 @@ class SelectTables {
      * @returns {any[][]}
      */
     getViewData(recordIDs) {
-        let virtualData = [];
+        const virtualData = [];
 
-        for (let masterRecordID of recordIDs) {
-            let newRow = [];
+        for (const masterRecordID of recordIDs) {
+            const newRow = [];
 
             /** @type {SelectField} */
             let field;
@@ -257,7 +257,7 @@ class SelectTables {
                 if (field.fieldInfo !== null)
                     newRow.push(field.fieldInfo.getData(masterRecordID));
                 else if (field.calculatedFormula !== "") {
-                    let result = this.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
+                    const result = this.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
                     newRow.push(result);
                 }
             }
@@ -276,7 +276,7 @@ class SelectTables {
      */
     evaluateCalculatedField(calculatedFormula, masterRecordID) {
         let result;
-        let functionString = this.sqlServerCalcFields(calculatedFormula, masterRecordID);
+        const functionString = this.sqlServerCalcFields(calculatedFormula, masterRecordID);
         try {
             result = new Function(functionString)();
         }
@@ -298,7 +298,7 @@ class SelectTables {
      */
     sqlServerCalcFields(calculatedFormula, masterRecordID) {
         //  Working on a calculated field.
-        let objectsDeclared = new Map();
+        const objectsDeclared = new Map();
 
         /** @type {VirtualField} */
         let vField;
@@ -323,7 +323,7 @@ class SelectTables {
             if (vField.fieldName.indexOf(".") === -1)
                 myVars += "let " + vField.fieldName + " = " + varData + ";";
             else {
-                let parts = vField.fieldName.split(".");
+                const parts = vField.fieldName.split(".");
                 if (!objectsDeclared.has(parts[0])) {
                     myVars += "let " + parts[0] + " = {};";
                     objectsDeclared.set(parts[0], true);
@@ -332,7 +332,7 @@ class SelectTables {
             }
         }
 
-        let functionString = this.sqlServerFunctions(calculatedFormula);
+        const functionString = this.sqlServerFunctions(calculatedFormula);
 
         return myVars + " return " + functionString;
     }
@@ -348,8 +348,8 @@ class SelectTables {
         if (this.sqlServerFunctionCache.has(calculatedFormula))
             return this.sqlServerFunctionCache.get(calculatedFormula);
 
-        let func = new SqlServerFunctions();
-        let functionString = func.convertToJs(calculatedFormula);
+        const func = new SqlServerFunctions();
+        const functionString = func.convertToJs(calculatedFormula);
 
         //  No need to recalculate for each row.
         this.sqlServerFunctionCache.set(calculatedFormula, functionString);
@@ -392,18 +392,18 @@ class SelectTables {
      * @returns {String[]} 
      */
     static parseForFunctions(functionString, func) {
-        let args = [];
-        let expMatch = "%1\\s*\\(";
+        const args = [];
+        const expMatch = "%1\\s*\\(";
 
-        let matchStr = new RegExp(expMatch.replace("%1", func));
-        let startMatchPos = functionString.search(matchStr);
+        const matchStr = new RegExp(expMatch.replace("%1", func));
+        const startMatchPos = functionString.search(matchStr);
         if (startMatchPos !== -1) {
-            let searchStr = functionString.substring(startMatchPos);
+            const searchStr = functionString.substring(startMatchPos);
             let i = searchStr.indexOf("(");
-            let startLeft = i;
+            const startLeft = i;
             let leftBracket = 1;
             for (i = i + 1; i < searchStr.length; i++) {
-                let c = searchStr.charAt(i);
+                const c = searchStr.charAt(i);
                 if (c === "(") leftBracket++;
                 if (c === ")") leftBracket--;
 
@@ -424,12 +424,12 @@ class SelectTables {
      * @returns {String[]}
      */
     static parseForParams(paramString, startBracket = "(", endBracket = ")") {
-        let args = [];
+        const args = [];
         let bracketCount = 0;
         let start = 0;
 
         for (let i = 0; i < paramString.length; i++) {
-            let c = paramString.charAt(i);
+            const c = paramString.charAt(i);
 
             if (c === "," && bracketCount === 0) {
                 args.push(paramString.substring(start, i));
@@ -441,7 +441,7 @@ class SelectTables {
                 bracketCount--;
         }
 
-        let lastStr = paramString.substring(start);
+        const lastStr = paramString.substring(start);
         if (lastStr !== "")
             args.push(lastStr);
 
@@ -483,8 +483,8 @@ class SelectTables {
             //  If any conglomerate field functions (SUM, COUNT,...)
             //  we summarize all records into ONE.
             if (this.getConglomerateFieldCount() > 0) {
-                let compressedData = [];
-                let conglomerate = new ConglomerateRecord(this.virtualFields.selectVirtualFields);
+                const compressedData = [];
+                const conglomerate = new ConglomerateRecord(this.virtualFields.selectVirtualFields);
                 compressedData.push(conglomerate.squish(viewTableData));
                 viewTableData = compressedData;
             }
@@ -506,21 +506,21 @@ class SelectTables {
         //  Sort the least important first, and most important last.
         astGroupBy.reverse();
 
-        for (let orderField of astGroupBy) {
-            let selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
+        for (const orderField of astGroupBy) {
+            const selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
 
             if (selectColumn !== -1) {
                 this.sortByColumnASC(selectedData, selectColumn);
             }
         }
 
-        let groupedData = [];
+        const groupedData = [];
         let groupRecords = [];
-        let conglomerate = new ConglomerateRecord(this.virtualFields.selectVirtualFields);
+        const conglomerate = new ConglomerateRecord(this.virtualFields.selectVirtualFields);
 
         let lastKey = this.createGroupByKey(selectedData[0], astGroupBy);
-        for (let row of selectedData) {
-            let newKey = this.createGroupByKey(row, astGroupBy);
+        for (const row of selectedData) {
+            const newKey = this.createGroupByKey(row, astGroupBy);
             if (newKey !== lastKey) {
                 groupedData.push(conglomerate.squish(groupRecords));
 
@@ -545,8 +545,8 @@ class SelectTables {
     createGroupByKey(row, astGroupBy) {
         let key = "";
 
-        for (let orderField of astGroupBy) {
-            let selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
+        for (const orderField of astGroupBy) {
+            const selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
             if (selectColumn !== -1)
                 key += row[selectColumn].toString();
         }
@@ -565,16 +565,16 @@ class SelectTables {
         selectedData.unshift(this.getColumnNames());
 
         //  Create our virtual GROUP table with data already selected.
-        let groupTable = new Table(this.primaryTable).loadArrayData(selectedData);
+        const groupTable = new Table(this.primaryTable).loadArrayData(selectedData);
 
-        let tableMapping = new Map();
+        const tableMapping = new Map();
         tableMapping.set(this.primaryTable.toUpperCase(), groupTable);
 
         //  Set up for our SQL.
-        let inSQL = new Sql().setTables(tableMapping);
+        const inSQL = new Sql().setTables(tableMapping);
 
         //  Fudge the HAVING to look like a SELECT.
-        let astSelect = {};
+        const astSelect = {};
         astSelect['FROM'] = [{ table: this.primaryTable }];
         astSelect['SELECT'] = [{ name: "*" }];
         astSelect['WHERE'] = astHaving;
@@ -591,13 +591,13 @@ class SelectTables {
         if (typeof ast['ORDER BY'] === 'undefined')
             return;
 
-        let astOrderby = ast['ORDER BY']
+        const astOrderby = ast['ORDER BY']
 
         //  Sort the least important first, and most important last.
-        let reverseOrderBy = astOrderby.reverse();
+        const reverseOrderBy = astOrderby.reverse();
 
-        for (let orderField of reverseOrderBy) {
-            let selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
+        for (const orderField of reverseOrderBy) {
+            const selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
 
             if (selectColumn !== -1) {
                 if (orderField.order === "DESC")
@@ -756,7 +756,7 @@ class SelectTables {
             dayNum = value.getDate();
         }
         else if (typeof value === "string") {
-            let dateParts = value.split("/");
+            const dateParts = value.split("/");
             if (dateParts.length === 3) {
                 year = parseInt(dateParts[2]);
                 month = parseInt(dateParts[0]) - 1;
@@ -764,7 +764,7 @@ class SelectTables {
             }
         }
 
-        let newDate = new Date(Date.UTC(year, month, dayNum, 12, 0, 0, 0));
+        const newDate = new Date(Date.UTC(year, month, dayNum, 12, 0, 0, 0));
         return newDate.getTime();
     }
 
@@ -776,9 +776,9 @@ class SelectTables {
      */
     likeCondition(leftValue, rightValue) {
         // @ts-ignore
-        let expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
+        const expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
 
-        let result = leftValue.search(expanded);
+        const result = leftValue.search(expanded);
         return result !== -1;
     }
 
@@ -789,11 +789,11 @@ class SelectTables {
      * @returns 
      */
     inCondition(leftValue, rightValue) {
-        let items = rightValue.split(",");
+        const items = rightValue.split(",");
         for (let i = 0; i < items.length; i++)
             items[i] = items[i].trimStart().trimEnd();
 
-        let index = items.indexOf(leftValue);
+        const index = items.indexOf(leftValue);
 
         return index !== -1;
     }
@@ -853,10 +853,10 @@ class VirtualFields {
      * @param {VirtualField} newField 
      */
     replaceVirtualField(originalField, newField) {
-        let originalCol = originalField.tableColumn;
-        let originalTable = originalField.tableInfo.tableName;
+        const originalCol = originalField.tableColumn;
+        const originalTable = originalField.tableInfo.tableName;
 
-        for (let fld of this.virtualFieldList) {
+        for (const fld of this.virtualFieldList) {
             if (originalCol === fld.tableColumn &&
                 originalTable === fld.tableInfo.tableName) {
                 //  Keep field object, just replace contents.
@@ -969,10 +969,10 @@ class VirtualFields {
         let tableObject;
         // @ts-ignore
         for ([tableName, tableObject] of tableInfo.entries()) {
-            let validFieldNames = tableObject.getAllFieldNames();
+            const validFieldNames = tableObject.getAllFieldNames();
 
             for (let field of validFieldNames) {
-                let tableColumn = tableObject.getFieldColumn(field);
+                const tableColumn = tableObject.getFieldColumn(field);
                 if (tableColumn !== -1) {
                     //  If we have the same field name more than once (without the full DOT notation)
                     //  we only want the one for the primary table.
@@ -980,7 +980,7 @@ class VirtualFields {
                         if (tableName.toUpperCase() !== primaryTable.toUpperCase())
                             continue;
                     }
-                    let virtualField = new VirtualField(field, tableObject, tableColumn);
+                    const virtualField = new VirtualField(field, tableObject, tableColumn);
                     this.add(virtualField);
                 }
             }
@@ -992,11 +992,11 @@ class VirtualFields {
      * @param {DerivedTable} derivedTable 
      */
     updateDerivedTableVirtualFields(derivedTable) {
-        let existingVirtualFieldsList = derivedTable.tableInfo.getAllVirtualFields();
+        const existingVirtualFieldsList = derivedTable.tableInfo.getAllVirtualFields();
 
-        for (let field of existingVirtualFieldsList) {
+        for (const field of existingVirtualFieldsList) {
             if (this.hasField(field.fieldName)) {
-                let originalField = this.getFieldInfo(field.fieldName);
+                const originalField = this.getFieldInfo(field.fieldName);
                 this.replaceVirtualField(originalField, field);
             }
         }
@@ -1004,8 +1004,8 @@ class VirtualFields {
 
     removeNonDerivedTableVirtualFields() {
         /** @type {VirtualField[]} */
-        let newVirtualFields = [];
-        for (let fld of this.virtualFieldList) {
+        const newVirtualFields = [];
+        for (const fld of this.virtualFieldList) {
             if (fld.tableInfo.tableName === DERIVEDTABLE) {
                 newVirtualFields.push(fld);
             }
@@ -1024,11 +1024,11 @@ class VirtualFields {
         for (let i = 0; i < astFields.length; i++) {
             if (astFields[i].name === "*") {
                 //  Replace wildcard will actual field names from master table.
-                let masterTableFields = [];
-                let allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames();
+                const masterTableFields = [];
+                const allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames();
 
-                for (let virtualField of allExpandedFields) {
-                    let selField = { name: virtualField };
+                for (const virtualField of allExpandedFields) {
+                    const selField = { name: virtualField };
                     masterTableFields.push(selField);
                 }
 
@@ -1049,27 +1049,27 @@ class VirtualFields {
         this.columnTitles = [];
         this.selectVirtualFields = [];
 
-        for (let selField of astFields) {
+        for (const selField of astFields) {
             let [columnName, aggregateFunctionName, calculatedField] = this.getSelectFieldNames(selField);
             this.columnTitles.push(typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
             if (calculatedField === null && this.hasField(columnName)) {
                 let fieldInfo = this.getFieldInfo(columnName);
-                let selectFieldInfo = new SelectField(fieldInfo);
+                const selectFieldInfo = new SelectField(fieldInfo);
                 selectFieldInfo.aggregateFunction = aggregateFunctionName;
 
                 this.selectVirtualFields.push(selectFieldInfo);
                 this.columnNames.push(selField.name);
             }
             else if (calculatedField !== null) {
-                let selectFieldInfo = new SelectField(null);
+                const selectFieldInfo = new SelectField(null);
                 selectFieldInfo.calculatedFormula = selField.name;
                 this.selectVirtualFields.push(selectFieldInfo);
                 this.columnNames.push(selField.name);
             }
             else {
                 //  is this a function?
-                let selectFieldInfo = new SelectField(null);
+                const selectFieldInfo = new SelectField(null);
                 selectFieldInfo.calculatedFormula = columnName;
                 selectFieldInfo.aggregateFunction = aggregateFunctionName;
                 this.selectVirtualFields.push(selectFieldInfo);
@@ -1086,7 +1086,7 @@ class VirtualFields {
     getSelectFieldNames(selField) {
         let columnName = selField.name;
         let aggregateFunctionName = "";
-        let calculatedField = (typeof selField.terms === 'undefined') ? null : selField.terms;
+        const calculatedField = (typeof selField.terms === 'undefined') ? null : selField.terms;
 
         if (calculatedField === null && !this.hasField(columnName)) {
             const functionNameRegex = /^\w+\s*(?=\()/;
@@ -1201,7 +1201,7 @@ class JoinTables {
         /** @type {DerivedTable} */
         this.derivedTable = new DerivedTable();
 
-        for (let joinTable of astJoin) {
+        for (const joinTable of astJoin) {
             /** @type {VirtualField} */
             let leftFieldInfo = this.derivedTable.getFieldInfo(joinTable.cond.left);
             if (leftFieldInfo === null)
@@ -1290,7 +1290,7 @@ class JoinTables {
                 break;
 
             case "full":
-                let leftJoinRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
+                const leftJoinRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(leftFieldInfo)
                     .setRightField(rightFieldInfo)
@@ -1298,8 +1298,8 @@ class JoinTables {
                     .setIsOuterJoin(true)
                     .createTable();
 
-                let rightJoinRecordIDs = this.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
-                let rightDerivedTable = new DerivedTable()
+                const rightJoinRecordIDs = this.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
+                const rightDerivedTable = new DerivedTable()
                     .setLeftField(rightFieldInfo)
                     .setRightField(leftFieldInfo)
                     .setLeftRecords(rightJoinRecordIDs)
@@ -1322,22 +1322,21 @@ class JoinTables {
      * @returns {Number[][]} 
      */
     leftRightJoin(leftField, rightField, type) {
-        let leftRecordsIDs = [];
+        const leftRecordsIDs = [];
 
         //  First record is the column title.
         leftRecordsIDs.push([0]);
 
         /** @type {any[][]} */
-        let leftTableData = leftField.tableInfo.tableData;
-        let leftTableCol = leftField.tableColumn;
+        const leftTableData = leftField.tableInfo.tableData;
+        const leftTableCol = leftField.tableColumn;
 
         rightField.tableInfo.addIndex(rightField.fieldName);
 
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
+            const keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
+            const joinRows = rightField.tableInfo.search(rightField.fieldName, keyMasterJoinField);
 
-            let keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
-
-            let joinRows = rightField.tableInfo.search(rightField.fieldName, keyMasterJoinField);
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
             if (joinRows.length === 0) {
                 if (type === "inner")
@@ -1422,17 +1421,17 @@ class DerivedTable {
      * @returns {DerivedTable}
      */
     createTable() {
-        let columnCount = this.rightField.tableInfo.getColumnCount();
-        let emptyRightRow = Array(columnCount).fill("");
+        const columnCount = this.rightField.tableInfo.getColumnCount();
+        const emptyRightRow = Array(columnCount).fill("");
 
-        let joinedData = [this.getCombinedColumnTitles(this.leftField, this.rightField)];
+        const joinedData = [this.getCombinedColumnTitles(this.leftField, this.rightField)];
 
         for (let i = 1; i < this.leftField.tableInfo.tableData.length; i++) {
             if (typeof this.leftRecords[i] !== "undefined") {
                 if (typeof this.rightField.tableInfo.tableData[this.leftRecords[i][0]] === "undefined")
                     joinedData.push(this.leftField.tableInfo.tableData[i].concat(emptyRightRow));
                 else {
-                    let maxJoin = this.isOuterJoin ? this.leftRecords[i].length : 1;
+                    const maxJoin = this.isOuterJoin ? this.leftRecords[i].length : 1;
                     for (let j = 0; j < maxJoin; j++) {
                         joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[this.leftRecords[i][j]]));
                     }
@@ -1477,8 +1476,8 @@ class DerivedTable {
      * @returns {String[]}
      */
     getCombinedColumnTitles(leftField, rightField) {
-        let titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames();
-        let rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames();
+        const titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames();
+        const rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames();
         return titleRow.concat(rightFieldNames);
     }
 }
@@ -1500,14 +1499,14 @@ class SqlServerFunctions {
 
         let functionString = SelectTables.toUpperCaseExceptQuoted(calculatedFormula);
 
-        for (let func of sqlFunctions) {
+        for (const func of sqlFunctions) {
             let args = SelectTables.parseForFunctions(functionString, func);
 
             [args, functionString] = this.caseStart(func, args, functionString);
 
             while (args !== null && args.length > 0) {
                 // Split on COMMA, except within brackets.
-                let parms = typeof args[1] === 'undefined' ? [] : SelectTables.parseForParams(args[1]);
+                const parms = typeof args[1] === 'undefined' ? [] : SelectTables.parseForParams(args[1]);
 
                 let replacement = "";
                 switch (func) {
@@ -1527,7 +1526,7 @@ class SqlServerFunctions {
                         replacement = "Math.floor(" + parms[0] + ")";
                         break;
                     case "IF":
-                        let ifCond = sqlCondition2JsCondition(parms[0]);
+                        const ifCond = sqlCondition2JsCondition(parms[0]);
                         replacement = ifCond + " ? " + parms[1] + " : " + parms[2] + ";";
                         break;
                     case "LEFT":
@@ -1718,7 +1717,7 @@ class ConglomerateRecord {
      * @returns 
      */
     squish(groupRecords) {
-        let row = [];
+        const row = [];
         if (groupRecords.length === 0)
             return row;
 
@@ -1748,7 +1747,7 @@ class ConglomerateRecord {
         let avgCounter = 0;
         let first = true;
 
-        for (let groupRow of groupRecords) {
+        for (const groupRow of groupRecords) {
             if (groupRow[columnIndex] === 'null')
                 continue;
 
