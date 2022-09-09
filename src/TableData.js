@@ -100,13 +100,13 @@ class TableData {
      * @param {Number} seconds 
      * @returns {any}
      */
-    getValueCached(namedRange, seconds = 60) {
-        let cache = CacheService.getScriptCache();
+    static getValueCached(namedRange, seconds = 60) {
+        const cache = CacheService.getScriptCache();
 
         let singleData = cache.get(namedRange);
 
         if (singleData === null) {
-            let ss = SpreadsheetApp.getActiveSpreadsheet();
+            const ss = SpreadsheetApp.getActiveSpreadsheet();
             singleData = ss.getRangeByName(namedRange).getValue();
             cache.put(namedRange, singleData, seconds)
         }
@@ -119,11 +119,11 @@ class TableData {
      * @param {any[][]} arrData 
      * @returns {Boolean}
      */
-    verifyCachedData(arrData) {
+    static verifyCachedData(arrData) {
         let verified = true;
 
-        for (let rowData of arrData) {
-            for (let fieldData of rowData) {
+        for (const rowData of arrData) {
+            for (const fieldData of rowData) {
                 if (fieldData === "#ERROR!") {
                     Logger.log("Reading from CACHE has found '#ERROR!'.  Re-Loading...");
                     verified = false;
@@ -142,7 +142,7 @@ class TableData {
      */
     isRangeLoading(cache, namedRange) {
         let loading = false;
-        const cacheData = cache.get(this.cacheStatusName(namedRange));
+        const cacheData = cache.get(TableData.cacheStatusName(namedRange));
 
         if (cacheData !== null && cacheData === TABLE.LOADING) {
             loading = true;
@@ -221,7 +221,7 @@ class TableData {
         }
 
         //  Mark the status for this named range that loading is in progress.
-        cache.put(this.cacheStatusName(namedRange), TABLE.LOADING, 15);
+        cache.put(TableData.cacheStatusName(namedRange), TABLE.LOADING, 15);
         lock.releaseLock();
 
         //  Load data from SHEETS.
@@ -277,7 +277,7 @@ class TableData {
      * @param {any[][]} arrData 
      */
     cachePutArray(cache, namedRange, cacheSeconds, arrData) {
-        const cacheStatusName = this.cacheStatusName(namedRange);
+        const cacheStatusName = TableData.cacheStatusName(namedRange);
         const json = JSON.stringify(arrData);
 
         //  Split up data (for re-assembly on get() later)
@@ -318,7 +318,7 @@ class TableData {
     cacheGetArray(cache, namedRange) {
         let arrData = [];
 
-        const cacheStatusName = this.cacheStatusName(namedRange);
+        const cacheStatusName = TableData.cacheStatusName(namedRange);
         const cacheStatus = cache.get(cacheStatusName);
         if (cacheStatus === null) {
             Logger.log("Named Range Cache Status not found = " + cacheStatusName);
@@ -343,7 +343,7 @@ class TableData {
                 }
 
                 const partArr = JSON.parse(jsonData);
-                if (this.verifyCachedData(partArr)) {
+                if (TableData.verifyCachedData(partArr)) {
                     arrData = arrData.concat(partArr);
                 }
                 else {
@@ -357,7 +357,7 @@ class TableData {
 
         //  The conversion to JSON causes SHEET DATES to be converted to a string.
         //  This converts any DATE STRINGS back to javascript date.
-        this.fixJSONdates(arrData);
+        TableData.fixJSONdates(arrData);
 
         return arrData;
     }
@@ -366,7 +366,7 @@ class TableData {
      * 
      * @param {any[][]} arrData 
      */
-    fixJSONdates(arrData) {
+    static fixJSONdates(arrData) {
         const ISO_8601_FULL = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(([+-]\d\d:\d\d)|Z)?$/i
 
         for (const row of arrData) {
@@ -384,7 +384,7 @@ class TableData {
      * @param {String} namedRange 
      * @returns {String}
      */
-    cacheStatusName(namedRange) {
+    static cacheStatusName(namedRange) {
         return namedRange + TABLE.STATUS;
     }
 }

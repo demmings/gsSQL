@@ -32,7 +32,7 @@ class SelectTables {
         this.virtualFields.loadVirtualFields(this.primaryTable, tableInfo);
 
         //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
-        this.astFields = this.virtualFields.expandWildcardFields(this.masterTableInfo, this.astFields);
+        this.astFields = VirtualFields.expandWildcardFields(this.masterTableInfo, this.astFields);
 
         //  Keep a list of fields that are SELECTED.
         this.virtualFields.updateSelectFieldList(astFields);
@@ -126,8 +126,8 @@ class SelectTables {
             let rightValue = this.getConditionValue(rightFieldConditions, masterRecordID);
 
             if (leftValue instanceof Date || rightValue instanceof Date) {
-                leftValue = this.dateToMs(leftValue);
-                rightValue = this.dateToMs(rightValue);
+                leftValue = SelectTables.dateToMs(leftValue);
+                rightValue = SelectTables.dateToMs(rightValue);
             }
 
             if (this.isConditionTrue(leftValue, condition.operator, rightValue))
@@ -210,27 +210,27 @@ class SelectTables {
                 break;
 
             case "LIKE":
-                keep = this.likeCondition(leftValue, rightValue);
+                keep = SelectTables.likeCondition(leftValue, rightValue);
                 break;
 
             case "NOT LIKE":
-                keep = !(this.likeCondition(leftValue, rightValue));
+                keep = !(SelectTables.likeCondition(leftValue, rightValue));
                 break;
 
             case "IN":
-                keep = this.inCondition(leftValue, rightValue);
+                keep = SelectTables.inCondition(leftValue, rightValue);
                 break;
 
             case "NOT IN":
-                keep = !(this.inCondition(leftValue, rightValue));
+                keep = !(SelectTables.inCondition(leftValue, rightValue));
                 break;
 
             case "IS NOT":
-                keep = !(this.isCondition(leftValue, rightValue));
+                keep = !(SelectTables.isCondition(leftValue, rightValue));
                 break;
 
             case "IS":
-                keep = this.isCondition(leftValue, rightValue);
+                keep = SelectTables.isCondition(leftValue, rightValue);
                 break;
 
             default:
@@ -510,7 +510,7 @@ class SelectTables {
             const selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
 
             if (selectColumn !== -1) {
-                this.sortByColumnASC(selectedData, selectColumn);
+                SelectTables.sortByColumnASC(selectedData, selectColumn);
             }
         }
 
@@ -601,9 +601,9 @@ class SelectTables {
 
             if (selectColumn !== -1) {
                 if (orderField.order === "DESC")
-                    this.sortByColumnDESC(selectedData, selectColumn);
+                    SelectTables.sortByColumnDESC(selectedData, selectColumn);
                 else
-                    this.sortByColumnASC(selectedData, selectColumn);
+                    SelectTables.sortByColumnASC(selectedData, selectColumn);
             }
             else {
                 throw new Error("Invalid ORDER BY: " + orderField.column);
@@ -618,8 +618,7 @@ class SelectTables {
      * @param {Number} colIndex 
      * @returns {any[][]}
      */
-    sortByColumnASC(tableData, colIndex) {
-
+    static sortByColumnASC(tableData, colIndex) {
         tableData.sort(sortFunction);
 
         /**
@@ -646,7 +645,7 @@ class SelectTables {
      * @param {Number} colIndex 
      * @returns {any[][]}
      */
-    sortByColumnDESC(tableData, colIndex) {
+    static sortByColumnDESC(tableData, colIndex) {
 
         tableData.sort(sortFunction);
 
@@ -685,13 +684,13 @@ class SelectTables {
 
         //  Maybe a SELECT within...
         if (typeof fieldCondition['SELECT'] !== 'undefined') {
-            let inSQL = new Sql().setTables(this.tableInfo);
+            const inSQL = new Sql().setTables(this.tableInfo);
             inSQL.setBindValues(this.bindVariables);
-            let inData = inSQL.select(fieldCondition);
+            const inData = inSQL.select(fieldCondition);
             constantData = inData.join(",");
         }
-        else if (this.isStringConstant(fieldCondition))
-            constantData = this.extractStringConstant(fieldCondition);
+        else if (SelectTables.isStringConstant(fieldCondition))
+            constantData = SelectTables.extractStringConstant(fieldCondition);
         else if (fieldCondition === '?') {
             //  Bind variable data.
             if (this.bindVariables.length === 0)
@@ -721,7 +720,7 @@ class SelectTables {
      * @param {String} value 
      * @returns {Boolean}
      */
-    isStringConstant(value) {
+    static isStringConstant(value) {
         return value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'");
     }
 
@@ -730,7 +729,7 @@ class SelectTables {
      * @param {String} value 
      * @returns {String}
      */
-    extractStringConstant(value) {
+    static extractStringConstant(value) {
         if (value.startsWith('"') && value.endsWith('"'))
             return value.replace(/"/g, '');
 
@@ -745,7 +744,7 @@ class SelectTables {
      * @param {any} value 
      * @returns {Number}
      */
-    dateToMs(value) {
+    static dateToMs(value) {
         let year = 0;
         let month = 0;
         let dayNum = 0;
@@ -774,7 +773,7 @@ class SelectTables {
      * @param {String} rightValue 
      * @returns {Boolean}
      */
-    likeCondition(leftValue, rightValue) {
+    static likeCondition(leftValue, rightValue) {
         // @ts-ignore
         const expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
 
@@ -788,7 +787,7 @@ class SelectTables {
      * @param {String} rightValue 
      * @returns 
      */
-    inCondition(leftValue, rightValue) {
+    static inCondition(leftValue, rightValue) {
         const items = rightValue.split(",");
         for (let i = 0; i < items.length; i++)
             items[i] = items[i].trimStart().trimEnd();
@@ -804,7 +803,7 @@ class SelectTables {
      * @param {any} rightValue 
      * @returns {Boolean}
      */
-    isCondition(leftValue, rightValue) {
+    static isCondition(leftValue, rightValue) {
         return (leftValue === "" && rightValue === "NULL");
     }
 
@@ -971,7 +970,7 @@ class VirtualFields {
         for ([tableName, tableObject] of tableInfo.entries()) {
             const validFieldNames = tableObject.getAllFieldNames();
 
-            for (let field of validFieldNames) {
+            for (const field of validFieldNames) {
                 const tableColumn = tableObject.getFieldColumn(field);
                 if (tableColumn !== -1) {
                     //  If we have the same field name more than once (without the full DOT notation)
@@ -1020,7 +1019,7 @@ class VirtualFields {
      * @param {any[]} astFields 
      * @returns {any[]}
      */
-    expandWildcardFields(masterTableInfo, astFields) {
+    static expandWildcardFields(masterTableInfo, astFields) {
         for (let i = 0; i < astFields.length; i++) {
             if (astFields[i].name === "*") {
                 //  Replace wildcard will actual field names from master table.
@@ -1054,7 +1053,7 @@ class VirtualFields {
             this.columnTitles.push(typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
             if (calculatedField === null && this.hasField(columnName)) {
-                let fieldInfo = this.getFieldInfo(columnName);
+                const fieldInfo = this.getFieldInfo(columnName);
                 const selectFieldInfo = new SelectField(fieldInfo);
                 selectFieldInfo.aggregateFunction = aggregateFunctionName;
 
@@ -1259,7 +1258,7 @@ class JoinTables {
 
         switch (joinTable.type) {
             case "left":
-                matchedRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
+                matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(leftFieldInfo)
                     .setRightField(rightFieldInfo)
@@ -1269,7 +1268,7 @@ class JoinTables {
                 break;
 
             case "inner":
-                matchedRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
+                matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(leftFieldInfo)
                     .setRightField(rightFieldInfo)
@@ -1279,7 +1278,7 @@ class JoinTables {
                 break;
 
             case "right":
-                matchedRecordIDs = this.leftRightJoin(rightFieldInfo, leftFieldInfo, joinTable.type);
+                matchedRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(rightFieldInfo)
                     .setRightField(leftFieldInfo)
@@ -1290,7 +1289,7 @@ class JoinTables {
                 break;
 
             case "full":
-                const leftJoinRecordIDs = this.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
+                const leftJoinRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(leftFieldInfo)
                     .setRightField(rightFieldInfo)
@@ -1298,7 +1297,7 @@ class JoinTables {
                     .setIsOuterJoin(true)
                     .createTable();
 
-                const rightJoinRecordIDs = this.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
+                const rightJoinRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
                 const rightDerivedTable = new DerivedTable()
                     .setLeftField(rightFieldInfo)
                     .setRightField(leftFieldInfo)
@@ -1321,7 +1320,7 @@ class JoinTables {
      * @param {String} type
      * @returns {Number[][]} 
      */
-    leftRightJoin(leftField, rightField, type) {
+    static leftRightJoin(leftField, rightField, type) {
         const leftRecordsIDs = [];
 
         //  First record is the column title.
@@ -1424,7 +1423,7 @@ class DerivedTable {
         const columnCount = this.rightField.tableInfo.getColumnCount();
         const emptyRightRow = Array(columnCount).fill("");
 
-        const joinedData = [this.getCombinedColumnTitles(this.leftField, this.rightField)];
+        const joinedData = [DerivedTable.getCombinedColumnTitles(this.leftField, this.rightField)];
 
         for (let i = 1; i < this.leftField.tableInfo.tableData.length; i++) {
             if (typeof this.leftRecords[i] !== "undefined") {
@@ -1475,7 +1474,7 @@ class DerivedTable {
      * @param {VirtualField} rightField 
      * @returns {String[]}
      */
-    getCombinedColumnTitles(leftField, rightField) {
+    static getCombinedColumnTitles(leftField, rightField) {
         const titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames();
         const rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames();
         return titleRow.concat(rightFieldNames);
@@ -1520,7 +1519,7 @@ class SqlServerFunctions {
                         replacement = "Math.ceil(" + parms[0] + ")";
                         break;
                     case "CHARINDEX":
-                        replacement = this.charIndex(parms);
+                        replacement = SqlServerFunctions.charIndex(parms);
                         break;
                     case "FLOOR":
                         replacement = "Math.floor(" + parms[0] + ")";
@@ -1625,7 +1624,7 @@ class SqlServerFunctions {
      * @param {any[]} parms 
      * @returns {String}
      */
-    charIndex(parms) {
+    static charIndex(parms) {
         let replacement = "";
 
         if (typeof parms[2] === 'undefined')
@@ -1762,10 +1761,10 @@ class ConglomerateRecord {
                     groupValue++;
                     break;
                 case "MIN":
-                    groupValue = this.minCase(first, groupValue, data);
+                    groupValue = ConglomerateRecord.minCase(first, groupValue, data);
                     break;
                 case "MAX":
-                    groupValue = this.maxCase(first, groupValue, data);
+                    groupValue = ConglomerateRecord.maxCase(first, groupValue, data);
                     break;
                 case "AVG":
                     avgCounter++;
@@ -1790,7 +1789,7 @@ class ConglomerateRecord {
      * @param {Number} data 
      * @returns {Number}
      */
-    minCase(first, groupValue, data) {
+    static minCase(first, groupValue, data) {
         if (first)
             groupValue = data;
         if (data < groupValue)
@@ -1806,7 +1805,7 @@ class ConglomerateRecord {
      * @param {Number} data 
      * @returns {Number}
      */
-    maxCase(first, groupValue, data) {
+    static maxCase(first, groupValue, data) {
         if (first)
             groupValue = data;
         if (data > groupValue)

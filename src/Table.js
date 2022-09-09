@@ -44,7 +44,7 @@ class Table {
      * @returns {Table}
      */
     loadNamedRangeData(namedRange, cacheSeconds = 0) {
-        let tableData = new TableData();
+        const tableData = new TableData();
         this.tableData = tableData.loadTableData(namedRange, cacheSeconds);
 
         Logger.log("Load Data: Range=" + namedRange + ". Items=" + this.tableData.length);
@@ -136,7 +136,7 @@ class Table {
      * @returns {Number}
      */
     getColumnCount() {
-        let fields = this.getAllExtendedNotationFieldNames();
+        const fields = this.getAllExtendedNotationFieldNames();
         return fields.length;
     }
 
@@ -148,7 +148,7 @@ class Table {
      * @returns {any[][]}
      */
     getRecords(startRecord, lastRecord, fields) {
-        let selectedRecords = [];
+        const selectedRecords = [];
 
         if (startRecord < 1)
             startRecord = 1;
@@ -157,9 +157,9 @@ class Table {
             lastRecord = this.tableData.length - 1;
 
         for (let i = startRecord; i <= lastRecord && i < this.tableData.length; i++) {
-            let row = [];
+            const row = [];
 
-            for (let col of fields) {
+            for (const col of fields) {
                 row.push(this.tableData[i][col]);
             }
 
@@ -176,11 +176,11 @@ class Table {
      */
     addIndex(fieldName) {
         fieldName = fieldName.trim().toUpperCase();
-        let fieldValuesMap = new Map();
+        const fieldValuesMap = new Map();
 
-        let fieldIndex = this.schema.getFieldColumn(fieldName);
+        const fieldIndex = this.schema.getFieldColumn(fieldName);
         for (let i = 1; i < this.tableData.length; i++) {
-            let value = this.tableData[i][fieldIndex];
+            const value = this.tableData[i][fieldIndex];
 
             if (value !== "") {
                 let rowNumbers = [];
@@ -202,14 +202,14 @@ class Table {
      * @returns {Number[]}
      */
     search(fieldName, searchValue) {
-        let rows = [];
+        const rows = [];
         fieldName = fieldName.trim().toUpperCase();
 
-        let searchFieldCol = this.schema.getFieldColumn(fieldName);
+        const searchFieldCol = this.schema.getFieldColumn(fieldName);
         if (searchFieldCol === -1)
             return rows;
 
-        let fieldValuesMap = this.indexes.get(fieldName);
+        const fieldValuesMap = this.indexes.get(fieldName);
         if (fieldValuesMap.has(searchValue))
             return fieldValuesMap.get(searchValue);
         return rows;
@@ -220,9 +220,9 @@ class Table {
      * @param {Table} concatTable 
      */
     concat(concatTable) {
-        let fieldsThisTable = this.schema.getAllFieldNames();
-        let fieldColumns = concatTable.getFieldColumns(fieldsThisTable);
-        let data = concatTable.getRecords(1, -1, fieldColumns);
+        const fieldsThisTable = this.schema.getAllFieldNames();
+        const fieldColumns = concatTable.getFieldColumns(fieldsThisTable);
+        const data = concatTable.getRecords(1, -1, fieldColumns);
         this.tableData = this.tableData.concat(data);
     }
 
@@ -288,10 +288,10 @@ class Schema {
      */
     getAllFieldNames() {
         /** @type {String[]} */
-        let fieldNames = [];
+        const fieldNames = [];
 
         // @ts-ignore
-        for (let key of this.fields.keys()) {
+        for (const key of this.fields.keys()) {
             if (key !== "*")
                 fieldNames.push(key);
         }
@@ -305,12 +305,12 @@ class Schema {
      */
     getAllExtendedNotationFieldNames() {
         /** @type {String[]} */
-        let fieldNames = [];
+        const fieldNames = [];
 
         // @ts-ignore
         for (const [key, value] of this.fields.entries()) {
             if (value !== null) {
-                let fieldParts = key.split(".");
+                const fieldParts = key.split(".");
                 if (typeof fieldNames[value] === 'undefined' ||
                     (fieldParts.length === 2 && (fieldParts[0] === this.tableName || this.isDerivedTable)))
                     fieldNames[value] = key;
@@ -343,7 +343,7 @@ class Schema {
      * @returns {Number}
      */
     getFieldColumn(field) {
-        let cols = this.getFieldColumns([field]);
+        const cols = this.getFieldColumns([field]);
         return cols[0];
     }
 
@@ -354,9 +354,9 @@ class Schema {
     */
     getFieldColumns(fieldNames) {
         /** @type {Number[]} */
-        let fieldIndex = [];
+        const fieldIndex = [];
 
-        for (let field of fieldNames) {
+        for (const field of fieldNames) {
             let i = -1;
 
             if (this.fields.has(field.trim().toUpperCase()))
@@ -382,11 +382,11 @@ class Schema {
             return this;
 
         /** @type {any[]} */
-        let titleRow = this.tableData[0];
+        const titleRow = this.tableData[0];
 
         let colNum = 0;
         let fieldVariants;
-        for (let baseColumnName of titleRow) {
+        for (const baseColumnName of titleRow) {
             //  Find possible variations of the field column name.
             try {
                 fieldVariants = this.getColumnNameVariants(baseColumnName);
@@ -394,12 +394,12 @@ class Schema {
             catch (ex) {
                 throw new Error("Invalid column title: " + baseColumnName);
             }
-            let columnName = fieldVariants[0];
+            const columnName = fieldVariants[0];
 
             this.setFieldVariantsColumNumber(fieldVariants, colNum);
 
             if (columnName !== "") {
-                let virtualField = new VirtualField(columnName, this.tableInfo, colNum);
+                const virtualField = new VirtualField(columnName, this.tableInfo, colNum);
                 this.virtualFields.add(virtualField);
             }
 
@@ -420,7 +420,7 @@ class Schema {
      * @returns {any[]}
      */
     getColumnNameVariants(colName) {
-        let columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
+        const columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
         let fullColumnName = columnName;
         let fullColumnAliasName = "";
         if (columnName.indexOf(".") === -1) {
@@ -438,11 +438,7 @@ class Schema {
      * @param {Number} colNum 
      */
     setFieldVariantsColumNumber(fieldVariants, colNum) {
-        let columnName;
-        let fullColumnName;
-        let fullColumnAliasName;
-
-        [columnName, fullColumnName, fullColumnAliasName] = fieldVariants;
+        const [columnName, fullColumnName, fullColumnAliasName] = fieldVariants;
 
         if (columnName !== "") {
             this.fields.set(columnName, colNum);

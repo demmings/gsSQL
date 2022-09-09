@@ -19,7 +19,7 @@ function protect_split(separator, str) {
     let string = false;
     let nb_brackets = 0;
     let new_str = "";
-    for (let c of str) {
+    for (const c of str) {
         if (!string && /['"`]/.test(c)) string = c;
         else if (string && c === string) string = false;
         else if (!string && c === '(') nb_brackets++;
@@ -41,7 +41,7 @@ function protect_split(separator, str) {
 // Add some # inside a string to avoid it to match a regex/split
 function protect(str) {
     let result = '#';
-    let length = str.length;
+    const length = str.length;
     for (let i = 0; i < length; i++) {
         result += str[i] + "#";
     }
@@ -51,7 +51,7 @@ function protect(str) {
 // Restore a string output by protect() to its original state
 function unprotect(str) {
     let result = '';
-    let length = str.length;
+    const length = str.length;
     for (let i = 1; i < length; i = i + 2) result += str[i];
     return result;
 }
@@ -70,7 +70,7 @@ function hideInnerSql(str, parts_name_escaped, replaceFunction) {
     let endCount = -1;
 
     for (let i = str.length - 1; i >= 0; i--) {
-        let c = str.charAt(i);
+        const c = str.charAt(i);
 
         if (c === ")") {
             bracketCount++;
@@ -104,14 +104,14 @@ function sqlStatementSplitter(src) {
     let newStr = "";
 
     // Define which words can act as separator
-    let reg = makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
+    const reg = makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
 
-    let matchedUnions = src.match(reg);
+    const matchedUnions = src.match(reg);
     if (matchedUnions === null || matchedUnions.length === 0)
         return src;
 
     let prefix = "";
-    let parts = [];
+    const parts = [];
     let pos = src.search(matchedUnions[0]);
     if (pos > 0) {
         prefix = src.substring(0, pos);
@@ -119,7 +119,7 @@ function sqlStatementSplitter(src) {
     }
 
     for (let i = 1; i < matchedUnions.length; i++) {
-        let match = matchedUnions[i];
+        const match = matchedUnions[i];
         pos = src.search(match);
 
         parts.push(src.substring(0, pos));
@@ -152,7 +152,7 @@ function makeSqlPartsSplitterRegEx(keywords) {
     parts_name = parts_name.concat(parts_name.map(function (item) {
         return item.toLowerCase();
     }));
-    let parts_name_escaped = parts_name.map(function (item) {
+    const parts_name_escaped = parts_name.map(function (item) {
         return item.replace('(', '[\\(]');
     });
 
@@ -163,7 +163,7 @@ function makeSqlPartsSplitterRegEx(keywords) {
 // Parse a query
 function sql2ast(query) {
     // Define which words can act as separator
-    let keywords = ['SELECT', 'FROM', 'DELETE FROM', 'INSERT INTO', 'UPDATE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'VALUES', 'SET', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
+    const keywords = ['SELECT', 'FROM', 'DELETE FROM', 'INSERT INTO', 'UPDATE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'VALUES', 'SET', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
     let parts_name = keywords.map(function (item) {
         return item + ' ';
     });
@@ -173,7 +173,7 @@ function sql2ast(query) {
     parts_name = parts_name.concat(parts_name.map(function (item) {
         return item.toLowerCase();
     }));
-    let parts_name_escaped = parts_name.map(function (item) {
+    const parts_name_escaped = parts_name.map(function (item) {
         return item.replace('(', '[\\(]');
     });
 
@@ -183,7 +183,7 @@ function sql2ast(query) {
     query = hideInnerSql(query, parts_name_escaped, protect);
 
     // Write the position(s) in query of these separators
-    let parts_order = [];
+    const parts_order = [];
     function realNameCallback(_match, name) {
         return name;
     }
@@ -194,7 +194,7 @@ function sql2ast(query) {
         do {
             part = query.indexOf(item, pos);
             if (part !== -1) {
-                let realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, realNameCallback);
+                const realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, realNameCallback);
 
                 if (typeof parts_order[part] === 'undefined' || parts_order[part].length < realName.length) {
                     parts_order[part] = realName;	// Position won't be exact because the use of protect()  (above) and unprotect() alter the query string ; but we just need the order :)
@@ -225,7 +225,7 @@ function sql2ast(query) {
     });
 
     // Split parts
-    let parts = query.split(new RegExp(parts_name_escaped.join('|'), 'i'));
+    const parts = query.split(new RegExp(parts_name_escaped.join('|'), 'i'));
 
     // Unhide words precedently hidden with protect()
     query = hideInnerSql(query, words, unprotect);
@@ -235,7 +235,7 @@ function sql2ast(query) {
     }
 
     // Define analysis functions
-    let analysis = {};
+    const analysis = {};
 
     analysis['SELECT'] = function (str) {
         let selectResult = protect_split(',', str);
@@ -246,11 +246,11 @@ function sql2ast(query) {
             let alias = "";
             [item, alias] = getNameAndAlias(item);
 
-            let splitPattern = /[\s()*/%+-]+/g;
+            const splitPattern = /[\s()*/%+-]+/g;
             let terms = item.split(splitPattern);
 
             if (terms !== null) {
-                let aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
+                const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
                 terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
             }
             if (item !== "*" && terms !== null && terms.length > 1) {
@@ -276,7 +276,7 @@ function sql2ast(query) {
             if (item === '') fromResult.splice(key);
         });
         fromResult = fromResult.map(function (item) {
-            let [table, alias] = getNameAndAlias(item);
+            const [table, alias] = getNameAndAlias(item);
             return { table: table, as: alias };
         });
         return fromResult;
@@ -284,8 +284,8 @@ function sql2ast(query) {
 
     analysis['LEFT JOIN'] = analysis['JOIN'] = analysis['INNER JOIN'] = analysis['RIGHT JOIN'] = analysis['FULL JOIN'] = function (str) {
         str = str.toUpperCase().split(' ON ');
-        let table = str[0].split(' AS ');
-        let joinResult = {};
+        const table = str[0].split(' AS ');
+        const joinResult = {};
         joinResult['table'] = trim(table[0]);
         joinResult['as'] = trim(table[1]) || '';
         joinResult['cond'] = trim(str[1]);
@@ -299,16 +299,16 @@ function sql2ast(query) {
 
     analysis['ORDER BY'] = function (str) {
         str = str.split(',');
-        let orderByResult = [];
+        const orderByResult = [];
         str.forEach(function (item, _key) {
-            let order_by = /([\w\.]+)\s*(ASC|DESC)?/gi;
-            let orderData = order_by.exec(item);
+            const order_by = /([\w\.]+)\s*(ASC|DESC)?/gi;
+            const orderData = order_by.exec(item);
             if (orderData !== null) {
-                let tmp = {};
+                const tmp = {};
                 tmp['column'] = trim(orderData[1]);
                 tmp['order'] = trim(orderData[2]);
                 if (orderData[2] === undefined) {
-                    let orderParts = item.trim().split(" ");
+                    const orderParts = item.trim().split(" ");
                     if (orderParts.length > 1)
                         throw new Error("Invalid ORDER BY: " + item);
                     tmp['order'] = "ASC";
@@ -321,12 +321,12 @@ function sql2ast(query) {
 
     analysis['GROUP BY'] = function (str) {
         str = str.split(',');
-        let groupByResult = [];
+        const groupByResult = [];
         str.forEach(function (item, _key) {
-            let group_by = /([\w\.]+)/gi;
-            let groupData = group_by.exec(item);
+            const group_by = /([\w\.]+)/gi;
+            const groupData = group_by.exec(item);
             if (groupData !== null) {
-                let tmp = {};
+                const tmp = {};
                 tmp['column'] = trim(groupData[1]);
                 groupByResult.push(tmp);
             }
@@ -336,12 +336,12 @@ function sql2ast(query) {
 
     analysis['PIVOT'] = function (str) {
         str = str.split(',');
-        let pivotResult = [];
+        const pivotResult = [];
         str.forEach(function (item, _key) {
-            let pivotOn = /([\w\.]+)/gi;
-            let pivotData = pivotOn.exec(item);
+            const pivotOn = /([\w\.]+)/gi;
+            const pivotData = pivotOn.exec(item);
             if (pivotData !== null) {
-                let tmp = {};
+                const tmp = {};
                 tmp['name'] = trim(pivotData[1]);
                 tmp['as'] = "";
                 pivotResult.push(tmp);
@@ -351,7 +351,7 @@ function sql2ast(query) {
     };
 
     analysis['LIMIT'] = function (str) {
-        let limitResult = {};
+        const limitResult = {};
         limitResult['nb'] = parseInt(str);
         limitResult['from'] = 0;
         return limitResult;
@@ -378,17 +378,17 @@ function sql2ast(query) {
     };
 
     // Analyze parts
-    let result = {};
+    const result = {};
     let j = 0;
     parts_order.forEach(function (item, _key) {
         item = item.toUpperCase();
         j++;
         if (typeof analysis[item] !== 'undefined') {
-            let part_result = analysis[item](parts[j]);
+            const part_result = analysis[item](parts[j]);
 
             if (typeof result[item] !== 'undefined') {
                 if (typeof result[item] === 'string' || typeof result[item][0] === 'undefined') {
-                    let tmp = result[item];
+                    const tmp = result[item];
                     result[item] = [];
                     result[item].push(tmp);
                 }
@@ -531,9 +531,9 @@ function parseUnion(inStr) {
  */
 function getNameAndAlias(item) {
     let alias = "";
-    let lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
+    const lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
     if (lastAs !== -1) {
-        let s = item.substring(lastAs + 4).trim();
+        const s = item.substring(lastAs + 4).trim();
         if (s.length > 0) {
             alias = s;
             //  Remove quotes, if any.
@@ -555,7 +555,7 @@ function lastIndexOfOutsideLiteral(srcString, searchString) {
     let inQuote = "";
 
     for (let i = 0; i < srcString.length; i++) {
-        let c = srcString.charAt(i);
+        const c = srcString.charAt(i);
 
         if (inQuote !== "") {
             //  The ending quote.
@@ -670,7 +670,7 @@ CondLexer.prototype = {
 
     readString: function () {
         let tokenValue = "";
-        let quote = this.currentChar;
+        const quote = this.currentChar;
 
         tokenValue += this.currentChar;
         this.readNextChar();
@@ -696,7 +696,7 @@ CondLexer.prototype = {
     },
 
     readGroupSymbol: function () {
-        let tokenValue = this.currentChar;
+        const tokenValue = this.currentChar;
         this.readNextChar();
 
         return { type: 'group', value: tokenValue };
@@ -715,14 +715,14 @@ CondLexer.prototype = {
     },
 
     readMathOperator: function () {
-        let tokenValue = this.currentChar;
+        const tokenValue = this.currentChar;
         this.readNextChar();
 
         return { type: 'mathoperator', value: tokenValue };
     },
 
     readBindVariable: function () {
-        let tokenValue = this.currentChar;
+        const tokenValue = this.currentChar;
         this.readNextChar();
 
         return { type: 'bindVariable', value: tokenValue };
@@ -758,7 +758,7 @@ CondParser.prototype = {
         let leftNode = this.parseConditionExpression();
 
         while (this.currentToken.type === 'logic') {
-            let logic = this.currentToken.value;
+            const logic = this.currentToken.value;
             this.readNextToken();
 
             const rightNode = this.parseConditionExpression();

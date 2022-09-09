@@ -34,15 +34,15 @@ class Logger {
  * @customfunction
  */
 function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {
-    let tableList = parseTableSettings(tableArr, statement);
+    const tableList = parseTableSettings(tableArr, statement);
 
     Logger.log("gsSQL: tableList=" + tableList + ".  Statement=" + statement + ". List Len=" + tableList.length);
 
-    let sqlCmd = new Sql().enableColumnTitle(columnTitle);
-    for (let bind of bindings) {
+    const sqlCmd = new Sql().enableColumnTitle(columnTitle);
+    for (const bind of bindings) {
         sqlCmd.addBindParameter(bind);
     }
-    for (let tableDef of tableList) {
+    for (const tableDef of tableList) {
         sqlCmd.addTableData(tableDef[0], tableDef[1], tableDef[2]);
     }
     return sqlCmd.execute(statement);
@@ -150,8 +150,8 @@ class Sql {
      * @returns {Sql}
      */
     addBindNamedRangeParameter(value) {
-        let tableData = new TableData();
-        let namedValue = tableData.getValueCached(value, 30);
+        const tableData = new TableData();
+        const namedValue = TableData.getValueCached(value, 30);
         this.bindParameters.push(namedValue);
         return this;
     }
@@ -188,9 +188,9 @@ class Sql {
         this.ast = sql2ast(statement);
 
         // @ts-ignore
-        for (let table of this.tables.keys()) {
-            let tableAlias = this.getTableAlias(table, this.ast);
-            let tableInfo = this.tables.get(table.toUpperCase());
+        for (const table of this.tables.keys()) {
+            const tableAlias = this.getTableAlias(table, this.ast);
+            const tableInfo = this.tables.get(table.toUpperCase());
             tableInfo
                 .setTableAlias(tableAlias)
                 .loadSchema();
@@ -264,7 +264,7 @@ class Sql {
         let i = 0;
         while (tableAlias === "" && i < astRecursiveTableBlocks.length) {
             if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
-                for (let unionAst of ast[astRecursiveTableBlocks[i]]) {
+                for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
                     tableAlias = this.getTableAlias(tableName, unionAst);
 
                     if (tableAlias !== "")
@@ -305,7 +305,7 @@ class Sql {
      */
     getTableAliasWhereTerms(tableAlias, tableName, ast) {
         if (tableAlias === "" && typeof ast["WHERE"] !== 'undefined' && typeof ast["WHERE"].terms !== 'undefined') {
-            for (let term of ast["WHERE"].terms) {
+            for (const term of ast["WHERE"].terms) {
                 if (tableAlias === "")
                     tableAlias = this.getTableAlias(tableName, term);
             }
@@ -320,14 +320,14 @@ class Sql {
      * @returns {String[][]}
      */
     static getReferencedTableNames(statement) {
-        let tableSet = new Set();
-        let ast = sql2ast(statement);
+        const tableSet = new Set();
+        const ast = sql2ast(statement);
 
         Sql.extractAstTables(ast, tableSet);
 
-        let tableList = [];
+        const tableList = [];
         // @ts-ignore
-        for (let table of tableSet) {
+        for (const table of tableSet) {
             tableList.push([table]);
         }
 
@@ -354,12 +354,12 @@ class Sql {
     static getTableNamesFromOrJoin(ast, tableSet) {
         const astTableBlocks = ['FROM', 'JOIN'];
 
-        for (let astBlock of astTableBlocks) {
+        for (const astBlock of astTableBlocks) {
             if (typeof ast[astBlock] === 'undefined')
                 continue;
 
-            let blockData = ast[astBlock];
-            for (let astItem of blockData) {
+            const blockData = ast[astBlock];
+            for (const astItem of blockData) {
                 tableSet.add(astItem.table.toUpperCase());
             }
         }
@@ -373,9 +373,9 @@ class Sql {
     static getTableNamesUnion(ast, tableSet) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
 
-        for (let block of astRecursiveTableBlocks) {
+        for (const block of astRecursiveTableBlocks) {
             if (typeof ast[block] !== 'undefined') {
-                for (let unionAst of ast[block]) {
+                for (const unionAst of ast[block]) {
                     this.extractAstTables(unionAst, tableSet);
                 }
             }
@@ -405,7 +405,7 @@ class Sql {
      */
     static getTableNamesWhereTerms(ast, tableSet) {
         if (typeof ast["WHERE"] !== 'undefined' && typeof ast["WHERE"].terms !== 'undefined') {
-            for (let term of ast["WHERE"].terms) {
+            for (const term of ast["WHERE"].terms) {
                 this.extractAstTables(term, tableSet);
             }
         }
@@ -422,7 +422,7 @@ class Sql {
         if (typeof ast[astBlock] === 'undefined')
             return "";
 
-        for (let astItem of ast[astBlock]) {
+        for (const astItem of ast[astBlock]) {
             if (tableName === astItem.table.toUpperCase() && astItem.as !== "") {
                 return astItem.as;
             }
@@ -449,7 +449,7 @@ class Sql {
         //  Manipulate AST add pivot fields.
         ast = this.pivotField(ast);
 
-        let view = new SelectTables(ast['FROM'], ast['SELECT'], this.tables, this.bindParameters);
+        const view = new SelectTables(ast['FROM'], ast['SELECT'], this.tables, this.bindParameters);
 
         //  JOIN tables to create a derived table.
         view.join(ast);
@@ -467,7 +467,7 @@ class Sql {
         view.orderBy(ast, viewTableData);
 
         if (typeof ast['LIMIT'] !== 'undefined') {
-            let maxItems = ast['LIMIT'].nb;
+            const maxItems = ast['LIMIT'].nb;
             if (viewTableData.length > maxItems)
                 viewTableData.splice(maxItems);
         }
@@ -489,17 +489,17 @@ class Sql {
      * @returns {Object}
      */
     distinctField(ast) {
-        let astFields = ast['SELECT'];
+        const astFields = ast['SELECT'];
 
         if (astFields.length > 0) {
-            let firstField = astFields[0].name.toUpperCase();
+            const firstField = astFields[0].name.toUpperCase();
             if (firstField.startsWith("DISTINCT")) {
                 astFields[0].name = firstField.replace("DISTINCT", "").trim();
 
                 if (typeof ast['GROUP BY'] === 'undefined') {
-                    let groupBy = [];
+                    const groupBy = [];
 
-                    for (let astItem of astFields) {
+                    for (const astItem of astFields) {
                         groupBy.push({ column: astItem.name });
                     }
 
@@ -526,7 +526,7 @@ class Sql {
             return ast;
 
         // These are all of the unique PIVOT field data points.
-        let pivotFieldData = this.getUniquePivotData(ast);
+        const pivotFieldData = this.getUniquePivotData(ast);
 
         ast['SELECT'] = this.addCalculatedPivotFieldsToAst(ast, pivotFieldData);
 
@@ -539,7 +539,7 @@ class Sql {
      * @returns {any[][]}
      */
     getUniquePivotData(ast) {
-        let pivotAST = {};
+        const pivotAST = {};
 
         pivotAST['SELECT'] = ast['PIVOT'];
         pivotAST['SELECT'][0].name = "DISTINCT " + pivotAST['SELECT'][0].name;
@@ -547,10 +547,10 @@ class Sql {
         pivotAST['WHERE'] = ast['WHERE'];
 
         // These are all of the unique PIVOT field data points.
-        let oldSetting = this.columnTitle;
-        let oldBindVariables = [...this.bindParameters];
+        const oldSetting = this.columnTitle;
+        const oldBindVariables = [...this.bindParameters];
         this.columnTitle = false;
-        let tableData = this.select(pivotAST);
+        const tableData = this.select(pivotAST);
         this.columnTitle = oldSetting;
         this.bindParameters = oldBindVariables;
 
@@ -564,18 +564,18 @@ class Sql {
      * @returns {Object}
      */
     addCalculatedPivotFieldsToAst(ast, pivotFieldData) {
-        let newPivotAstFields = [];
+        const newPivotAstFields = [];
 
-        for (let selectField of ast['SELECT']) {
+        for (const selectField of ast['SELECT']) {
             //  If this is an aggregrate function, we will add one for every pivotFieldData item
             const functionNameRegex = /^\w+\s*(?=\()/;
-            let matches = selectField.name.match(functionNameRegex)
+            const matches = selectField.name.match(functionNameRegex)
             if (matches !== null && matches.length > 0) {
-                let args = SelectTables.parseForFunctions(selectField.name, matches[0].trim());
+                const args = SelectTables.parseForFunctions(selectField.name, matches[0].trim());
 
-                for (let fld of pivotFieldData) {
-                    let caseTxt = matches[0] + "(CASE WHEN " + ast['PIVOT'][0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 'null' END)";
-                    let asField = fld[0] + " " + (typeof selectField.as !== 'undefined' && selectField.as !== "" ? selectField.as : selectField.name);
+                for (const fld of pivotFieldData) {
+                    const caseTxt = matches[0] + "(CASE WHEN " + ast['PIVOT'][0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 'null' END)";
+                    const asField = fld[0] + " " + (typeof selectField.as !== 'undefined' && selectField.as !== "" ? selectField.as : selectField.name);
                     newPivotAstFields.push({ name: caseTxt, as: asField });
                 }
             }
@@ -593,15 +593,15 @@ class Sql {
      * @returns {any[][]}
      */
     unionSets(ast, viewTableData) {
-        let unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+        const unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
 
-        for (let type of unionTypes) {
+        for (const type of unionTypes) {
             if (typeof ast[type] !== 'undefined') {
-                let unionSQL = new Sql()
+                const unionSQL = new Sql()
                     .setBindValues(this.bindParameters)
                     .setTables(this.tables);
-                for (let union of ast[type]) {
-                    let unionData = unionSQL.select(union);
+                for (const union of ast[type]) {
+                    const unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length !== unionData[0].length)
                         throw new Error("Invalid " + type + ".  Selected field counts do not match.");
 
@@ -640,14 +640,14 @@ class Sql {
      * @returns {any[][]} 
      */
     appendUniqueRows(srcData, newData) {
-        let srcMap = new Map();
+        const srcMap = new Map();
 
-        for (let srcRow of srcData) {
+        for (const srcRow of srcData) {
             srcMap.set(srcRow.join("::"), true);
         }
 
-        for (let newRow of newData) {
-            let key = newRow.join("::");
+        for (const newRow of newData) {
+            const key = newRow.join("::");
             if (!srcMap.has(key)) {
                 srcData.push(newRow);
                 srcMap.set(key, true);
@@ -663,14 +663,14 @@ class Sql {
      * @returns {any[][]}
      */
     intersectRows(srcData, newData) {
-        let srcMap = new Map();
-        let intersectTable = [];
+        const srcMap = new Map();
+        const intersectTable = [];
 
-        for (let srcRow of srcData) {
+        for (const srcRow of srcData) {
             srcMap.set(srcRow.join("::"), true);
         }
 
-        for (let newRow of newData) {
+        for (const newRow of newData) {
             if (srcMap.has(newRow.join("::"))) {
                 intersectTable.push(newRow);
             }
@@ -685,16 +685,16 @@ class Sql {
      * @returns {any[][]}
      */
     exceptRows(srcData, newData) {
-        let srcMap = new Map();
+        const srcMap = new Map();
         let rowNum = 0;
-        for (let srcRow of srcData) {
+        for (const srcRow of srcData) {
             srcMap.set(srcRow.join("::"), rowNum);
             rowNum++;
         }
 
-        let removeRowNum = [];
-        for (let newRow of newData) {
-            let key = newRow.join("::");
+        const removeRowNum = [];
+        for (const newRow of newData) {
+            const key = newRow.join("::");
             if (srcMap.has(key)) {
                 removeRowNum.push(srcMap.get(key));
             }
