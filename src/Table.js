@@ -59,7 +59,7 @@ class Table {
      * @returns {Table}
      */
     loadArrayData(tableData) {
-        if (typeof tableData == 'undefined' || tableData.length == 0)
+        if (typeof tableData === 'undefined' || tableData.length === 0)
             return this;
 
         this.tableData = tableData;
@@ -68,6 +68,10 @@ class Table {
         return this;
     }
 
+    /**
+     * 
+     * @returns {Table}
+     */
     loadSchema() {
         this.schema
             .setTableData(this.tableData)
@@ -127,6 +131,10 @@ class Table {
         return this.schema.getAllExtendedNotationFieldNames();
     }
 
+    /**
+     * 
+     * @returns {Number}
+     */
     getColumnCount() {
         let fields = this.getAllExtendedNotationFieldNames();
         return fields.length;
@@ -198,7 +206,7 @@ class Table {
         fieldName = fieldName.trim().toUpperCase();
 
         let searchFieldCol = this.schema.getFieldColumn(fieldName);
-        if (searchFieldCol == -1)
+        if (searchFieldCol === -1)
             return rows;
 
         let fieldValuesMap = this.indexes.get(fieldName);
@@ -226,7 +234,7 @@ class Schema {
         this.tableAlias = "";
         this.tableData = [];
         this.tableInfo = null;
-        this.isDerivedTable = this.tableName == DERIVEDTABLE;
+        this.isDerivedTable = this.tableName === DERIVEDTABLE;
 
         /** @type {Map<String,Number>} */
         this.fields = new Map();
@@ -303,8 +311,8 @@ class Schema {
         for (const [key, value] of this.fields.entries()) {
             if (value != null) {
                 let fieldParts = key.split(".");
-                if (typeof fieldNames[value] == 'undefined' ||
-                    (fieldParts.length == 2 && (fieldParts[0] == this.tableName || this.isDerivedTable)))
+                if (typeof fieldNames[value] === 'undefined' ||
+                    (fieldParts.length === 2 && (fieldParts[0] === this.tableName || this.isDerivedTable)))
                     fieldNames[value] = key;
             }
         }
@@ -406,8 +414,13 @@ class Schema {
         return this;
     }
 
-    getColumnNameVariants(col) {
-        let columnName = col.trim().toUpperCase().replace(/\s/g, "_");
+    /**
+     * 
+     * @param {String} colName 
+     * @returns {any[]}
+     */
+    getColumnNameVariants(colName) {
+        let columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
         let fullColumnName = columnName;
         let fullColumnAliasName = "";
         if (columnName.indexOf(".") == -1) {
@@ -419,6 +432,11 @@ class Schema {
         return [columnName, fullColumnName, fullColumnAliasName];
     }
 
+    /**
+     * 
+     * @param {any[]} fieldVariants 
+     * @param {Number} colNum 
+     */
     setFieldVariantsColumNumber(fieldVariants, colNum) {
         let columnName;
         let fullColumnName;

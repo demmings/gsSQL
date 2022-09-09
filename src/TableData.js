@@ -76,7 +76,7 @@ class TableData {
         }
 
         arrData = this.cacheGetArray(cache, namedRange);
-        if (arrData != null) {
+        if (arrData !== null) {
             Logger.log("Found in CACHE: " + namedRange + ". Items=" + arrData.length);
             return arrData;
         }
@@ -105,7 +105,7 @@ class TableData {
 
         let singleData = cache.get(namedRange);
 
-        if (singleData == null) {
+        if (singleData === null) {
             let ss = SpreadsheetApp.getActiveSpreadsheet();
             singleData = ss.getRangeByName(namedRange).getValue();
             cache.put(namedRange, singleData, seconds)
@@ -144,7 +144,7 @@ class TableData {
         let loading = false;
         let cacheData = cache.get(this.cacheStatusName(namedRange));
 
-        if (cacheData != null && cacheData == TABLE.LOADING) {
+        if (cacheData !== null && cacheData == TABLE.LOADING) {
             loading = true;
         }
 
@@ -174,7 +174,7 @@ class TableData {
         let arrData = this.cacheGetArray(cache, namedRange);
 
         //  Give up and load from SHEETS directly.
-        if (arrData == null) {
+        if (arrData === null) {
             Logger.log("waitForRangeToLoad - give up.  Read directly. " + namedRange);
             arrData = this.loadValuesFromRangeOrSheet(namedRange);
 
@@ -199,7 +199,7 @@ class TableData {
 
         //  Data is now loaded in cache.
         arrData = this.cacheGetArray(cache, namedRange);
-        if (arrData != null) {
+        if (arrData !== null) {
             return arrData;
         }
 
@@ -247,13 +247,13 @@ class TableData {
         try {
             let sheetNamedRange = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange);
 
-            if (sheetNamedRange == null) {
+            if (sheetNamedRange === null) {
                 //  This may be a SHEET NAME, so try getting SHEET RANGE.
                 if (namedRange.startsWith("'") && namedRange.endsWith("'")) {
                     namedRange = namedRange.substring(1, namedRange.length-1);
                 }
                 let sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(namedRange);
-                if (sheetHandle == null)
+                if (sheetHandle === null)
                     throw new Error("Invalid table range specified:  " + namedRange);
 
                 let lastColumn = sheetHandle.getLastColumn();
@@ -322,7 +322,7 @@ class TableData {
 
         let cacheStatusName = this.cacheStatusName(namedRange);
         let cacheStatus = cache.get(cacheStatusName);
-        if (cacheStatus == null) {
+        if (cacheStatus === null) {
             Logger.log("Named Range Cache Status not found = " + cacheStatusName);
             return null;
         }
@@ -339,7 +339,7 @@ class TableData {
                 let blockName = namedRange + ":" + i.toString();
                 let jsonData = cache.get(blockName);
 
-                if (jsonData == null) {
+                if (jsonData === null) {
                     Logger.log("Named Range Part not found. R=" + blockName);
                     return null;
                 }
@@ -435,7 +435,7 @@ class ScriptSettings {
     get(propertyKey) {
         let myData = this.scriptProperties.getProperty(propertyKey);
 
-        if (myData == null)
+        if (myData === null)
             return null;
 
         /** @type {PropertyData} */
@@ -460,6 +460,11 @@ class ScriptSettings {
         this.scriptProperties.setProperty(propertyKey, jsonData);
     }
 
+    /**
+     * 
+     * @param {Object} propertyDataObject 
+     * @param {Number} daysToHold 
+     */
     putAll(propertyDataObject, daysToHold = 1) {
         const keys = Object.keys(propertyDataObject);
 
@@ -478,7 +483,7 @@ class ScriptSettings {
         for (let key of allKeys) {
             let myData = this.scriptProperties.getProperty(key);
 
-            if (myData != null) {
+            if (myData !==null) {
                 let propertyValue = null;
                 try {
                     propertyValue = JSON.parse(myData);
@@ -487,7 +492,7 @@ class ScriptSettings {
                     Logger.log("Script property data is not JSON. key=" + key);
                 }
 
-                if (propertyValue != null && (PropertyData.isExpired(propertyValue) || deleteAll)) {
+                if (propertyValue !== null && (PropertyData.isExpired(propertyValue) || deleteAll)) {
                     this.scriptProperties.deleteProperty(key);
                     Logger.log("Removing expired SCRIPT PROPERTY: key=" + key);
                 }

@@ -254,7 +254,7 @@ class SelectTables {
             /** @type {SelectField} */
             let field;
             for (field of this.virtualFields.selectVirtualFields) {
-                if (field.fieldInfo != null)
+                if (field.fieldInfo !== null)
                     newRow.push(field.fieldInfo.getData(masterRecordID));
                 else if (field.calculatedFormula != "") {
                     let result = this.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
@@ -622,6 +622,12 @@ class SelectTables {
 
         tableData.sort(sortFunction);
 
+        /**
+         * 
+         * @param {any} a 
+         * @param {any} b 
+         * @returns {Number}
+         */
         function sortFunction(a, b) {
             if (a[colIndex] === b[colIndex]) {
                 return 0;
@@ -644,6 +650,12 @@ class SelectTables {
 
         tableData.sort(sortFunction);
 
+        /**
+         * 
+         * @param {any} a 
+         * @param {any} b 
+         * @returns {Number}
+         */
         function sortFunction(a, b) {
             if (a[colIndex] === b[colIndex]) {
                 return 0;
@@ -786,6 +798,12 @@ class SelectTables {
         return index != -1;
     }
 
+    /**
+     * 
+     * @param {any} leftValue 
+     * @param {any} rightValue 
+     * @returns {Boolean}
+     */
     isCondition(leftValue, rightValue) {
         return (leftValue === "" && rightValue == "NULL");
     }
@@ -880,7 +898,7 @@ class VirtualFields {
      * @returns {VirtualField}
      */
     getFieldInfo(field) {
-        if (field == null || typeof field != "string")
+        if (field === null || typeof field != "string")
             throw new Error("SELECT syntax error.  Failed to retrieve field info.");
 
         field = field.trim().toUpperCase();
@@ -908,7 +926,7 @@ class VirtualFields {
         if (typeof name2 == "string")
             rightVirtual = this.getFieldInfo(name2);
 
-        if (leftVirtual != null && rightVirtual != null &&
+        if (leftVirtual !== null && rightVirtual !== null &&
             leftVirtual.tableInfo.tableName == rightVirtual.tableInfo.tableName &&
             leftVirtual.tableColumn == rightVirtual.tableColumn) {
             isSame = true;
@@ -1035,7 +1053,7 @@ class VirtualFields {
             let [columnName, aggregateFunctionName, calculatedField] = this.getSelectFieldNames(selField);
             this.columnTitles.push(typeof selField.as != 'undefined' && selField.as != "" ? selField.as : selField.name);
 
-            if (calculatedField == null && this.hasField(columnName)) {
+            if (calculatedField === null && this.hasField(columnName)) {
                 let fieldInfo = this.getFieldInfo(columnName);
                 let selectFieldInfo = new SelectField(fieldInfo);
                 selectFieldInfo.aggregateFunction = aggregateFunctionName;
@@ -1043,7 +1061,7 @@ class VirtualFields {
                 this.selectVirtualFields.push(selectFieldInfo);
                 this.columnNames.push(selField.name);
             }
-            else if (calculatedField != null) {
+            else if (calculatedField !== null) {
                 let selectFieldInfo = new SelectField(null);
                 selectFieldInfo.calculatedFormula = selField.name;
                 this.selectVirtualFields.push(selectFieldInfo);
@@ -1070,14 +1088,14 @@ class VirtualFields {
         let aggregateFunctionName = "";
         let calculatedField = (typeof selField.terms == 'undefined') ? null : selField.terms;
 
-        if (calculatedField == null && !this.hasField(columnName)) {
+        if (calculatedField === null && !this.hasField(columnName)) {
             const functionNameRegex = /^\w+\s*(?=\()/;
             let matches = columnName.match(functionNameRegex)
-            if (matches != null && matches.length > 0)
+            if (matches !== null && matches.length > 0)
                 aggregateFunctionName = matches[0].trim();
 
             matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName);
-            if (matches != null && matches.length > 1)
+            if (matches !== null && matches.length > 1)
                 columnName = matches[1];
         }
 
@@ -1183,16 +1201,16 @@ class JoinTables {
         for (let joinTable of astJoin) {
             /** @type {VirtualField} */
             let leftFieldInfo = this.derivedTable.getFieldInfo(joinTable.cond.left);
-            if (leftFieldInfo == null)
+            if (leftFieldInfo === null)
                 leftFieldInfo = virtualFields.getFieldInfo(joinTable.cond.left);
-            if (leftFieldInfo == null)
+            if (leftFieldInfo === null)
                 throw new Error("Invalid JOIN field: " + joinTable.cond.left);
 
             /** @type {VirtualField} */
             let rightFieldInfo = this.derivedTable.getFieldInfo(joinTable.cond.right);
-            if (rightFieldInfo == null)
+            if (rightFieldInfo === null)
                 rightFieldInfo = virtualFields.getFieldInfo(joinTable.cond.right);
-            if (rightFieldInfo == null)
+            if (rightFieldInfo === null)
                 throw new Error("Invalid JOIN field: " + joinTable.cond.right);
 
             this.derivedTable = this.joinTables(leftFieldInfo, rightFieldInfo, joinTable);
@@ -1428,7 +1446,7 @@ class DerivedTable {
     * @returns {Boolean}
     */
     isDerivedTable() {
-        return this.tableInfo != null;
+        return this.tableInfo !== null;
     }
 
     /**
@@ -1445,7 +1463,7 @@ class DerivedTable {
      * @returns {VirtualField} 
      */
     getFieldInfo(field) {
-        return this.tableInfo == null ? null : this.tableInfo.getVirtualFieldInfo(field);
+        return this.tableInfo === null ? null : this.tableInfo.getVirtualFieldInfo(field);
     }
 
     /**
@@ -1462,6 +1480,11 @@ class DerivedTable {
 }
 
 class SqlServerFunctions {
+    /**
+     * 
+     * @param {String} calculatedFormula 
+     * @returns {String}
+     */
     convertToJs(calculatedFormula) {
         const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
@@ -1478,7 +1501,7 @@ class SqlServerFunctions {
 
             [args, functionString] = this.caseStart(func, args, functionString);
 
-            while (args != null && args.length > 0) {
+            while (args !== null && args.length > 0) {
                 // Split on COMMA, except within brackets.
                 let parms = typeof args[1] == 'undefined' ? [] : SelectTables.parseForParams(args[1]);
 
@@ -1621,7 +1644,7 @@ class SqlServerFunctions {
         if (func == "CASE") {
             args = functionString.match(/CASE(.*?)END/i);
 
-            if (args != null && args.length > 1) {
+            if (args !== null && args.length > 1) {
                 this.firstCase = true;
                 this.originalFunctionString = functionString;
                 this.originalCaseStatement = args[0];
@@ -1757,6 +1780,13 @@ class ConglomerateRecord {
         return groupValue;
     }
 
+    /**
+     * 
+     * @param {Boolean} first 
+     * @param {Number} groupValue 
+     * @param {Number} data 
+     * @returns {Number}
+     */
     minCase(first, groupValue, data) {
         if (first)
             groupValue = data;
@@ -1766,6 +1796,13 @@ class ConglomerateRecord {
         return groupValue;
     }
 
+    /**
+     * 
+     * @param {Boolean} first 
+     * @param {Number} groupValue 
+     * @param {Number} data 
+     * @returns {Number}
+     */
     maxCase(first, groupValue, data) {
         if (first)
             groupValue = data;
