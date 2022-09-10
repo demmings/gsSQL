@@ -398,7 +398,6 @@ function sql2ast(query) {
             else result[item] = part_result;
         }
         else {
-            console.log('Can\'t analyze statement "' + item + '"');
             throw new Error("Can't analyze statement " + item);
         }
     });

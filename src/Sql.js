@@ -150,7 +150,6 @@ class Sql {
      * @returns {Sql}
      */
     addBindNamedRangeParameter(value) {
-        const tableData = new TableData();
         const namedValue = TableData.getValueCached(value, 30);
         this.bindParameters.push(namedValue);
         return this;
@@ -244,7 +243,7 @@ class Sql {
 
         let i = 0;
         while (tableAlias === "" && i < astTableBlocks.length) {
-            tableAlias = this.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
+            tableAlias = Sql.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
             i++;
         }
 
@@ -418,7 +417,7 @@ class Sql {
      * @param {String} astBlock 
      * @returns {String}
      */
-    locateAstTableAlias(tableName, ast, astBlock) {
+    static locateAstTableAlias(tableName, ast, astBlock) {
         if (typeof ast[astBlock] === 'undefined')
             return "";
 
@@ -444,7 +443,7 @@ class Sql {
             throw new Error("Missing keyword FROM");
 
         //  Manipulate AST to add GROUP BY if DISTINCT keyword.
-        ast = this.distinctField(ast);
+        ast = Sql.distinctField(ast);
 
         //  Manipulate AST add pivot fields.
         ast = this.pivotField(ast);
@@ -488,7 +487,7 @@ class Sql {
      * @param {Object} ast 
      * @returns {Object}
      */
-    distinctField(ast) {
+    static distinctField(ast) {
         const astFields = ast['SELECT'];
 
         if (astFields.length > 0) {
@@ -528,7 +527,7 @@ class Sql {
         // These are all of the unique PIVOT field data points.
         const pivotFieldData = this.getUniquePivotData(ast);
 
-        ast['SELECT'] = this.addCalculatedPivotFieldsToAst(ast, pivotFieldData);
+        ast['SELECT'] = Sql.addCalculatedPivotFieldsToAst(ast, pivotFieldData);
 
         return ast;
     }
@@ -563,7 +562,7 @@ class Sql {
      * @param {any[][]} pivotFieldData 
      * @returns {Object}
      */
-    addCalculatedPivotFieldsToAst(ast, pivotFieldData) {
+    static addCalculatedPivotFieldsToAst(ast, pivotFieldData) {
         const newPivotAstFields = [];
 
         for (const selectField of ast['SELECT']) {
@@ -608,7 +607,7 @@ class Sql {
                     switch (type) {
                         case "UNION":
                             //  Remove duplicates.
-                            viewTableData = this.appendUniqueRows(viewTableData, unionData);
+                            viewTableData = Sql.appendUniqueRows(viewTableData, unionData);
                             break;
 
                         case "UNION ALL":
@@ -618,12 +617,12 @@ class Sql {
 
                         case "INTERSECT":
                             //  Must exist in BOTH tables.
-                            viewTableData = this.intersectRows(viewTableData, unionData);
+                            viewTableData = Sql.intersectRows(viewTableData, unionData);
                             break;
 
                         case "EXCEPT":
                             //  Remove from first table all rows that match in second table.
-                            viewTableData = this.exceptRows(viewTableData, unionData);
+                            viewTableData = Sql.exceptRows(viewTableData, unionData);
                             break;
                     }
                 }
@@ -639,7 +638,7 @@ class Sql {
      * @param {any[][]} newData
      * @returns {any[][]} 
      */
-    appendUniqueRows(srcData, newData) {
+    static appendUniqueRows(srcData, newData) {
         const srcMap = new Map();
 
         for (const srcRow of srcData) {
@@ -662,7 +661,7 @@ class Sql {
      * @param {any[][]} newData 
      * @returns {any[][]}
      */
-    intersectRows(srcData, newData) {
+    static intersectRows(srcData, newData) {
         const srcMap = new Map();
         const intersectTable = [];
 
@@ -684,7 +683,7 @@ class Sql {
      * @param {any[][]} newData 
      * @returns {any[][]}
      */
-    exceptRows(srcData, newData) {
+    static exceptRows(srcData, newData) {
         const srcMap = new Map();
         let rowNum = 0;
         for (const srcRow of srcData) {

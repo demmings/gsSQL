@@ -130,7 +130,7 @@ class SelectTables {
                 rightValue = SelectTables.dateToMs(rightValue);
             }
 
-            if (this.isConditionTrue(leftValue, condition.operator, rightValue))
+            if (SelectTables.isConditionTrue(leftValue, condition.operator, rightValue))
                 recordIDs.push(masterRecordID);
 
         }
@@ -176,7 +176,7 @@ class SelectTables {
      * @param {any} rightValue 
      * @returns 
      */
-    isConditionTrue(leftValue, operator, rightValue) {
+    static isConditionTrue(leftValue, operator, rightValue) {
         let keep = false;
         operator = operator.toUpperCase();
 
@@ -1049,7 +1049,7 @@ class VirtualFields {
         this.selectVirtualFields = [];
 
         for (const selField of astFields) {
-            let [columnName, aggregateFunctionName, calculatedField] = this.getSelectFieldNames(selField);
+            const [columnName, aggregateFunctionName, calculatedField] = this.getSelectFieldNames(selField);
             this.columnTitles.push(typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
             if (calculatedField === null && this.hasField(columnName)) {
@@ -1215,7 +1215,7 @@ class JoinTables {
             if (rightFieldInfo === null)
                 throw new Error("Invalid JOIN field: " + joinTable.cond.right);
 
-            this.derivedTable = this.joinTables(leftFieldInfo, rightFieldInfo, joinTable);
+            this.derivedTable = JoinTables.joinTables(leftFieldInfo, rightFieldInfo, joinTable);
 
             //  Field locations have changed to the derived table, so update our
             //  virtual field list with proper settings.
@@ -1252,7 +1252,7 @@ class JoinTables {
     * @param {Object} joinTable 
     * @returns {DerivedTable}
     */
-    joinTables(leftFieldInfo, rightFieldInfo, joinTable) {
+    static joinTables(leftFieldInfo, rightFieldInfo, joinTable) {
         let matchedRecordIDs = [];
         let derivedTable = null;
 
@@ -1727,7 +1727,7 @@ class ConglomerateRecord {
             if (field.aggregateFunction === "")
                 row.push(groupRecords[0][i]);
             else {
-                row.push(this.aggregateColumn(field, groupRecords, i));
+                row.push(ConglomerateRecord.aggregateColumn(field, groupRecords, i));
             }
             i++;
         }
@@ -1741,7 +1741,7 @@ class ConglomerateRecord {
      * @param {Number} columnIndex 
      * @returns {Number}
      */
-    aggregateColumn(field, groupRecords, columnIndex) {
+    static aggregateColumn(field, groupRecords, columnIndex) {
         let groupValue = 0;
         let avgCounter = 0;
         let first = true;

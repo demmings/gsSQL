@@ -65,7 +65,7 @@ class TableData {
         let arrData;
 
         if (seconds <= 0) {
-            return this.loadValuesFromRangeOrSheet(namedRange);
+            return TableData.loadValuesFromRangeOrSheet(namedRange);
         }
         else if (seconds > 21600) {
             cache = new ScriptSettings();
@@ -75,7 +75,7 @@ class TableData {
             cache = CacheService.getScriptCache();
         }
 
-        arrData = this.cacheGetArray(cache, namedRange);
+        arrData = TableData.cacheGetArray(cache, namedRange);
         if (arrData !== null) {
             Logger.log("Found in CACHE: " + namedRange + ". Items=" + arrData.length);
             return arrData;
@@ -83,7 +83,7 @@ class TableData {
 
         Logger.log("Not in cache: " + namedRange);
 
-        if (this.isRangeLoading(cache, namedRange)) {
+        if (TableData.isRangeLoading(cache, namedRange)) {
             //  Just wait until data loaded elsewhere.
             arrData = this.waitForRangeToLoad(cache, namedRange, seconds);
         }
@@ -140,7 +140,7 @@ class TableData {
      * @param {String} namedRange
      * @returns {Boolean} 
      */
-    isRangeLoading(cache, namedRange) {
+    static isRangeLoading(cache, namedRange) {
         let loading = false;
         const cacheData = cache.get(TableData.cacheStatusName(namedRange));
 
@@ -165,22 +165,22 @@ class TableData {
         let current = new Date().getTime();
 
         Logger.log("waitForRangeToLoad() - Start: " + namedRange);
-        while (this.isRangeLoading(cache, namedRange) && (current - start) < 10000) {
+        while (TableData.isRangeLoading(cache, namedRange) && (current - start) < 10000) {
             Utilities.sleep(250);
             current = new Date().getTime();
         }
         Logger.log("waitForRangeToLoad() - End");
 
-        let arrData = this.cacheGetArray(cache, namedRange);
+        let arrData = TableData.cacheGetArray(cache, namedRange);
 
         //  Give up and load from SHEETS directly.
         if (arrData === null) {
             Logger.log("waitForRangeToLoad - give up.  Read directly. " + namedRange);
-            arrData = this.loadValuesFromRangeOrSheet(namedRange);
+            arrData = TableData.loadValuesFromRangeOrSheet(namedRange);
 
-            if (this.isRangeLoading(cache, namedRange)) {
+            if (TableData.isRangeLoading(cache, namedRange)) {
                 //  Other process probably timed out and left status hanging.
-                this.cachePutArray(cache, namedRange, cacheSeconds, arrData);
+                TableData.cachePutArray(cache, namedRange, cacheSeconds, arrData);
             }
         }
 
@@ -196,13 +196,13 @@ class TableData {
      */
     lockLoadAndCache(cache, namedRange, cacheSeconds) {
         //  Data is now loaded in cache.
-        let arrData = this.cacheGetArray(cache, namedRange);
+        let arrData = TableData.cacheGetArray(cache, namedRange);
         if (arrData !== null) {
             return arrData;
         }
 
         //  The status indicates this named range is being loaded in another process.
-        if (this.isRangeLoading(cache, namedRange)) {
+        if (TableData.isRangeLoading(cache, namedRange)) {
             return this.waitForRangeToLoad(cache, namedRange, cacheSeconds);
         }
 
@@ -215,7 +215,7 @@ class TableData {
         }
 
         //  It is possible that just before getting the lock, another process started caching.
-        if (this.isRangeLoading(cache, namedRange)) {
+        if (TableData.isRangeLoading(cache, namedRange)) {
             lock.releaseLock();
             return this.waitForRangeToLoad(cache, namedRange, cacheSeconds);
         }
@@ -225,11 +225,11 @@ class TableData {
         lock.releaseLock();
 
         //  Load data from SHEETS.
-        arrData = this.loadValuesFromRangeOrSheet(namedRange);
+        arrData = TableData.loadValuesFromRangeOrSheet(namedRange);
 
         Logger.log("Just LOADED from SHEET: " + arrData.length);
 
-        this.cachePutArray(cache, namedRange, cacheSeconds, arrData);
+        TableData.cachePutArray(cache, namedRange, cacheSeconds, arrData);
 
         return arrData;
     }
@@ -239,7 +239,7 @@ class TableData {
      * @param {String} namedRange 
      * @returns {any[]}
      */
-    loadValuesFromRangeOrSheet(namedRange) {
+    static loadValuesFromRangeOrSheet(namedRange) {
         let output = [];
 
         try {
@@ -276,7 +276,7 @@ class TableData {
      * @param {Number} cacheSeconds 
      * @param {any[][]} arrData 
      */
-    cachePutArray(cache, namedRange, cacheSeconds, arrData) {
+    static cachePutArray(cache, namedRange, cacheSeconds, arrData) {
         const cacheStatusName = TableData.cacheStatusName(namedRange);
         const json = JSON.stringify(arrData);
 
@@ -315,7 +315,7 @@ class TableData {
      * @param {String} namedRange 
      * @returns {any[][]}
      */
-    cacheGetArray(cache, namedRange) {
+    static cacheGetArray(cache, namedRange) {
         let arrData = [];
 
         const cacheStatusName = TableData.cacheStatusName(namedRange);
