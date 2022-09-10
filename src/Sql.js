@@ -223,7 +223,7 @@ class Sql {
         let tableAlias = "";
         tableName = tableName.toUpperCase();
 
-        tableAlias = this.getTableAliasFromJoin(tableAlias, tableName, ast);
+        tableAlias = Sql.getTableAliasFromJoin(tableAlias, tableName, ast);
         tableAlias = this.getTableAliasUnion(tableAlias, tableName, ast);
         tableAlias = this.getTableAliasWhereIn(tableAlias, tableName, ast);
         tableAlias = this.getTableAliasWhereTerms(tableAlias, tableName, ast);
@@ -238,7 +238,7 @@ class Sql {
      * @param {Object} ast 
      * @returns {String}
      */
-    getTableAliasFromJoin(tableAlias, tableName, ast) {
+    static getTableAliasFromJoin(tableAlias, tableName, ast) {
         const astTableBlocks = ['FROM', 'JOIN'];
 
         let i = 0;

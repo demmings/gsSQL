@@ -307,7 +307,7 @@ function sql2ast(query) {
                 const tmp = {};
                 tmp['column'] = trim(orderData[1]);
                 tmp['order'] = trim(orderData[2]);
-                if (orderData[2] === undefined) {
+                if (typeof orderData[2] === 'undefined') {
                     const orderParts = item.trim().split(" ");
                     if (orderParts.length > 1)
                         throw new Error("Invalid ORDER BY: " + item);

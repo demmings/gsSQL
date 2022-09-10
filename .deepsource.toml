@@ -5,7 +5,8 @@ name = "javascript"
 enabled = true
 
 exclude_patterns = [
-  "**/src/SqlTest.js"
+  "**/src/SqlTest.js",
+  "testGsSql.js"
 ]
 
 test_patterns = [

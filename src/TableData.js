@@ -85,7 +85,7 @@ class TableData {
 
         if (TableData.isRangeLoading(cache, namedRange)) {
             //  Just wait until data loaded elsewhere.
-            arrData = this.waitForRangeToLoad(cache, namedRange, seconds);
+            arrData = TableData.waitForRangeToLoad(cache, namedRange, seconds);
         }
         else {
             arrData = this.lockLoadAndCache(cache, namedRange, seconds);
@@ -160,7 +160,7 @@ class TableData {
      * @param {Number} cacheSeconds - How long to cache results.
      * @returns {any[][]}
      */
-    waitForRangeToLoad(cache, namedRange, cacheSeconds) {
+    static waitForRangeToLoad(cache, namedRange, cacheSeconds) {
         const start = new Date().getTime();
         let current = new Date().getTime();
 
@@ -203,7 +203,7 @@ class TableData {
 
         //  The status indicates this named range is being loaded in another process.
         if (TableData.isRangeLoading(cache, namedRange)) {
-            return this.waitForRangeToLoad(cache, namedRange, cacheSeconds);
+            return TableData.waitForRangeToLoad(cache, namedRange, cacheSeconds);
         }
 
         //  Only change our CACHE STATUS if we have a lock.
@@ -217,7 +217,7 @@ class TableData {
         //  It is possible that just before getting the lock, another process started caching.
         if (TableData.isRangeLoading(cache, namedRange)) {
             lock.releaseLock();
-            return this.waitForRangeToLoad(cache, namedRange, cacheSeconds);
+            return TableData.waitForRangeToLoad(cache, namedRange, cacheSeconds);
         }
 
         //  Mark the status for this named range that loading is in progress.
