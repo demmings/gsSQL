@@ -385,7 +385,7 @@ class Schema {
         const titleRow = this.tableData[0];
 
         let colNum = 0;
-        let fieldVariants;
+        let fieldVariants = [];
         for (const baseColumnName of titleRow) {
             //  Find possible variations of the field column name.
             try {

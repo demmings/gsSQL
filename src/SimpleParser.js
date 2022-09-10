@@ -189,7 +189,7 @@ function sql2ast(query) {
     }
     parts_name.forEach(function (item) {
         let pos = 0;
-        let part;
+        let part = 0;
 
         do {
             part = query.indexOf(item, pos);
@@ -804,7 +804,6 @@ CondParser.prototype = {
      */
     parseBaseExpression: function (operator="") {
         let astNode = {};
-        let inCurrentToken;
 
         // If this is a word/string, return its value
         if (this.currentToken.type === 'word' || this.currentToken.type === 'string') {
@@ -828,7 +827,7 @@ CondParser.prototype = {
             const isSelectStatement = typeof astNode === "string" && astNode.toUpperCase() === 'SELECT';
 
             if (operator === 'IN' || isSelectStatement) {
-                inCurrentToken = this.currentToken;
+                let inCurrentToken = this.currentToken;
                 while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
                     this.readNextToken();
                     if (inCurrentToken.type !== 'group') {
@@ -847,7 +846,7 @@ CondParser.prototype = {
             }
             else {
                 //  Are we within brackets of mathematicl expression ?
-                inCurrentToken = this.currentToken;
+                let inCurrentToken = this.currentToken;
 
                 while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
                     this.readNextToken();

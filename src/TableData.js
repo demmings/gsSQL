@@ -61,8 +61,7 @@ class TableData {
      * @returns {any[][]}
      */
     getValuesCached(namedRange, seconds) {
-        let cache;
-        let arrData;
+        let cache = {};
 
         if (seconds <= 0) {
             return TableData.loadValuesFromRangeOrSheet(namedRange);
@@ -75,7 +74,7 @@ class TableData {
             cache = CacheService.getScriptCache();
         }
 
-        arrData = TableData.cacheGetArray(cache, namedRange);
+        let arrData = TableData.cacheGetArray(cache, namedRange);
         if (arrData !== null) {
             Logger.log("Found in CACHE: " + namedRange + ". Items=" + arrData.length);
             return arrData;
@@ -88,7 +87,7 @@ class TableData {
             arrData = TableData.waitForRangeToLoad(cache, namedRange, seconds);
         }
         else {
-            arrData = this.lockLoadAndCache(cache, namedRange, seconds);
+            arrData = TableData.lockLoadAndCache(cache, namedRange, seconds);
         }
 
         return arrData;
@@ -194,7 +193,7 @@ class TableData {
      * @param {Number} cacheSeconds 
      * @returns {any[][]} - data from range
      */
-    lockLoadAndCache(cache, namedRange, cacheSeconds) {
+    static lockLoadAndCache(cache, namedRange, cacheSeconds) {
         //  Data is now loaded in cache.
         let arrData = TableData.cacheGetArray(cache, namedRange);
         if (arrData !== null) {

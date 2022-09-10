@@ -55,7 +55,7 @@ class SelectTables {
     whereCondition(ast) {
         let sqlData = [];
 
-        let conditions;
+        let conditions = {};
         if (typeof ast['WHERE'] !== 'undefined') {
             conditions = ast['WHERE'];
         }
@@ -251,9 +251,7 @@ class SelectTables {
         for (const masterRecordID of recordIDs) {
             const newRow = [];
 
-            /** @type {SelectField} */
-            let field;
-            for (field of this.virtualFields.selectVirtualFields) {
+            for (/** @type {SelectField} */ let field of this.virtualFields.selectVirtualFields) {
                 if (field.fieldInfo !== null)
                     newRow.push(field.fieldInfo.getData(masterRecordID));
                 else if (field.calculatedFormula !== "") {
@@ -275,7 +273,7 @@ class SelectTables {
      * @returns {any}
      */
     evaluateCalculatedField(calculatedFormula, masterRecordID) {
-        let result;
+        let result = "";
         const functionString = this.sqlServerCalcFields(calculatedFormula, masterRecordID);
         try {
             result = new Function(functionString)();
@@ -300,10 +298,8 @@ class SelectTables {
         //  Working on a calculated field.
         const objectsDeclared = new Map();
 
-        /** @type {VirtualField} */
-        let vField;
         let myVars = "";
-        for (vField of this.virtualFields.getAllVirtualFields()) {
+        for (/** @type {VirtualField} */ let vField of this.virtualFields.getAllVirtualFields()) {
             //  a) Exclude the * field which represents all fields.
             //  b) Non primary table fields require full notation for column
             //  c) The 'masterRecordID' is referencing masterTable, so fields from
@@ -454,9 +450,7 @@ class SelectTables {
      */
     getConglomerateFieldCount() {
         let count = 0;
-        /** @type {SelectField} */
-        let field;
-        for (field of this.virtualFields.selectVirtualFields) {
+        for (/** @type {SelectField} */ let field of this.virtualFields.selectVirtualFields) {
             if (field.aggregateFunction !== "")
                 count++;
         }
@@ -963,7 +957,7 @@ class VirtualFields {
      */
     loadVirtualFields(primaryTable, tableInfo) {
         /** @type {String} */
-        let tableName;
+        let tableName = "";
         /** @type {Table} */
         let tableObject;
         // @ts-ignore
@@ -1308,6 +1302,9 @@ class JoinTables {
                 derivedTable.tableInfo.concat(rightDerivedTable.tableInfo);
 
                 break;
+
+            default:
+                throw new Error ("Internal error.  No support for join type: " + joinTable.type);
         }
         return derivedTable;
     }
@@ -1589,6 +1586,8 @@ class SqlServerFunctions {
                     case "UPPER":
                         replacement = parms[0] + ".toUpperCase()";
                         break;
+                    default:
+                        throw new Error("Internal Error. Function is missing. " + func);
                 }
 
                 functionString = functionString.replace(args[0], replacement);
@@ -1720,10 +1719,8 @@ class ConglomerateRecord {
         if (groupRecords.length === 0)
             return row;
 
-        /** @type {SelectField} */
-        let field;
         let i = 0;
-        for (field of this.selectVirtualFields) {
+        for (/** @type {SelectField} */ let field of this.selectVirtualFields) {
             if (field.aggregateFunction === "")
                 row.push(groupRecords[0][i]);
             else {
