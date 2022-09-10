@@ -5,7 +5,5 @@ name = "javascript"
 enabled = true
 
 exclude_patterns = [
-  "SqlTest.js",
-  "./SqlTest.js",
-  "src/SqlTest.js"
+  "**/src/SqlTest.js"
 ]
