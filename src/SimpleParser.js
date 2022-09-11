@@ -8,8 +8,7 @@ export { sql2ast, sqlCondition2JsCondition };
 function trim(str) {
     if (typeof str === 'string')
         return str.trim();
-    else
-        return str;
+    return str;
 }
 
 // Split a string using a separator, only if this separator isn't beetween brackets
@@ -70,16 +69,16 @@ function hideInnerSql(str, parts_name_escaped, replaceFunction) {
     let endCount = -1;
 
     for (let i = str.length - 1; i >= 0; i--) {
-        const c = str.charAt(i);
+        const ch = str.charAt(i);
 
-        if (c === ")") {
+        if (ch === ")") {
             bracketCount++;
 
             if (bracketCount === 1) {
                 endCount = i;
             }
         }
-        else if (c === "(") {
+        else if (ch === "(") {
             bracketCount--;
             if (bracketCount === 0) {
 
@@ -260,9 +259,7 @@ function sql2ast(query) {
                     as: alias
                 };
             }
-            else {
-                return { name: item, as: alias };
-            }
+            return { name: item, as: alias };
         });
         return selectResult;
     };
@@ -532,14 +529,14 @@ function getNameAndAlias(item) {
     let alias = "";
     const lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
     if (lastAs !== -1) {
-        const s = item.substring(lastAs + 4).trim();
-        if (s.length > 0) {
-            alias = s;
+        const subStr = item.substring(lastAs + 4).trim();
+        if (subStr.length > 0) {
+            alias = subStr;
             //  Remove quotes, if any.
-            if ((s.startsWith("'") && s.endsWith("'")) ||
-                (s.startsWith('"') && s.endsWith('"')) ||
-                (s.startsWith('[') && s.endsWith(']')))
-                alias = s.substring(1, s.length - 1);
+            if ((subStr.startsWith("'") && subStr.endsWith("'")) ||
+                (subStr.startsWith('"') && subStr.endsWith('"')) ||
+                (subStr.startsWith('[') && subStr.endsWith(']')))
+                alias = subStr.substring(1, subStr.length - 1);
 
             //  Remove everything after 'AS'.
             item = item.substring(0, lastAs);
@@ -554,16 +551,16 @@ function lastIndexOfOutsideLiteral(srcString, searchString) {
     let inQuote = "";
 
     for (let i = 0; i < srcString.length; i++) {
-        const c = srcString.charAt(i);
+        const ch = srcString.charAt(i);
 
         if (inQuote !== "") {
             //  The ending quote.
-            if ((inQuote === "'" && c === "'") || (inQuote === '"' && c === '"') || (inQuote === "[" && c === "]"))
+            if ((inQuote === "'" && ch === "'") || (inQuote === '"' && ch === '"') || (inQuote === "[" && ch === "]"))
                 inQuote = "";
         }
-        else if ("\"'[".indexOf(c) !== -1) {
+        else if ("\"'[".indexOf(ch) !== -1) {
             //  The starting quote.
-            inQuote = c;
+            inQuote = ch;
         }
         else if (srcString.substring(i).startsWith(searchString)) {
             //  Matched search.
@@ -612,11 +609,12 @@ CondLexer.prototype = {
         if (this.currentChar === '?')
             return this.readBindVariable();
 
-        if (this.currentChar === "") return { type: 'eot', value: '' };
-        else {
-            this.readNextChar();
-            return { type: 'empty', value: '' };
+        if (this.currentChar === "") {
+            return { type: 'eot', value: '' };
         }
+
+        this.readNextChar();
+        return { type: 'empty', value: '' };
     },
 
     readWord: function () {
@@ -663,8 +661,7 @@ CondLexer.prototype = {
             return { type: 'logic', value: tokenValue.toUpperCase() };
         if (/^(IN|IS|NOT|LIKE)$/i.test(tokenValue))
             return { type: 'operator', value: tokenValue.toUpperCase() };
-        else
-            return { type: 'word', value: tokenValue };
+        return { type: 'word', value: tokenValue };
     },
 
     readString: function () {
@@ -802,7 +799,7 @@ CondParser.prototype = {
      * @param {String} operator 
      * @returns {Object}
      */
-    parseBaseExpression: function (operator="") {
+    parseBaseExpression: function (operator = "") {
         let astNode = {};
 
         // If this is a word/string, return its value

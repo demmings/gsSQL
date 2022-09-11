@@ -6,9 +6,6 @@ enabled = true
 
 exclude_patterns = [
   "**/src/SqlTest.js",
+  "**/SqlTest.js",
   "testGsSql.js"
-]
-
-test_patterns = [
-  "**/src/SqlTest.js"
 ]

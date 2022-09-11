@@ -363,19 +363,19 @@ class SelectTables {
         let inQuotes = "";
 
         for (let i = 0; i < srcString.length; i++) {
-            let c = srcString.charAt(i);
+            let ch = srcString.charAt(i);
 
             if (inQuotes === "") {
-                if (c === '"' || c === "'")
-                    inQuotes = c;
-                c = c.toUpperCase();
+                if (ch === '"' || ch === "'")
+                    inQuotes = ch;
+                ch = ch.toUpperCase();
             }
             else {
-                if (c === inQuotes)
+                if (ch === inQuotes)
                     inQuotes = "";
             }
 
-            finalString += c;
+            finalString += ch;
         }
 
         return finalString;
@@ -399,9 +399,9 @@ class SelectTables {
             const startLeft = i;
             let leftBracket = 1;
             for (i = i + 1; i < searchStr.length; i++) {
-                const c = searchStr.charAt(i);
-                if (c === "(") leftBracket++;
-                if (c === ")") leftBracket--;
+                const ch = searchStr.charAt(i);
+                if (ch === "(") leftBracket++;
+                if (ch === ")") leftBracket--;
 
                 if (leftBracket === 0) {
                     args.push(searchStr.substring(0, i + 1));
@@ -425,15 +425,15 @@ class SelectTables {
         let start = 0;
 
         for (let i = 0; i < paramString.length; i++) {
-            const c = paramString.charAt(i);
+            const ch = paramString.charAt(i);
 
-            if (c === "," && bracketCount === 0) {
+            if (ch === "," && bracketCount === 0) {
                 args.push(paramString.substring(start, i));
                 start = i + 1;
             }
-            else if (c === startBracket)
+            else if (ch === startBracket)
                 bracketCount++;
-            else if (c === endBracket)
+            else if (ch === endBracket)
                 bracketCount--;
         }
 
@@ -625,9 +625,7 @@ class SelectTables {
             if (a[colIndex] === b[colIndex]) {
                 return 0;
             }
-            else {
-                return (a[colIndex] < b[colIndex]) ? -1 : 1;
-            }
+            return (a[colIndex] < b[colIndex]) ? -1 : 1;
         }
 
         return tableData;
@@ -653,9 +651,7 @@ class SelectTables {
             if (a[colIndex] === b[colIndex]) {
                 return 0;
             }
-            else {
-                return (a[colIndex] > b[colIndex]) ? -1 : 1;
-            }
+            return (a[colIndex] > b[colIndex]) ? -1 : 1;
         }
 
         return tableData;
@@ -1304,7 +1300,7 @@ class JoinTables {
                 break;
 
             default:
-                throw new Error ("Internal error.  No support for join type: " + joinTable.type);
+                throw new Error("Internal error.  No support for join type: " + joinTable.type);
         }
         return derivedTable;
     }
@@ -1572,7 +1568,7 @@ class SqlServerFunctions {
                         replacement = "' '.repeat(" + parms[0] + ")";
                         break;
                     case "STUFF":
-                        replacement = parms[0] + ".substring(0," + parms[1] + "-1" + ") + " + parms[3] + " + " + parms[0] + ".substring(" + parms[1] + " + " + parms[2] + " - 1)";
+                        replacement = parms[0] + ".substring(0," + parms[1] + "-1) + " + parms[3] + " + " + parms[0] + ".substring(" + parms[1] + " + " + parms[2] + " - 1)";
                         break;
                     case "SUBSTRING":
                         replacement = parms[0] + ".substring(" + parms[1] + " - 1, " + parms[1] + " + " + parms[2] + " - 1)";

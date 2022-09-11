@@ -47,7 +47,7 @@ class TableData {
 
         Logger.log("loadTableData: " + namedRange + ". Seconds=" + cacheSeconds);
 
-        let tempData = this.getValuesCached(namedRange, cacheSeconds)
+        let tempData = TableData.getValuesCached(namedRange, cacheSeconds)
 
         tempData = tempData.filter(e => e.join().replace(/,/g, "").length);
 
@@ -60,7 +60,7 @@ class TableData {
      * @param {Number} seconds 
      * @returns {any[][]}
      */
-    getValuesCached(namedRange, seconds) {
+    static getValuesCached(namedRange, seconds) {
         let cache = {};
 
         if (seconds <= 0) {
@@ -325,8 +325,9 @@ class TableData {
         }
         else {
             Logger.log("Cache Status: " + cacheStatusName + ". Value=" + cacheStatus);
-            if (cacheStatus === TABLE.LOADING)
+            if (cacheStatus === TABLE.LOADING) {
                 return null;
+            }
         }
 
         const blockStr = cacheStatus.substring(cacheStatus.indexOf(TABLE.BLOCKS) + TABLE.BLOCKS.length);

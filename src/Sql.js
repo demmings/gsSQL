@@ -106,7 +106,7 @@ class Sql {
      * @returns {Sql}
      */
     addTableData(tableName, tableData, cacheSeconds = 0) {
-        let tableInfo;
+        let tableInfo = null;
 
         if (Array.isArray(tableData)) {
             tableInfo = new Table(tableName)
