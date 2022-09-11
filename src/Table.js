@@ -45,7 +45,7 @@ class Table {
      */
     loadNamedRangeData(namedRange, cacheSeconds = 0) {
         const tableData = new TableData();
-        this.tableData = tableData.loadTableData(namedRange, cacheSeconds);
+        this.tableData = TableData.loadTableData(namedRange, cacheSeconds);
 
         Logger.log("Load Data: Range=" + namedRange + ". Items=" + this.tableData.length);
         this.loadSchema();

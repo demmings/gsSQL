@@ -11,8 +11,6 @@ class Logger {
 //  *** DEBUG END  ***/
 
 function testTableData() {
-    const table = new TableData();
-
     const itemData = new Sql()
         .addTableData('mastertransactions', 'Master Transactions!$A$1:$I', 60)
         .enableColumnTitle(true)
@@ -23,14 +21,14 @@ function testTableData() {
             "where transaction_date >=  ? and transaction_date <= ? ");
     Logger.log(itemData);
 
-    let trans = table.loadTableData('Master Transactions!$A$1:$I', 60);
+    let trans = TableData.loadTableData('Master Transactions!$A$1:$I', 60);
     Logger.log(trans);
-    trans = table.loadTableData('Master Transactions!$A$1:$I', 60);
+    trans = TableData.loadTableData('Master Transactions!$A$1:$I', 60);
     Logger.log(trans);
 
-    let arrData = table.loadTableData('accountNamesData', 60);
+    let arrData = TableData.loadTableData('accountNamesData', 60);
     Logger.log(arrData);
-    arrData = table.loadTableData('accountNamesData', 60);
+    arrData = TableData.loadTableData('accountNamesData', 60);
     Logger.log(arrData);
 }
 
@@ -41,7 +39,7 @@ class TableData {
     * @param {Number} cacheSeconds - 0s Reads directly from sheet. > 21600s Sets in SCRIPT settings, else CacheService 
     * @returns {any[][]}
     */
-    loadTableData(namedRange, cacheSeconds = 0) {
+    static loadTableData(namedRange, cacheSeconds = 0) {
         if (typeof namedRange === 'undefined' || namedRange === "")
             return [];
 
