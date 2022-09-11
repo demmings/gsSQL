@@ -332,7 +332,7 @@ class TableData {
 
         const blockStr = cacheStatus.substring(cacheStatus.indexOf(TABLE.BLOCKS) + TABLE.BLOCKS.length);
         if (blockStr !== "") {
-            const blocks = parseInt(blockStr);
+            const blocks = parseInt(blockStr, 10);
             for (let i = 1; i <= blocks; i++) {
                 const blockName = namedRange + ":" + i.toString();
                 const jsonData = cache.get(blockName);

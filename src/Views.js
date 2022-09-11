@@ -747,9 +747,9 @@ class SelectTables {
         else if (typeof value === "string") {
             const dateParts = value.split("/");
             if (dateParts.length === 3) {
-                year = parseInt(dateParts[2]);
-                month = parseInt(dateParts[0]) - 1;
-                dayNum = parseInt(dateParts[1]);
+                year = parseInt(dateParts[2], 10);
+                month = parseInt(dateParts[0], 10) - 1;
+                dayNum = parseInt(dateParts[1], 10);
             }
         }
 

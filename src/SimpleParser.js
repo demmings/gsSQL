@@ -349,7 +349,7 @@ function sql2ast(query) {
 
     analysis['LIMIT'] = function (str) {
         const limitResult = {};
-        limitResult['nb'] = parseInt(str);
+        limitResult['nb'] = parseInt(str, 10);
         limitResult['from'] = 0;
         return limitResult;
     };
