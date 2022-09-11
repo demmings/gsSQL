@@ -251,7 +251,7 @@ class SelectTables {
         for (const masterRecordID of recordIDs) {
             const newRow = [];
 
-            for (/** @type {SelectField} */ let field of this.virtualFields.selectVirtualFields) {
+            for (/** @type {SelectField} */ const field of this.virtualFields.selectVirtualFields) {
                 if (field.fieldInfo !== null)
                     newRow.push(field.fieldInfo.getData(masterRecordID));
                 else if (field.calculatedFormula !== "") {
@@ -299,7 +299,7 @@ class SelectTables {
         const objectsDeclared = new Map();
 
         let myVars = "";
-        for (/** @type {VirtualField} */ let vField of this.virtualFields.getAllVirtualFields()) {
+        for (/** @type {VirtualField} */ const vField of this.virtualFields.getAllVirtualFields()) {
             //  a) Exclude the * field which represents all fields.
             //  b) Non primary table fields require full notation for column
             //  c) The 'masterRecordID' is referencing masterTable, so fields from
@@ -450,7 +450,7 @@ class SelectTables {
      */
     getConglomerateFieldCount() {
         let count = 0;
-        for (/** @type {SelectField} */ let field of this.virtualFields.selectVirtualFields) {
+        for (/** @type {SelectField} */ const field of this.virtualFields.selectVirtualFields) {
             if (field.aggregateFunction !== "")
                 count++;
         }
@@ -1720,7 +1720,7 @@ class ConglomerateRecord {
             return row;
 
         let i = 0;
-        for (/** @type {SelectField} */ let field of this.selectVirtualFields) {
+        for (/** @type {SelectField} */ const field of this.selectVirtualFields) {
             if (field.aggregateFunction === "")
                 row.push(groupRecords[0][i]);
             else {

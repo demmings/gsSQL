@@ -68,9 +68,7 @@ function parseTableSettings(tableArr, statement = "", randomOrder = true) {
     }
 
     Logger.log("tableArr" + tableArr);
-    /** @type {any[]} */
-    let table;
-    for (table of tableArr) {
+    for (/** @type {any[]} */ let table of tableArr) {
         if (table.length === 1)
             table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
         if (table.length === 2)
@@ -624,6 +622,9 @@ class Sql {
                             //  Remove from first table all rows that match in second table.
                             viewTableData = Sql.exceptRows(viewTableData, unionData);
                             break;
+
+                        default:
+                            throw new Error("Internal error.  Unsupported UNION type: " + type);
                     }
                 }
             }
