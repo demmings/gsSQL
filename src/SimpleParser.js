@@ -581,6 +581,8 @@ function CondLexer(source) {
     this.source = source;
     this.cursor = 0;
     this.currentChar = "";
+    this.startQuote = "";
+    this.bracketCount = 0;
 
     this.readNextChar();
 }
@@ -623,44 +625,16 @@ CondLexer.prototype = {
 
     readWord: function () {
         let tokenValue = "";
-        let bracketCount = 0;
+        this.bracketCount = 0;
         let insideQuotedString = false;
-        let startQuote = "";
+        this.startQuote = "";
 
         while (/./.test(this.currentChar)) {
             // Check if we are in a string
-            if (!insideQuotedString && /['"`]/.test(this.currentChar)) {
-                //  Start of quoted string.
-                insideQuotedString = true;
-                startQuote = this.currentChar;
-            }
-            else if (insideQuotedString && this.currentChar === startQuote) {
-                //  End of quoted string.
-                insideQuotedString = false;
-            }
-            else if (!insideQuotedString) {
-                // Token is finished if there is a closing bracket outside a string and with no opening
-                if (this.currentChar === ')' && bracketCount <= 0) {
-                    break;
-                }
+            insideQuotedString = this.isStartOrEndOfString(insideQuotedString);
 
-                if (this.currentChar === '(') {
-                    bracketCount++;
-                }
-                else if (this.currentChar === ')') {
-                    bracketCount--;
-                }
-
-                // Token is finished if there is a operator symbol outside a string
-                if (/[!=<>]/.test(this.currentChar)) {
-                    break;
-                }
-
-                // Token is finished on the first space which is outside a string or a function
-                if (this.currentChar === ' ' && bracketCount <= 0) {
-                    break;
-                }
-            }
+            if (this.isFinishedWord(insideQuotedString))
+                break;
 
             tokenValue += this.currentChar;
             this.readNextChar();
@@ -675,6 +649,59 @@ CondLexer.prototype = {
         }
 
         return { type: 'word', value: tokenValue };
+    },
+
+    /**
+     * 
+     * @param {Boolean} insideQuotedString 
+     * @returns {Boolean}
+     */
+    isStartOrEndOfString: function (insideQuotedString) {
+        if (!insideQuotedString && /['"`]/.test(this.currentChar)) {
+            this.startQuote = this.currentChar;
+
+            return true;
+        }
+        else if (insideQuotedString && this.currentChar === this.startQuote) {
+            //  End of quoted string.
+            return false;
+        }
+
+        return insideQuotedString;
+    },
+
+    /**
+     * 
+     * @param {Boolean} insideQuotedString 
+     * @returns {Boolean}
+     */
+    isFinishedWord: function (insideQuotedString) {
+        if (insideQuotedString)
+            return false;
+
+        // Token is finished if there is a closing bracket outside a string and with no opening
+        if (this.currentChar === ')' && this.bracketCount <= 0) {
+            return true;
+        }
+
+        if (this.currentChar === '(') {
+            this.bracketCount++;
+        }
+        else if (this.currentChar === ')') {
+            this.bracketCount--;
+        }
+
+        // Token is finished if there is a operator symbol outside a string
+        if (/[!=<>]/.test(this.currentChar)) {
+            return true;
+        }
+
+        // Token is finished on the first space which is outside a string or a function
+        if (this.currentChar === ' ' && this.bracketCount <= 0) {
+            return true;
+        }
+
+        return false;
     },
 
     readString: function () {
