@@ -634,6 +634,16 @@ class SqlTester {
 
     whereAndNotEqual2() {
         let stmt = "select * from bookSales where date >= ? AND date <= ? And book_id <> ?";
+        let func = "whereAndNotEqual2";
+        return this.whereAndNotEqual2base(stmt, func);
+    }
+
+    whereAndNotEqual3() {
+        let stmt = "select * from bookSales where date>=? AND date<=? And book_id<>?";
+        let func = "whereAndNotEqual3";
+        return this.whereAndNotEqual2base(stmt, func);
+    }
+    whereAndNotEqual2base(stmt, func) {
 
         let data = new Sql()
             .addTableData("bookSales", this.bookSalesTable())
@@ -653,7 +663,7 @@ class SqlTester {
         ["I7205", "7", "C1", 1, 33.97, "05/04/2022"],
         ["I7206", "7", "C2", 100, 17.99, "05/04/2022"]];
 
-        return this.isEqual("whereAndNotEqual2", data, expected);
+        return this.isEqual(func, data, expected);
     }
 
     selectAgainNewBinds1() {
@@ -2214,6 +2224,7 @@ function testerSql() {
     result = result && tester.whereAndOr1();
     result = result && tester.whereAndOr2();
     result = result && tester.whereAndNotEqual2();
+    result = result && tester.whereAndNotEqual3();
     result = result && tester.groupBy1();
     result = result && tester.selectAgainNewBinds1();
     result = result && tester.groupBy2();

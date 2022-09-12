@@ -590,8 +590,12 @@ CondLexer.prototype = {
 
     // Read the next character (or return an empty string if cursor is at the end of the source)
     readNextChar: function () {
-        if (typeof this.source !== 'string') this.currentChar = "";
-        else this.currentChar = this.source[this.cursor++] || "";
+        if (typeof this.source !== 'string') {
+            this.currentChar = "";
+        }
+        else {
+            this.currentChar = this.source[this.cursor++] || "";
+        }
     },
 
     // Determine the next token
@@ -619,48 +623,57 @@ CondLexer.prototype = {
 
     readWord: function () {
         let tokenValue = "";
-        let nb_brackets = 0;
-        let isString = false;
+        let bracketCount = 0;
+        let insideQuotedString = false;
         let startQuote = "";
+
         while (/./.test(this.currentChar)) {
             // Check if we are in a string
-            if (!isString && /['"`]/.test(this.currentChar)) {
-                isString = true;
+            if (!insideQuotedString && /['"`]/.test(this.currentChar)) {
+                //  Start of quoted string.
+                insideQuotedString = true;
                 startQuote = this.currentChar;
             }
-            else if (isString && this.currentChar === startQuote) {
-                isString = false;
+            else if (insideQuotedString && this.currentChar === startQuote) {
+                //  End of quoted string.
+                insideQuotedString = false;
             }
-            else {
-                // Allow spaces inside functions (only if we are not in a string)
-                if (!isString) {
-                    // Token is finished if there is a closing bracket outside a string and with no opening
-                    if (this.currentChar === ')' && nb_brackets <= 0)
-                        break;
+            else if (!insideQuotedString) {
+                // Token is finished if there is a closing bracket outside a string and with no opening
+                if (this.currentChar === ')' && bracketCount <= 0) {
+                    break;
+                }
 
-                    if (this.currentChar === '(')
-                        nb_brackets++;
-                    else if (this.currentChar === ')')
-                        nb_brackets--;
+                if (this.currentChar === '(') {
+                    bracketCount++;
+                }
+                else if (this.currentChar === ')') {
+                    bracketCount--;
+                }
 
-                    // Token is finished if there is a operator symbol outside a string
-                    if (/[!=<>]/.test(this.currentChar))
-                        break;
+                // Token is finished if there is a operator symbol outside a string
+                if (/[!=<>]/.test(this.currentChar)) {
+                    break;
                 }
 
                 // Token is finished on the first space which is outside a string or a function
-                if (this.currentChar === ' ' && nb_brackets <= 0)
+                if (this.currentChar === ' ' && bracketCount <= 0) {
                     break;
+                }
             }
 
             tokenValue += this.currentChar;
             this.readNextChar();
         }
 
-        if (/^(AND|OR)$/i.test(tokenValue))
+        if (/^(AND|OR)$/i.test(tokenValue)) {
             return { type: 'logic', value: tokenValue.toUpperCase() };
-        if (/^(IN|IS|NOT|LIKE)$/i.test(tokenValue))
+        }
+
+        if (/^(IN|IS|NOT|LIKE)$/i.test(tokenValue)) {
             return { type: 'operator', value: tokenValue.toUpperCase() };
+        }
+
         return { type: 'word', value: tokenValue };
     },
 
