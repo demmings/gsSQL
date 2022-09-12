@@ -697,11 +697,7 @@ CondLexer.prototype = {
         }
 
         // Token is finished on the first space which is outside a string or a function
-        if (this.currentChar === ' ' && this.bracketCount <= 0) {
-            return true;
-        }
-
-        return false;
+        return this.currentChar === ' ' && this.bracketCount <= 0;
     },
 
     readString: function () {
