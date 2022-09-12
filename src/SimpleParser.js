@@ -886,22 +886,7 @@ CondParser.prototype = {
         const isSelectStatement = typeof astNode === "string" && astNode.toUpperCase() === 'SELECT';
 
         if (operator === 'IN' || isSelectStatement) {
-            let inCurrentToken = this.currentToken;
-            while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
-                this.readNextToken();
-                if (inCurrentToken.type !== 'group') {
-                    if (isSelectStatement)
-                        astNode += " " + inCurrentToken.value;
-                    else
-                        astNode += ", " + inCurrentToken.value;
-                }
-
-                inCurrentToken = this.currentToken;
-            }
-
-            if (isSelectStatement) {
-                astNode = sql2ast(astNode);
-            }
+            astNode = this.parseSelectIn(astNode, isSelectStatement);
         }
         else {
             //  Are we within brackets of mathematicl expression ?
@@ -919,6 +904,33 @@ CondParser.prototype = {
         }
 
         this.readNextToken();
+
+        return astNode;
+    },
+
+    /**
+     * 
+     * @param {Object} astNode 
+     * @param {Boolean} isSelectStatement 
+     * @returns {Object}
+     */
+    parseSelectIn: function (astNode, isSelectStatement) {
+        let inCurrentToken = this.currentToken;
+        while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
+            this.readNextToken();
+            if (inCurrentToken.type !== 'group') {
+                if (isSelectStatement)
+                    astNode += " " + inCurrentToken.value;
+                else
+                    astNode += ", " + inCurrentToken.value;
+            }
+
+            inCurrentToken = this.currentToken;
+        }
+
+        if (isSelectStatement) {
+            astNode = sql2ast(astNode);
+        }
 
         return astNode;
     }
