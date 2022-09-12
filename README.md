@@ -157,8 +157,16 @@ Sql() Methods:
         =gsSQL("SELECT * FROM 'Master Transactions' WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = 'TFSA' ")
         
 ```
-        
-1.  Select statement.
+ 
+# gsSQL Parameters.
+
+1.  Select statement.  Most all common usage is supported.  
+     * If parameter 2 is to be omitted, the table must be a sheet name.  If the sheet name contains spaces, you must use single quotes around
+       the table name within the select.
+     * Bind variables use the question mark as a placeholder.  There must be matching question marks to bind variable data - which is 
+       specified starting in parameter 4.  
+     * The PIVOT command is also supported.  The 'PIVOT field' if used is the last part of the statement.  It must be used in conjunction with           'group by'l
+
 2.  Array of:  a) table name, b) Range of data, c) cache seconds
     * If the table referenced in the SELECT is the name of a SHEET, this parameter is optional.  For example:  
       "select * from transactions"  and you have a sheet called "transactions" and the first row of the sheet has unique column
@@ -168,8 +176,11 @@ Sql() Methods:
       "select * from 'master transactions'" if your sheet name is called 'master transactions'.
     * Use the CURLY bracket notations to create the double array of table definitions.
     * For RANGE of DATA,  either used NAMED RANGE, A1 notation range, SHEET NAME or empty (table name used as sheet name).  This input is a string.       The first row of each range MUST be unique column titles.
-3.  Include column title in output or not.
-4.  Optional BIND variable data.  There should be one data item listed PER question mark in the SELECT statement.
+    
+3.  Include column title in output or not. (true adds column titles, false omits the title row)
+
+4.  Optional BIND variable data.  There should be one data item listed PER question mark in the SELECT statement.  Data for the variables
+    can be literal data, cell references (A1 notation), and named fields.
 
 NOTE:
 1.  First ROW of data MUST be the column name.
@@ -188,7 +199,7 @@ SELECT * FROM books WHERE author_id IN (select id from authors where first_name 
 9.  BIND variables simplify the use of date comparisons.  The QUERY statement requires that you format the date in your SELECT.  Any DATE BIND variables are converted automatically.  Just specify the named range or A1 range in your gsSQL statement (without quotes) for each parameter and in your SELECT, just substitute with a question mark.  Here is an example from my sheet:
 
 ```
-=-gsSQL({{"mastertransactions", "Master Transactions!$A$1:$I",60}},"select sum(amount) from mastertransactions where account = ? and expense_category = ? and transaction_date >= ? and transaction_date <= ?", false, myName, "Savings - TFSA", startIncomeDate, endIncomeDate)
+=-gsSQL("select sum(amount) from mastertransactions where account = ? and expense_category = ? and transaction_date >= ? and transaction_date <= ?",  {{"mastertransactions", "Master Transactions!$A$1:$I",60}}, false, myName, "Savings - TFSA", startIncomeDate, endIncomeDate)
 ```
 
 # WARNING:
