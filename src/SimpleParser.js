@@ -12,29 +12,48 @@ function trim(str) {
 }
 
 // Split a string using a separator, only if this separator isn't beetween brackets
+/**
+ * 
+ * @param {String} separator 
+ * @param {String} str 
+ * @returns {String[]}
+ */
 function protect_split(separator, str) {
     const sep = '######';
 
-    let string = false;
-    let nb_brackets = 0;
-    let new_str = "";
+    let inQuotedString = false;
+    let quoteChar = "";
+    let bracketCount = 0;
+    let newStr = "";
     for (const c of str) {
-        if (!string && /['"`]/.test(c)) string = c;
-        else if (string && c === string) string = false;
-        else if (!string && c === '(') nb_brackets++;
-        else if (!string && c === ')') nb_brackets--;
+        if (!inQuotedString && /['"`]/.test(c)) {
+            inQuotedString = true;
+            quoteChar = c;
+        }
+        else if (inQuotedString && c === quoteChar) {
+            inQuotedString = false;
+        }
+        else if (!inQuotedString && c === '(') {
+            bracketCount++;
+        }
+        else if (!inQuotedString && c === ')') {
+            bracketCount--;
+        }
 
-        if (c === separator && (nb_brackets > 0 || string)) new_str += sep;
-        else new_str += c;
+        if (c === separator && (bracketCount > 0 || inQuotedString)) {
+            newStr += sep;
+        }
+        else {
+            newStr += c;
+        }
     }
-    str = new_str;
 
-    str = str.split(separator);
-    str = str.map(function (item) {
+    let strParts = newStr.split(separator);
+    strParts = strParts.map(function (item) {
         return trim(item.replace(new RegExp(sep, 'g'), separator));
     });
 
-    return str;
+    return strParts;
 }
 
 // Add some # inside a string to avoid it to match a regex/split
@@ -910,11 +929,12 @@ CondParser.prototype = {
 
     /**
      * 
-     * @param {Object} astNode 
+     * @param {Object} startAstNode 
      * @param {Boolean} isSelectStatement 
      * @returns {Object}
      */
-    parseSelectIn: function (astNode, isSelectStatement) {
+    parseSelectIn: function (startAstNode, isSelectStatement) {
+        let astNode = startAstNode;
         let inCurrentToken = this.currentToken;
         while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
             this.readNextToken();
