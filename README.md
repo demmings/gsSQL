@@ -167,14 +167,23 @@ Sql() Methods:
        specified starting in parameter 4.  
      * The PIVOT command is also supported.  The 'PIVOT field' if used is the last part of the statement.  It must be used in conjunction with           'group by'l
 
-2.  Array of:  a) table name, b) Range of data, c) cache seconds
+2.  Array of arrays:  a) table name, b) Range of data, c) cache seconds
+    * Use the CURLY bracket notations to create the double array of table definitions.  If three separate tables are used within your
+      SELECT, the table specifications would be entered as follows.
+      - {{a, b, c}; {a, b, c}; {a, b, c}}
+      - a) table name - this is the table name referenced in the select. (string)
+      - b) range - the google range that contains the data with the first row containing titles (used as field names).  (string)
+      - c) cache seconds - number of seconds that data loaded from range is held in cache memory before another select of the same
+           range would load again.  As you know, the slowest possible thing you can do is request values from a range, so this is
+           useful when a custom function that uses the same tables is used in many locations in your sheet.  Only the first
+           function executed would actually load from the API.  The other functions requiring the data will wait and load
+           from the refreshed cache when the first function has finished loading. (Integer).
     * If the table referenced in the SELECT is the name of a SHEET, this parameter is optional.  For example:  
       "select * from transactions"  and you have a sheet called "transactions" and the first row of the sheet has unique column
       titles, it is not necessary to define the array of table definitions.  However, if you want to specify a specific range
       or set a cache holding seconds, you need to specify this paramter.
     * If the sheet name contains spaces, you need to use single quotes around the table name in your select, like
       "select * from 'master transactions'" if your sheet name is called 'master transactions'.
-    * Use the CURLY bracket notations to create the double array of table definitions.
     * For RANGE of DATA,  either used NAMED RANGE, A1 notation range, SHEET NAME or empty (table name used as sheet name).  This input is a string.       The first row of each range MUST be unique column titles.
     
 3.  Include column title in output or not. (true adds column titles, false omits the title row)
