@@ -86,9 +86,10 @@ function hideInnerSql(str, parts_name_escaped, replaceFunction) {
 
     let bracketCount = 0;
     let endCount = -1;
+    let newStr = str;
 
-    for (let i = str.length - 1; i >= 0; i--) {
-        const ch = str.charAt(i);
+    for (let i = newStr.length - 1; i >= 0; i--) {
+        const ch = newStr.charAt(i);
 
         if (ch === ")") {
             bracketCount++;
@@ -101,16 +102,16 @@ function hideInnerSql(str, parts_name_escaped, replaceFunction) {
             bracketCount--;
             if (bracketCount === 0) {
 
-                let query = str.substring(i, endCount + 1);
+                let query = newStr.substring(i, endCount + 1);
 
                 // Hide words defined as separator but written inside brackets in the query
                 query = query.replace(new RegExp(parts_name_escaped.join('|'), 'gi'), replaceFunction);
 
-                str = str.substring(0, i) + query + str.substring(endCount + 1);
+                newStr = newStr.substring(0, i) + query + newStr.substring(endCount + 1);
             }
         }
     }
-    return str;
+    return newStr;
 }
 
 /**
@@ -119,32 +120,32 @@ function hideInnerSql(str, parts_name_escaped, replaceFunction) {
  * @returns {String}
  */
 function sqlStatementSplitter(src) {
-    let newStr = "";
+    let newStr = src;
 
     // Define which words can act as separator
     const reg = makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
 
-    const matchedUnions = src.match(reg);
+    const matchedUnions = newStr.match(reg);
     if (matchedUnions === null || matchedUnions.length === 0)
-        return src;
+        return newStr;
 
     let prefix = "";
     const parts = [];
-    let pos = src.search(matchedUnions[0]);
+    let pos = newStr.search(matchedUnions[0]);
     if (pos > 0) {
-        prefix = src.substring(0, pos);
-        src = src.substring(pos + matchedUnions[0].length);
+        prefix = newStr.substring(0, pos);
+        newStr = newStr.substring(pos + matchedUnions[0].length);
     }
 
     for (let i = 1; i < matchedUnions.length; i++) {
         const match = matchedUnions[i];
-        pos = src.search(match);
+        pos = newStr.search(match);
 
-        parts.push(src.substring(0, pos));
-        src = src.substring(pos + match.length);
+        parts.push(newStr.substring(0, pos));
+        newStr = newStr.substring(pos + match.length);
     }
-    if (src.length > 0)
-        parts.push(src);
+    if (newStr.length > 0)
+        parts.push(newStr);
 
     newStr = prefix;
     for (let i = 0; i < matchedUnions.length; i++) {
@@ -178,7 +179,11 @@ function makeSqlPartsSplitterRegEx(keywords) {
 }
 
 
-// Parse a query
+/**
+ * Parse a query
+ * @param {String} query 
+ * @returns {Object}
+ */
 function sql2ast(query) {
     // Define which words can act as separator
     const keywords = ['SELECT', 'FROM', 'DELETE FROM', 'INSERT INTO', 'UPDATE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'VALUES', 'SET', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
@@ -195,10 +200,10 @@ function sql2ast(query) {
         return item.replace('(', '[\\(]');
     });
 
-    query = sqlStatementSplitter(query);
+    let modifiedQuery = sqlStatementSplitter(query);
 
     // Hide words defined as separator but written inside brackets in the query
-    query = hideInnerSql(query, parts_name_escaped, protect);
+    modifiedQuery = hideInnerSql(modifiedQuery, parts_name_escaped, protect);
 
     // Write the position(s) in query of these separators
     const parts_order = [];
@@ -210,7 +215,7 @@ function sql2ast(query) {
         let part = 0;
 
         do {
-            part = query.indexOf(item, pos);
+            part = modifiedQuery.indexOf(item, pos);
             if (part !== -1) {
                 const realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, realNameCallback);
 
@@ -243,10 +248,10 @@ function sql2ast(query) {
     });
 
     // Split parts
-    const parts = query.split(new RegExp(parts_name_escaped.join('|'), 'i'));
+    const parts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
 
     // Unhide words precedently hidden with protect()
-    query = hideInnerSql(query, words, unprotect);
+    modifiedQuery = hideInnerSql(modifiedQuery, words, unprotect);
 
     for (let i = 0; i < parts.length; i++) {
         parts[i] = hideInnerSql(parts[i], words, unprotect);
@@ -261,24 +266,23 @@ function sql2ast(query) {
             return item !== '';
         }).map(function (item) {
             //  Is there a column alias?
-            let alias = "";
-            [item, alias] = getNameAndAlias(item);
+            const [field, alias] = getNameAndAlias(item);
 
             const splitPattern = /[\s()*/%+-]+/g;
-            let terms = item.split(splitPattern);
+            let terms = field.split(splitPattern);
 
             if (terms !== null) {
                 const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
                 terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
             }
-            if (item !== "*" && terms !== null && terms.length > 1) {
+            if (field !== "*" && terms !== null && terms.length > 1) {
                 return {
-                    name: item,
+                    name: field,
                     terms: terms,
                     as: alias
                 };
             }
-            return { name: item, as: alias };
+            return { name: field, as: alias };
         });
         return selectResult;
     };
@@ -299,12 +303,12 @@ function sql2ast(query) {
     };
 
     analysis['LEFT JOIN'] = analysis['JOIN'] = analysis['INNER JOIN'] = analysis['RIGHT JOIN'] = analysis['FULL JOIN'] = function (str) {
-        str = str.toUpperCase().split(' ON ');
-        const table = str[0].split(' AS ');
+        const strParts = str.toUpperCase().split(' ON ');
+        const table = strParts[0].split(' AS ');
         const joinResult = {};
         joinResult['table'] = trim(table[0]);
         joinResult['as'] = trim(table[1]) || '';
-        joinResult['cond'] = trim(str[1]);
+        joinResult['cond'] = trim(strParts[1]);
 
         return joinResult;
     };
@@ -314,9 +318,9 @@ function sql2ast(query) {
     };
 
     analysis['ORDER BY'] = function (str) {
-        str = str.split(',');
+        const strParts = str.split(',');
         const orderByResult = [];
-        str.forEach(function (item, _key) {
+        strParts.forEach(function (item, _key) {
             const order_by = /([\w\.]+)\s*(ASC|DESC)?/gi;
             const orderData = order_by.exec(item);
             if (orderData !== null) {
@@ -336,9 +340,9 @@ function sql2ast(query) {
     };
 
     analysis['GROUP BY'] = function (str) {
-        str = str.split(',');
+        const strParts = str.split(',');
         const groupByResult = [];
-        str.forEach(function (item, _key) {
+        strParts.forEach(function (item, _key) {
             const group_by = /([\w\.]+)/gi;
             const groupData = group_by.exec(item);
             if (groupData !== null) {
@@ -351,9 +355,9 @@ function sql2ast(query) {
     };
 
     analysis['PIVOT'] = function (str) {
-        str = str.split(',');
+        const strParts = str.split(',');
         const pivotResult = [];
-        str.forEach(function (item, _key) {
+        strParts.forEach(function (item, _key) {
             const pivotOn = /([\w\.]+)/gi;
             const pivotData = pivotOn.exec(item);
             if (pivotData !== null) {
