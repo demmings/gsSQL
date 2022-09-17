@@ -46,7 +46,7 @@ class Table {
     loadNamedRangeData(namedRange, cacheSeconds = 0) {
         this.tableData = TableData.loadTableData(namedRange, cacheSeconds);
 
-        Logger.log("Load Data: Range=" + namedRange + ". Items=" + this.tableData.length);
+        Logger.log(`Load Data: Range=${namedRange}. Items=${this.tableData.length}`);
         this.loadSchema();
 
         return this;
@@ -149,13 +149,17 @@ class Table {
     getRecords(startRecord, lastRecord, fields) {
         const selectedRecords = [];
 
-        if (startRecord < 1)
-            startRecord = 1;
+        let minStartRecord = startRecord;
+        if (minStartRecord < 1) {
+            minStartRecord = 1;
+        }
 
-        if (lastRecord < 0)
-            lastRecord = this.tableData.length - 1;
+        let maxLastRecord = lastRecord;
+        if (maxLastRecord < 0) {
+            maxLastRecord = this.tableData.length - 1;
+        }
 
-        for (let i = startRecord; i <= lastRecord && i < this.tableData.length; i++) {
+        for (let i = minStartRecord; i <= maxLastRecord && i < this.tableData.length; i++) {
             const row = [];
 
             for (const col of fields) {
@@ -174,10 +178,10 @@ class Table {
      * @returns 
      */
     addIndex(fieldName) {
-        fieldName = fieldName.trim().toUpperCase();
+        const indexedFieldName = fieldName.trim().toUpperCase();
         const fieldValuesMap = new Map();
 
-        const fieldIndex = this.schema.getFieldColumn(fieldName);
+        const fieldIndex = this.schema.getFieldColumn(indexedFieldName);
         for (let i = 1; i < this.tableData.length; i++) {
             const value = this.tableData[i][fieldIndex];
 
@@ -191,7 +195,7 @@ class Table {
             }
         }
 
-        this.indexes.set(fieldName, fieldValuesMap);
+        this.indexes.set(indexedFieldName, fieldValuesMap);
     }
 
     /**
@@ -202,13 +206,13 @@ class Table {
      */
     search(fieldName, searchValue) {
         const rows = [];
-        fieldName = fieldName.trim().toUpperCase();
+        const searchName = fieldName.trim().toUpperCase();
 
-        const searchFieldCol = this.schema.getFieldColumn(fieldName);
+        const searchFieldCol = this.schema.getFieldColumn(searchName);
         if (searchFieldCol === -1)
             return rows;
 
-        const fieldValuesMap = this.indexes.get(fieldName);
+        const fieldValuesMap = this.indexes.get(searchName);
         if (fieldValuesMap.has(searchValue))
             return fieldValuesMap.get(searchValue);
         return rows;
@@ -391,7 +395,7 @@ class Schema {
                 fieldVariants = this.getColumnNameVariants(baseColumnName);
             }
             catch (ex) {
-                throw new Error("Invalid column title: " + baseColumnName);
+                throw new Error(`Invalid column title: ${baseColumnName}`);
             }
             const columnName = fieldVariants[0];
 
@@ -399,7 +403,7 @@ class Schema {
 
             if (columnName !== "") {
                 const virtualField = new VirtualField(columnName, this.tableInfo, colNum);
-                this.virtualFields.add(virtualField);
+                this.virtualFields.add(virtualField, true);
             }
 
             colNum++;

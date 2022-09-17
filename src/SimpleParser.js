@@ -186,7 +186,8 @@ function makeSqlPartsSplitterRegEx(keywords) {
  */
 function sql2ast(query) {
     // Define which words can act as separator
-    const keywords = ['SELECT', 'FROM', 'DELETE FROM', 'INSERT INTO', 'UPDATE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'VALUES', 'SET', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
+    const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
+
     let parts_name = keywords.map(function (item) {
         return item + ' ';
     });
@@ -287,13 +288,10 @@ function sql2ast(query) {
         return selectResult;
     };
 
-    analysis['FROM'] = analysis['DELETE FROM'] = analysis['UPDATE'] = function (str) {
+    analysis['FROM'] = function (str) {
         let fromResult = str.split(',');
         fromResult = fromResult.map(function (item) {
             return trim(item);
-        });
-        fromResult.forEach(function (item, key) {
-            if (item === '') fromResult.splice(key);
         });
         fromResult = fromResult.map(function (item) {
             const [table, alias] = getNameAndAlias(item);
@@ -330,7 +328,7 @@ function sql2ast(query) {
                 if (typeof orderData[2] === 'undefined') {
                     const orderParts = item.trim().split(" ");
                     if (orderParts.length > 1)
-                        throw new Error("Invalid ORDER BY: " + item);
+                        throw new Error(`Invalid ORDER BY:  ${item}`);
                     tmp['order'] = "ASC";
                 }
                 orderByResult.push(tmp);
@@ -401,24 +399,24 @@ function sql2ast(query) {
     const result = {};
     let j = 0;
     parts_order.forEach(function (item, _key) {
-        item = item.toUpperCase();
+        const itemName = item.toUpperCase();
         j++;
-        if (typeof analysis[item] !== 'undefined') {
-            const part_result = analysis[item](parts[j]);
+        if (typeof analysis[itemName] !== 'undefined') {
+            const part_result = analysis[itemName](parts[j]);
 
-            if (typeof result[item] !== 'undefined') {
-                if (typeof result[item] === 'string' || typeof result[item][0] === 'undefined') {
-                    const tmp = result[item];
-                    result[item] = [];
-                    result[item].push(tmp);
+            if (typeof result[itemName] !== 'undefined') {
+                if (typeof result[itemName] === 'string' || typeof result[itemName][0] === 'undefined') {
+                    const tmp = result[itemName];
+                    result[itemName] = [];
+                    result[itemName].push(tmp);
                 }
 
-                result[item].push(part_result);
+                result[itemName].push(part_result);
             }
-            else result[item] = part_result;
+            else result[itemName] = part_result;
         }
         else {
-            throw new Error("Can't analyze statement " + item);
+            throw new Error(`Can't analyze statement ${itemName}`);
         }
     });
 
@@ -549,6 +547,7 @@ function parseUnion(inStr) {
  * @returns {[String, String]}
  */
 function getNameAndAlias(item) {
+    let realName = item;
     let alias = "";
     const lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
     if (lastAs !== -1) {
@@ -562,11 +561,11 @@ function getNameAndAlias(item) {
                 alias = subStr.substring(1, subStr.length - 1);
 
             //  Remove everything after 'AS'.
-            item = item.substring(0, lastAs);
+            realName = item.substring(0, lastAs);
         }
     }
 
-    return [item, alias];
+    return [realName, alias];
 }
 
 function lastIndexOfOutsideLiteral(srcString, searchString) {

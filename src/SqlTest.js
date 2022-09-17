@@ -188,6 +188,32 @@ class SqlTester {
         return this.isEqual("innerJoin1", data, expected);
     }
 
+    innerJoin2() {
+        let stmt = "SELECT books.id, books.title, books.type, authors.last_name, " +
+            "translators.last_name " +
+            "FROM books " +
+            "INNER JOIN authors " +
+            "ON books.author_id = authors.id " +
+            "INNER JOIN translators " +
+            "ON books.translator_id = translators.id " +
+            "ORDER BY books.id";
+
+        let data = new Sql()
+            .addTableData("books", this.bookTable())
+            .addTableData("translators", this.translatorsTable())
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["books.id", "books.title", "books.type", "authors.last_name", "translators.last_name"],
+        ["2", "Your Trip", "translated", "Dou", "Weng"],
+        ["5", "Oranges", "translated", "Savelieva", "Davies"],
+        ["6", "Your Happy Life", "translated", "Dou", "Green"],
+        ["7", "Applied AI", "translated", "Smart", "Edwards"]];
+
+        return this.isEqual("innerJoin2", data, expected);
+    }
+
     innerJoinAlias1() {
         let stmt = "SELECT b.id, b.title, a.first_name, a.last_name " +
             "FROM books as b " +
@@ -394,6 +420,33 @@ class SqlTester {
         ["9", "Book with Mysterious Author", "Evans", "23"]];
 
         return this.isEqual("rightJoin1", data, expected);
+    }
+
+    rightJoin2() {
+        let stmt = "SELECT books.id, books.title, books.translator_id, " + 
+            "editors.last_name, editors.id,  " +
+            "translators.last_name " +
+            "FROM books " +
+            "RIGHT JOIN editors " +
+            "ON books.editor_id = editors.id " +
+            "RIGHT JOIN translators " +
+            "ON books.translator_id = translators.id " +
+            "ORDER BY books.id";
+
+        let data = new Sql()
+            .addTableData("books", this.bookTable())
+            .addTableData("translators", this.translatorsTable())
+            .addTableData("editors", this.editorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["books.id", "books.title", "books.type", "authors.last_name", "translators.last_name"],
+        ["2", "Your Trip", "translated", "Dou", "Weng"],
+        ["5", "Oranges", "translated", "Savelieva", "Davies"],
+        ["6", "Your Happy Life", "translated", "Dou", "Green"],
+        ["7", "Applied AI", "translated", "Smart", "Edwards"]];
+
+        return this.isEqual("rightJoin2", data, expected);
     }
 
     fullJoin1() {
@@ -2162,6 +2215,28 @@ class SqlTester {
         return this.isFail("badUnion1", ex);
     }
 
+    badFieldNames1() {
+        let stmt = "select id from books where author_id is not null";
+
+        let booksTable = this.bookTable();
+        booksTable.shift();
+        booksTable.unshift(["id", "title", "type", "author id", "author_id", "translator id"]);
+
+        let ex = "";
+        try {
+            let testSQL = new Sql()
+                .addTableData("books", booksTable)
+                .enableColumnTitle(true);
+
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badFieldNames1", ex);
+    }
+
     isFail(functionName, exceptionErr) {
         if (exceptionErr != "") {
             Logger.log(functionName + "  Captured Error:  " + exceptionErr)
@@ -2206,6 +2281,7 @@ function testerSql() {
     result = result && tester.selectIsNotNull1();
     result = result && tester.selectIsNull1();
     result = result && tester.innerJoin1();
+    result = result && tester.innerJoin2();
     result = result && tester.innerJoinAlias1();
     result = result && tester.innerJoinAlias2();
     result = result && tester.join2();
@@ -2213,6 +2289,7 @@ function testerSql() {
     result = result && tester.joinLimit1();
     result = result && tester.leftJoin1();
     result = result && tester.rightJoin1();
+    // result = result && tester.rightJoin2();
     result = result && tester.fullJoin1();
     result = result && tester.fullJoin2();
     result = result && tester.whereIn1();
@@ -2291,6 +2368,7 @@ function testerSql() {
     result = result && tester.selectNoTitles();
     result = result && tester.pivotGroupByMissing();
     result = result && tester.badUnion1();
+    result = result && tester.badFieldNames1();
 
     //  Sql.js unit tests.
     result = result && tester.parseTableSettings1();

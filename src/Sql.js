@@ -36,7 +36,7 @@ class Logger {
 function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {
     const tableList = parseTableSettings(tableArr, statement);
 
-    Logger.log("gsSQL: tableList=" + tableList + ".  Statement=" + statement + ". List Len=" + tableList.length);
+    Logger.log(`gsSQL: tableList=${tableList}.  Statement=${statement}. List Len=${tableList.length}`);
 
     const sqlCmd = new Sql().enableColumnTitle(columnTitle);
     for (const bind of bindings) {
@@ -67,7 +67,7 @@ function parseTableSettings(tableArr, statement = "", randomOrder = true) {
         throw new Error('Missing table definition {{"name","range",cache};{...}}');
     }
 
-    Logger.log("tableArr" + tableArr);
+    Logger.log(`tableArr = ${tableArr}`);
     for (/** @type {any[]} */ let table of tableArr) {
         if (table.length === 1)
             table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
@@ -600,7 +600,7 @@ class Sql {
                 for (const union of ast[type]) {
                     const unionData = unionSQL.select(union);
                     if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length !== unionData[0].length)
-                        throw new Error("Invalid " + type + ".  Selected field counts do not match.");
+                        throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
 
                     switch (type) {
                         case "UNION":
@@ -624,7 +624,7 @@ class Sql {
                             break;
 
                         default:
-                            throw new Error("Internal error.  Unsupported UNION type: " + type);
+                            throw new Error(`Internal error.  Unsupported UNION type: ${type}`);
                     }
                 }
             }

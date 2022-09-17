@@ -43,7 +43,7 @@ class TableData {
         if (typeof namedRange === 'undefined' || namedRange === "")
             return [];
 
-        Logger.log("loadTableData: " + namedRange + ". Seconds=" + cacheSeconds);
+        Logger.log(`loadTableData: ${namedRange}. Seconds=${cacheSeconds}`);
 
         let tempData = TableData.getValuesCached(namedRange, cacheSeconds)
 
@@ -60,13 +60,14 @@ class TableData {
      */
     static getValuesCached(namedRange, seconds) {
         let cache = {};
+        let cacheSeconds = seconds;
 
-        if (seconds <= 0) {
+        if (cacheSeconds <= 0) {
             return TableData.loadValuesFromRangeOrSheet(namedRange);
         }
-        else if (seconds > 21600) {
+        else if (cacheSeconds > 21600) {
             cache = new ScriptSettings();
-            seconds = seconds / 86400;  //  ScriptSettings put() wants days to hold.
+            cacheSeconds = cacheSeconds / 86400;  //  ScriptSettings put() wants days to hold.
         }
         else {
             cache = CacheService.getScriptCache();
@@ -74,18 +75,18 @@ class TableData {
 
         let arrData = TableData.cacheGetArray(cache, namedRange);
         if (arrData !== null) {
-            Logger.log("Found in CACHE: " + namedRange + ". Items=" + arrData.length);
+            Logger.log(`Found in CACHE: ${namedRange}. Items=${arrData.length}`);
             return arrData;
         }
 
-        Logger.log("Not in cache: " + namedRange);
+        Logger.log(`Not in cache: ${namedRange}`);
 
         if (TableData.isRangeLoading(cache, namedRange)) {
             //  Just wait until data loaded elsewhere.
-            arrData = TableData.waitForRangeToLoad(cache, namedRange, seconds);
+            arrData = TableData.waitForRangeToLoad(cache, namedRange, cacheSeconds);
         }
         else {
-            arrData = TableData.lockLoadAndCache(cache, namedRange, seconds);
+            arrData = TableData.lockLoadAndCache(cache, namedRange, cacheSeconds);
         }
 
         return arrData;
@@ -145,7 +146,7 @@ class TableData {
             loading = true;
         }
 
-        Logger.log("isRangeLoading: " + namedRange + ". Status: " + loading);
+        Logger.log(`isRangeLoading: ${namedRange}. Status: ${loading}`);
 
         return loading;
     }
@@ -237,19 +238,20 @@ class TableData {
      * @returns {any[]}
      */
     static loadValuesFromRangeOrSheet(namedRange) {
+        let tableNamedRange = namedRange;
         let output = [];
 
         try {
-            const sheetNamedRange = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(namedRange);
+            const sheetNamedRange = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(tableNamedRange);
 
             if (sheetNamedRange === null) {
                 //  This may be a SHEET NAME, so try getting SHEET RANGE.
-                if (namedRange.startsWith("'") && namedRange.endsWith("'")) {
-                    namedRange = namedRange.substring(1, namedRange.length-1);
+                if (tableNamedRange.startsWith("'") && tableNamedRange.endsWith("'")) {
+                    tableNamedRange = tableNamedRange.substring(1, tableNamedRange.length-1);
                 }
-                const sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(namedRange);
+                const sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
                 if (sheetHandle === null)
-                    throw new Error("Invalid table range specified:  " + namedRange);
+                    throw new Error(`Invalid table range specified:  ${tableNamedRange}`);
 
                 const lastColumn = sheetHandle.getLastColumn();
                 const lastRow = sheetHandle.getLastRow();
@@ -260,7 +262,7 @@ class TableData {
             }
         }
         catch (ex) {
-            throw new Error("Error reading table data: " + namedRange);
+            throw new Error(`Error reading table data: ${tableNamedRange}`);
         }
 
         return output;

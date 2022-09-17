@@ -25,7 +25,7 @@ class SelectTables {
         this.virtualFields = new VirtualFields();
         this.dataJoin = new JoinTables([], this.virtualFields);
         if (!tableInfo.has(this.primaryTable.toUpperCase()))
-            throw new Error("Invalid table name: " + this.primaryTable);
+            throw new Error(`Invalid table name: ${this.primaryTable}`);
         this.masterTableInfo = tableInfo.get(this.primaryTable.toUpperCase());
 
         //  Keep a list of all possible fields from all tables.
@@ -234,7 +234,7 @@ class SelectTables {
                 break;
 
             default:
-                throw new Error("Invalid Operator: " + operator);
+                throw new Error(`Invalid Operator: ${operator}`);
         }
 
         return keep;
@@ -279,7 +279,7 @@ class SelectTables {
             result = new Function(functionString)();
         }
         catch (ex) {
-            throw new Error("Calculated Field Error: " + ex.message + ".  " + functionString);
+            throw new Error(`Calculated Field Error: ${ex.message}.  ${functionString}`);
         }
 
         return result;
@@ -317,20 +317,20 @@ class SelectTables {
             }
 
             if (vField.fieldName.indexOf(".") === -1)
-                myVars += "let " + vField.fieldName + " = " + varData + ";";
+                myVars += `let ${vField.fieldName} = ${varData};`;
             else {
                 const parts = vField.fieldName.split(".");
                 if (!objectsDeclared.has(parts[0])) {
-                    myVars += "let " + parts[0] + " = {};";
+                    myVars += `let ${parts[0]} = {};`;
                     objectsDeclared.set(parts[0], true);
                 }
-                myVars += vField.fieldName + " = " + varData + ";";
+                myVars += `${vField.fieldName} = ${varData};`;
             }
         }
 
         const functionString = this.sqlServerFunctions(calculatedFormula);
 
-        return myVars + " return " + functionString;
+        return `${myVars} return ${functionString}`;
     }
 
     /**
@@ -600,7 +600,7 @@ class SelectTables {
                     SelectTables.sortByColumnASC(selectedData, selectColumn);
             }
             else {
-                throw new Error("Invalid ORDER BY: " + orderField.column);
+                throw new Error(`Invalid ORDER BY: ${orderField.column}`);
             }
 
         }
@@ -831,7 +831,10 @@ class VirtualFields {
      * 
      * @param {VirtualField} field 
      */
-    add(field) {
+    add(field, checkForDuplicates=false) {
+        if (checkForDuplicates && this.virtualFieldMap.has(field.fieldName)) {
+            throw new Error(`Duplicate field name: ${field.fieldName}`);
+        }
         this.virtualFieldMap.set(field.fieldName, field);
         this.virtualFieldList.push(field);
     }
@@ -1196,14 +1199,14 @@ class JoinTables {
             if (leftFieldInfo === null)
                 leftFieldInfo = virtualFields.getFieldInfo(joinTable.cond.left);
             if (leftFieldInfo === null)
-                throw new Error("Invalid JOIN field: " + joinTable.cond.left);
+                throw new Error(`Invalid JOIN field: ${joinTable.cond.left}`);
 
             /** @type {VirtualField} */
             let rightFieldInfo = this.derivedTable.getFieldInfo(joinTable.cond.right);
             if (rightFieldInfo === null)
                 rightFieldInfo = virtualFields.getFieldInfo(joinTable.cond.right);
             if (rightFieldInfo === null)
-                throw new Error("Invalid JOIN field: " + joinTable.cond.right);
+                throw new Error(`Invalid JOIN field: ${joinTable.cond.right}`);
 
             this.derivedTable = JoinTables.joinTables(leftFieldInfo, rightFieldInfo, joinTable);
 
@@ -1300,7 +1303,7 @@ class JoinTables {
                 break;
 
             default:
-                throw new Error("Internal error.  No support for join type: " + joinTable.type);
+                throw new Error(`Internal error.  No support for join type: ${joinTable.type}`);
         }
         return derivedTable;
     }
@@ -1503,87 +1506,87 @@ class SqlServerFunctions {
                 let replacement = "";
                 switch (func) {
                     case "ABS":
-                        replacement = "Math.abs(" + parms[0] + ")";
+                        replacement = `Math.abs(${parms[0]})`;
                         break;
                     case "CASE":
                         replacement = this.caseWhen(args);
                         break;
                     case "CEILING":
-                        replacement = "Math.ceil(" + parms[0] + ")";
+                        replacement = `Math.ceil(${parms[0]})`;
                         break;
                     case "CHARINDEX":
                         replacement = SqlServerFunctions.charIndex(parms);
                         break;
                     case "FLOOR":
-                        replacement = "Math.floor(" + parms[0] + ")";
+                        replacement = `Math.floor(${parms[0]})`;
                         break;
                     case "IF":
                         const ifCond = sqlCondition2JsCondition(parms[0]);
-                        replacement = ifCond + " ? " + parms[1] + " : " + parms[2] + ";";
+                        replacement = `${ifCond} ? ${parms[1]} : ${parms[2]};`;
                         break;
                     case "LEFT":
-                        replacement = parms[0] + ".substring(0," + parms[1] + ")";
+                        replacement = `${parms[0]}.substring(0,${parms[1]})`;
                         break;
                     case "LEN":
                     case "LENGTH":
-                        replacement = parms[0] + ".length";
+                        replacement = `${parms[0]}.length`;
                         break;
                     case "LOG":
-                        replacement = "Math.log2(" + parms[0] + ")";
+                        replacement = `Math.log2(${parms[0]})`;
                         break;
                     case "LOG10":
-                        replacement = "Math.log10(" + parms[0] + ")";
+                        replacement = `Math.log10(${parms[0]})`;
                         break;
                     case "LOWER":
-                        replacement = parms[0] + ".toLowerCase()";
+                        replacement = `${parms[0]}.toLowerCase()`;
                         break;
                     case "LTRIM":
-                        replacement = parms[0] + ".trimStart()";
+                        replacement = `${parms[0]}.trimStart()`;
                         break;
                     case "NOW":
                         replacement = "new Date().toLocaleString()";
                         break;
                     case "POWER":
-                        replacement = "Math.pow(" + parms[0] + "," + parms[1] + ")";
+                        replacement = `Math.pow(${parms[0]},${parms[1]})`;
                         break;
                     case "RAND":
                         replacement = "Math.random()";
                         break;
                     case "REPLICATE":
-                        replacement = parms[0] + ".repeat(" + parms[1] + ")";
+                        replacement = `${parms[0]}.repeat(${parms[1]})`;
                         break;
                     case "REVERSE":
-                        replacement = parms[0] + '.split("").reverse().join("")';
+                        replacement = `${parms[0]}.split("").reverse().join("")`;
                         break;
                     case "RIGHT":
-                        replacement = parms[0] + ".slice(" + parms[0] + ".length - " + parms[1] + ")";
+                        replacement = `${parms[0]}.slice(${parms[0]}.length - ${parms[1]})`;
                         break;
                     case "ROUND":
-                        replacement = "Math.round(" + parms[0] + ")";
+                        replacement = `Math.round(${parms[0]})`;
                         break;
                     case "RTRIM":
-                        replacement = parms[0] + ".trimEnd()";
+                        replacement = `${parms[0]}.trimEnd()`;
                         break;
                     case "SPACE":
-                        replacement = "' '.repeat(" + parms[0] + ")";
+                        replacement = `' '.repeat(${parms[0]})`;
                         break;
                     case "STUFF":
-                        replacement = parms[0] + ".substring(0," + parms[1] + "-1) + " + parms[3] + " + " + parms[0] + ".substring(" + parms[1] + " + " + parms[2] + " - 1)";
+                        replacement = `${parms[0]}.substring(0,${parms[1]}-1) + ${parms[3]} + ${parms[0]}.substring(${parms[1]} + ${parms[2]} - 1)`;
                         break;
                     case "SUBSTRING":
-                        replacement = parms[0] + ".substring(" + parms[1] + " - 1, " + parms[1] + " + " + parms[2] + " - 1)";
+                        replacement = `${parms[0]}.substring(${parms[1]} - 1, ${parms[1]} + ${parms[2]} - 1)`;
                         break;
                     case "SQRT":
-                        replacement = "Math.sqrt(" + parms[0] + ")";
+                        replacement = `Math.sqrt(${parms[0]})`;
                         break;
                     case "TRIM":
-                        replacement = parms[0] + ".trim()";
+                        replacement = `${parms[0]}.trim()`;
                         break;
                     case "UPPER":
-                        replacement = parms[0] + ".toUpperCase()";
+                        replacement = `${parms[0]}.toUpperCase()`;
                         break;
                     default:
-                        throw new Error("Internal Error. Function is missing. " + func);
+                        throw new Error(`Internal Error. Function is missing. ${func}`);
                 }
 
                 functionString = functionString.replace(args[0], replacement);
@@ -1623,9 +1626,9 @@ class SqlServerFunctions {
         let replacement = "";
 
         if (typeof parms[2] === 'undefined')
-            replacement = parms[1] + ".indexOf(" + parms[0] + ") + 1";
+            replacement = `${parms[1]}.indexOf(${parms[0]}) + 1`;
         else
-            replacement = parms[1] + ".indexOf(" + parms[0] + "," + parms[2] + " -1) + 1";
+            replacement = `${parms[1]}.indexOf(${parms[0]},${parms[2]} -1) + 1`;
 
         return replacement;
     }
@@ -1673,7 +1676,7 @@ class SqlServerFunctions {
                 }
                 else
                     replacement = "else if (";
-                replacement += sqlCondition2JsCondition(args[1]) + ") return " + args[2] + " ;";
+                replacement += `${sqlCondition2JsCondition(args[1])}) return ${args[2]} ;`;
             }
         }
 
@@ -1683,10 +1686,12 @@ class SqlServerFunctions {
     /**
      * 
      * @param {String} func 
-     * @param {String} functionString 
+     * @param {String} funcString 
      * @returns {String}
      */
-    caseEnd(func, functionString) {
+    caseEnd(func, funcString) {
+        let functionString = funcString;
+
         if (func === "CASE" && this.originalFunctionString !== "") {
             functionString += "})();";      //  end of lambda.
             functionString = this.originalFunctionString.replace(this.originalCaseStatement, functionString);
@@ -1764,7 +1769,7 @@ class ConglomerateRecord {
                     groupValue += data;
                     break;
                 default:
-                    throw new Error("Invalid aggregate function: " + field.aggregateFunction);
+                    throw new Error(`Invalid aggregate function: ${field.aggregateFunction}`);
             }
             first = false;
         }
@@ -1778,11 +1783,12 @@ class ConglomerateRecord {
     /**
      * 
      * @param {Boolean} first 
-     * @param {Number} groupValue 
+     * @param {Number} value 
      * @param {Number} data 
      * @returns {Number}
      */
-    static minCase(first, groupValue, data) {
+    static minCase(first, value, data) {
+        let groupValue = value;
         if (first)
             groupValue = data;
         if (data < groupValue)
@@ -1794,11 +1800,12 @@ class ConglomerateRecord {
     /**
      * 
      * @param {Boolean} first 
-     * @param {Number} groupValue 
+     * @param {Number} value 
      * @param {Number} data 
      * @returns {Number}
      */
-    static maxCase(first, groupValue, data) {
+    static maxCase(first, value, data) {
+        let groupValue = value;
         if (first)
             groupValue = data;
         if (data > groupValue)
