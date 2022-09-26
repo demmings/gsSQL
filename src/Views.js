@@ -307,10 +307,10 @@ class SelectTables {
             //  and we assign that data to the field name that might be found in a calculated field.
             let varData = vField.getData(masterRecordID);
             if (typeof varData === "string" || varData instanceof Date) {
-                varData = "'" + varData + "'";
+                varData = `'${varData}'`;
             }
 
-            for (let aliasName of vField.aliasNames) {
+            for (const aliasName of vField.aliasNames) {
                 if ((this.masterTableInfo.tableName !== vField.tableInfo.tableName && aliasName.indexOf(".") === -1) ||
                     (this.masterTable !== vField.tableInfo))
                     continue;
@@ -1323,7 +1323,7 @@ class SqlServerFunctions {
 
         if (args.length > 2) {
             if (typeof args[1] === 'undefined' && typeof args[2] === 'undefined') {
-                replacement = "else return " + args[3] + ";";
+                replacement = `else return ${args[3]};`;
             }
             else {
                 if (this.firstCase) {
@@ -1555,7 +1555,7 @@ class TableFields {
      * @returns {Boolean}
      */
     hasField(field) {
-        for (let fld of this.allFields) {
+        for (const fld of this.allFields) {
             if (fld.hasField(field))
                 return true;
         }
@@ -1569,7 +1569,7 @@ class TableFields {
      * @returns {TableField}
      */
     getFieldInfo(field) {
-        for (let fld of this.allFields) {
+        for (const fld of this.allFields) {
             if (fld.hasField(field)) {
                 return fld;
             }
@@ -1584,7 +1584,7 @@ class TableFields {
      * @returns {Table}
      */
     getTableInfo(field) {
-        let fldInfo = this.getFieldInfo(field);
+        const fldInfo = this.getFieldInfo(field);
         return fldInfo.tableInfo;
     }
 
@@ -1594,7 +1594,7 @@ class TableFields {
      * @returns {Number}
      */
     getFieldColumn(field) {
-        let fld = this.getFieldInfo(field);
+        const fld = this.getFieldInfo(field);
         if (fld !== null) {
             return fld.tableColumn;
         }
@@ -1608,7 +1608,7 @@ class TableFields {
      * @returns {Number}
      */
     getSelectFieldColumn(field) {
-        let fld = this.getFieldInfo(field);
+        const fld = this.getFieldInfo(field);
         if (fld !== null) {
             return fld.selectColumn;
         }
@@ -1624,12 +1624,12 @@ class TableFields {
         let i = 0;
         for (const selField of astFields) {
             const [columnName, aggregateFunctionName, calculatedField] = this.getSelectFieldNames(selField);
-            let columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
+            const columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
             if (calculatedField === null && this.hasField(columnName)) {
                 let fieldInfo = this.getFieldInfo(columnName);
                 if (aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
-                    let newFieldInfo = new TableField();
+                    const newFieldInfo = new TableField();
                     Object.assign(newFieldInfo, fieldInfo);
                     fieldInfo = newFieldInfo;
 
@@ -1671,7 +1671,7 @@ class TableFields {
      * @returns {TableField[]}
      */
     getSelectFields() {
-        const selectedFields = this.allFields.filter((a) => a.selectColumn != -1);
+        const selectedFields = this.allFields.filter((a) => a.selectColumn !== -1);
         selectedFields.sort(this.sortSelectFields);
 
         return selectedFields;
@@ -1697,9 +1697,9 @@ class TableFields {
      * @returns {String[]}
      */
      getColumnNames() {
-        let columnNames = [];
+        const columnNames = [];
 
-        for (let fld of this.getSelectFields()) {
+        for (const fld of this.getSelectFields()) {
             columnNames.push(fld.columnName);
         }
 
@@ -1711,9 +1711,9 @@ class TableFields {
      * @returns {String[]}
      */
     getColumnTitles(){
-        let columnTitles = [];
+        const columnTitles = [];
 
-        for (let fld of this.getSelectFields()) {
+        for (const fld of this.getSelectFields()) {
             columnTitles.push(fld.columnTitle);
         }
 
@@ -1838,12 +1838,12 @@ class TableField {
      * @returns {TableField}
      */
     addAlias(columnAlias) {
-        let alias = columnAlias.trim().toUpperCase();
+        const alias = columnAlias.trim().toUpperCase();
         if (this.fieldName === "" || alias.indexOf(".") !== -1) {
             this.fieldName = alias;
         }
 
-        if (this.aliasNames.indexOf(alias) == -1) {
+        if (this.aliasNames.indexOf(alias) === -1) {
             this.aliasNames.push(alias);
         }
 
@@ -1936,7 +1936,7 @@ class TableField {
      * @returns {any}
      */
     getData(tableRow) {
-        let columnNumber = this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
+        const columnNumber = this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
         if (tableRow < 0 || columnNumber < 0)
             return "";
 

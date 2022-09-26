@@ -408,9 +408,9 @@ class Schema {
         let fullColumnName = columnName;
         let fullColumnAliasName = "";
         if (columnName.indexOf(".") === -1) {
-            fullColumnName = this.tableName + "." + columnName;
+            fullColumnName = `${this.tableName}.${columnName}`;
             if (this.tableAlias !== "")
-                fullColumnAliasName = this.tableAlias + "." + columnName;
+                fullColumnAliasName = `${this.tableAlias}.${columnName}`;
         }
 
         return [columnName, fullColumnName, fullColumnAliasName];

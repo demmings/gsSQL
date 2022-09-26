@@ -61,7 +61,7 @@ function protect(str) {
     let result = '#';
     const length = str.length;
     for (let i = 0; i < length; i++) {
-        result += str[i] + "#";
+        result += `${str[i]}#`;
     }
     return result;
 }
@@ -149,7 +149,7 @@ function sqlStatementSplitter(src) {
 
     newStr = prefix;
     for (let i = 0; i < matchedUnions.length; i++) {
-        newStr += matchedUnions[i] + " (" + parts[i] + ") ";
+        newStr += `${matchedUnions[i]} (${parts[i]}) `;
     }
 
     return newStr;
@@ -163,10 +163,10 @@ function sqlStatementSplitter(src) {
 function makeSqlPartsSplitterRegEx(keywords) {
     // Define which words can act as separator
     let parts_name = keywords.map(function (item) {
-        return item + ' ';
+        return `${item} `;
     });
     parts_name = parts_name.concat(keywords.map(function (item) {
-        return item + '(';
+        return `${item}(`;
     }));
     parts_name = parts_name.concat(parts_name.map(function (item) {
         return item.toLowerCase();
@@ -189,10 +189,10 @@ function sql2ast(query) {
     const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
 
     let parts_name = keywords.map(function (item) {
-        return item + ' ';
+        return `${item} `;
     });
     parts_name = parts_name.concat(keywords.map(function (item) {
-        return item + '(';
+        return `${item}(`;
     }));
     parts_name = parts_name.concat(parts_name.map(function (item) {
         return item.toLowerCase();
@@ -839,7 +839,7 @@ CondParser.prototype = {
 
             // If there are 2 adjacent operators, join them with a space (exemple: IS NOT)
             if (this.currentToken.type === 'operator') {
-                operator += ' ' + this.currentToken.value;
+                operator += ` ${this.currentToken.value}`;
                 this.readNextToken();
             }
 
@@ -885,10 +885,10 @@ CondParser.prototype = {
         this.readNextToken();
 
         if (this.currentToken.type === 'mathoperator') {
-            astNode += " " + this.currentToken.value;
+            astNode += ` ${this.currentToken.value}`;
             this.readNextToken();
             while ((this.currentToken.type === 'mathoperator' || this.currentToken.type === 'word') && this.currentToken.type !== 'eot') {
-                astNode += " " + this.currentToken.value;
+                astNode += ` ${this.currentToken.value}`;
                 this.readNextToken();
             }
         }
@@ -917,7 +917,7 @@ CondParser.prototype = {
             while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
                 this.readNextToken();
                 if (inCurrentToken.type !== 'group') {
-                    astNode += " " + inCurrentToken.value;
+                    astNode += ` ${inCurrentToken.value}`;
                 }
 
                 inCurrentToken = this.currentToken;
@@ -943,9 +943,9 @@ CondParser.prototype = {
             this.readNextToken();
             if (inCurrentToken.type !== 'group') {
                 if (isSelectStatement)
-                    astNode += " " + inCurrentToken.value;
+                    astNode += ` ${inCurrentToken.value}`;
                 else
-                    astNode += ", " + inCurrentToken.value;
+                    astNode += `, ${inCurrentToken.value}`;
             }
 
             inCurrentToken = this.currentToken;
@@ -983,12 +983,12 @@ function resolveSqlCondition(logic, terms) {
                 jsCondition += " || ";
             }
 
-            jsCondition += " " + cond.left;
+            jsCondition += ` ${cond.left}`;
             if (cond.operator === "=")
                 jsCondition += " == ";
             else
-                jsCondition += " " + cond.operator;
-            jsCondition += " " + cond.right;
+                jsCondition += ` ${cond.operator}`;
+            jsCondition += ` ${cond.right}`;
         }
         else {
             jsCondition += resolveSqlCondition(cond.logic, cond.terms);
@@ -1000,7 +1000,7 @@ function resolveSqlCondition(logic, terms) {
 
 
 function sqlCondition2JsCondition(cond) {
-    const ast = sql2ast("SELECT A FROM c WHERE " + cond);
+    const ast = sql2ast(`SELECT A FROM c WHERE ${cond}`);
     let sqlData = "";
 
     if (typeof ast['WHERE'] !== 'undefined') {

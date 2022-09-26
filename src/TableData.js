@@ -162,7 +162,7 @@ class TableData {
         const start = new Date().getTime();
         let current = new Date().getTime();
 
-        Logger.log("waitForRangeToLoad() - Start: " + namedRange);
+        Logger.log(`waitForRangeToLoad() - Start: ${namedRange}`);
         while (TableData.isRangeLoading(cache, namedRange) && (current - start) < 10000) {
             Utilities.sleep(250);
             current = new Date().getTime();
@@ -173,7 +173,7 @@ class TableData {
 
         //  Give up and load from SHEETS directly.
         if (arrData === null) {
-            Logger.log("waitForRangeToLoad - give up.  Read directly. " + namedRange);
+            Logger.log(`waitForRangeToLoad - give up.  Read directly. ${namedRange}`);
             arrData = TableData.loadValuesFromRangeOrSheet(namedRange);
 
             if (TableData.isRangeLoading(cache, namedRange)) {
@@ -225,7 +225,7 @@ class TableData {
         //  Load data from SHEETS.
         arrData = TableData.loadValuesFromRangeOrSheet(namedRange);
 
-        Logger.log("Just LOADED from SHEET: " + arrData.length);
+        Logger.log(`Just LOADED from SHEET: ${arrData.length}`);
 
         TableData.cachePutArray(cache, namedRange, cacheSeconds, arrData);
 
@@ -247,7 +247,7 @@ class TableData {
             if (sheetNamedRange === null) {
                 //  This may be a SHEET NAME, so try getting SHEET RANGE.
                 if (tableNamedRange.startsWith("'") && tableNamedRange.endsWith("'")) {
-                    tableNamedRange = tableNamedRange.substring(1, tableNamedRange.length-1);
+                    tableNamedRange = tableNamedRange.substring(1, tableNamedRange.length - 1);
                 }
                 const sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
                 if (sheetHandle === null)
@@ -290,7 +290,7 @@ class TableData {
             const arrayBlock = arrData.slice(startIndex, startIndex + arrayLength);
             blockCount++;
             startIndex += arrayLength;
-            putObject[namedRange + ":" + blockCount.toString()] = JSON.stringify(arrayBlock);
+            putObject[`${namedRange}:${blockCount.toString()}`] = JSON.stringify(arrayBlock);
         }
 
         //  Update status that cache is updated.
@@ -303,7 +303,7 @@ class TableData {
         cache.putAll(putObject, cacheSeconds);
         cache.put(cacheStatusName, TABLE.BLOCKS + blockCount.toString(), cacheSeconds);
 
-        Logger.log("Writing STATUS: " + cacheStatusName + ". Value=" + TABLE.BLOCKS + blockCount.toString() + ". seconds=" + cacheSeconds + ". Items=" + arrData.length);
+        Logger.log(`Writing STATUS: ${cacheStatusName}. Value=${TABLE.BLOCKS}${blockCount.toString()}. seconds=${cacheSeconds}. Items=${arrData.length}`);
 
         lock.releaseLock();
     }
@@ -320,25 +320,24 @@ class TableData {
         const cacheStatusName = TableData.cacheStatusName(namedRange);
         const cacheStatus = cache.get(cacheStatusName);
         if (cacheStatus === null) {
-            Logger.log("Named Range Cache Status not found = " + cacheStatusName);
+            Logger.log(`Named Range Cache Status not found = ${cacheStatusName}`);
             return null;
         }
-        else {
-            Logger.log("Cache Status: " + cacheStatusName + ". Value=" + cacheStatus);
-            if (cacheStatus === TABLE.LOADING) {
-                return null;
-            }
+
+        Logger.log(`Cache Status: ${cacheStatusName}. Value=${cacheStatus}`);
+        if (cacheStatus === TABLE.LOADING) {
+            return null;
         }
 
         const blockStr = cacheStatus.substring(cacheStatus.indexOf(TABLE.BLOCKS) + TABLE.BLOCKS.length);
         if (blockStr !== "") {
             const blocks = parseInt(blockStr, 10);
             for (let i = 1; i <= blocks; i++) {
-                const blockName = namedRange + ":" + i.toString();
+                const blockName = `${namedRange}:${i.toString()}`;
                 const jsonData = cache.get(blockName);
 
                 if (jsonData === null) {
-                    Logger.log("Named Range Part not found. R=" + blockName);
+                    Logger.log(`Named Range Part not found. R=${blockName}`);
                     return null;
                 }
 
@@ -347,13 +346,13 @@ class TableData {
                     arrData = arrData.concat(partArr);
                 }
                 else {
-                    Logger.log("Failed to verify named range: " + blockName);
+                    Logger.log(`Failed to verify named range: ${blockName}`);
                     return null;
                 }
             }
 
         }
-        Logger.log("Just LOADED From CACHE: " + namedRange + ". Items=" + arrData.length);
+        Logger.log(`Just LOADED From CACHE: ${namedRange}. Items=${arrData.length}`);
 
         //  The conversion to JSON causes SHEET DATES to be converted to a string.
         //  This converts any DATE STRINGS back to javascript date.
@@ -480,18 +479,18 @@ class ScriptSettings {
         for (const key of allKeys) {
             const myData = this.scriptProperties.getProperty(key);
 
-            if (myData !==null) {
+            if (myData !== null) {
                 let propertyValue = null;
                 try {
                     propertyValue = JSON.parse(myData);
                 }
                 catch (e) {
-                    Logger.log("Script property data is not JSON. key=" + key);
+                    Logger.log(`Script property data is not JSON. key=${key}`);
                 }
 
                 if (propertyValue !== null && (PropertyData.isExpired(propertyValue) || deleteAll)) {
                     this.scriptProperties.deleteProperty(key);
-                    Logger.log("Removing expired SCRIPT PROPERTY: key=" + key);
+                    Logger.log(`Removing expired SCRIPT PROPERTY: key=${key}`);
                 }
             }
         }
@@ -525,7 +524,7 @@ class PropertyData {
                 value = JSON.parse(obj.myData);
         }
         catch (ex) {
-            Logger.log("Invalid property value.  Not JSON: " + ex.toString());
+            Logger.log(`Invalid property value.  Not JSON: ${ex.toString()}`);
         }
 
         return value;

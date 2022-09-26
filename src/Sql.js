@@ -68,7 +68,7 @@ function parseTableSettings(tableArr, statement = "", randomOrder = true) {
     }
 
     Logger.log(`tableArr = ${tableArr}`);
-    for (/** @type {any[]} */ let table of tableArr) {
+    for (/** @type {any[]} */ const table of tableArr) {
         if (table.length === 1)
             table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
         if (table.length === 2)
@@ -539,7 +539,7 @@ class Sql {
         const pivotAST = {};
 
         pivotAST['SELECT'] = ast['PIVOT'];
-        pivotAST['SELECT'][0].name = "DISTINCT " + pivotAST['SELECT'][0].name;
+        pivotAST['SELECT'][0].name = `DISTINCT ${pivotAST['SELECT'][0].name}`;
         pivotAST['FROM'] = ast['FROM'];
         pivotAST['WHERE'] = ast['WHERE'];
 
