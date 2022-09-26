@@ -22,20 +22,20 @@ class SelectTables {
         this.bindVariables = bindVariables;
         this.joinedTablesMap = new Map();
         this.sqlServerFunctionCache = new Map();
-        this.virtualFields = new VirtualFields();
-        this.dataJoin = new JoinTables([], this.virtualFields);
+        this.dataJoin = new JoinTables([]);
+        this.tableFields = new TableFields();
+
         if (!tableInfo.has(this.primaryTable.toUpperCase()))
             throw new Error(`Invalid table name: ${this.primaryTable}`);
         this.masterTableInfo = tableInfo.get(this.primaryTable.toUpperCase());
 
         //  Keep a list of all possible fields from all tables.
-        this.virtualFields.loadVirtualFields(this.primaryTable, tableInfo);
+        this.tableFields.loadVirtualFields(this.primaryTable, tableInfo);
 
         //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
         this.astFields = VirtualFields.expandWildcardFields(this.masterTableInfo, this.astFields);
 
-        //  Keep a list of fields that are SELECTED.
-        this.virtualFields.updateSelectFieldList(astFields);
+        this.tableFields.updateSelectFieldList(this.astFields);
     }
 
     /**
@@ -44,7 +44,7 @@ class SelectTables {
      */
     join(ast) {
         if (typeof ast['JOIN'] !== 'undefined')
-            this.dataJoin = new JoinTables(ast['JOIN'], this.virtualFields);
+            this.dataJoin = new JoinTables(ast['JOIN'], this.tableFields);
     }
 
     /**
@@ -251,9 +251,9 @@ class SelectTables {
         for (const masterRecordID of recordIDs) {
             const newRow = [];
 
-            for (/** @type {SelectField} */ const field of this.virtualFields.selectVirtualFields) {
-                if (field.fieldInfo !== null)
-                    newRow.push(field.fieldInfo.getData(masterRecordID));
+            for (const field of this.tableFields.getSelectFields()) {
+                if (field.tableInfo !== null)
+                    newRow.push(field.getData(masterRecordID));
                 else if (field.calculatedFormula !== "") {
                     const result = this.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
                     newRow.push(result);
@@ -299,14 +299,8 @@ class SelectTables {
         const objectsDeclared = new Map();
 
         let myVars = "";
-        for (/** @type {VirtualField} */ const vField of this.virtualFields.getAllVirtualFields()) {
-            //  a) Exclude the * field which represents all fields.
-            //  b) Non primary table fields require full notation for column
-            //  c) The 'masterRecordID' is referencing masterTable, so fields from
-            //  other tables should be excluded.
-            if (vField.fieldName === "*" ||
-                (this.masterTableInfo.tableName !== vField.tableInfo.tableName && vField.fieldName.indexOf(".") === -1) ||
-                (this.masterTable !== vField.tableInfo))
+        for (/** @type {TableField} */ const vField of this.tableFields.allFields) {
+            if (this.masterTable !== vField.tableInfo)
                 continue;
 
             //  Get the DATA from this field.  We then build a series of LET statments
@@ -316,15 +310,22 @@ class SelectTables {
                 varData = "'" + varData + "'";
             }
 
-            if (vField.fieldName.indexOf(".") === -1)
-                myVars += `let ${vField.fieldName} = ${varData};`;
-            else {
-                const parts = vField.fieldName.split(".");
-                if (!objectsDeclared.has(parts[0])) {
-                    myVars += `let ${parts[0]} = {};`;
-                    objectsDeclared.set(parts[0], true);
+            for (let aliasName of vField.aliasNames) {
+                if ((this.masterTableInfo.tableName !== vField.tableInfo.tableName && aliasName.indexOf(".") === -1) ||
+                    (this.masterTable !== vField.tableInfo))
+                    continue;
+
+
+                if (aliasName.indexOf(".") === -1)
+                    myVars += `let ${aliasName} = ${varData};`;
+                else {
+                    const parts = aliasName.split(".");
+                    if (!objectsDeclared.has(parts[0])) {
+                        myVars += `let ${parts[0]} = {};`;
+                        objectsDeclared.set(parts[0], true);
+                    }
+                    myVars += `${aliasName} = ${varData};`;
                 }
-                myVars += `${vField.fieldName} = ${varData};`;
             }
         }
 
@@ -446,20 +447,6 @@ class SelectTables {
 
     /**
      * 
-     * @returns {Number}
-     */
-    getConglomerateFieldCount() {
-        let count = 0;
-        for (/** @type {SelectField} */ const field of this.virtualFields.selectVirtualFields) {
-            if (field.aggregateFunction !== "")
-                count++;
-        }
-
-        return count;
-    }
-
-    /**
-     * 
      * @param {Object} ast 
      * @param {any[][]} viewTableData 
      * @returns {any[][]}
@@ -476,9 +463,9 @@ class SelectTables {
         else {
             //  If any conglomerate field functions (SUM, COUNT,...)
             //  we summarize all records into ONE.
-            if (this.getConglomerateFieldCount() > 0) {
+            if (this.tableFields.getConglomerateFieldCount() > 0) {
                 const compressedData = [];
-                const conglomerate = new ConglomerateRecord(this.virtualFields.selectVirtualFields);
+                const conglomerate = new ConglomerateRecord(this.tableFields.getSelectFields());
                 compressedData.push(conglomerate.squish(viewTableData));
                 viewTableData = compressedData;
             }
@@ -501,8 +488,7 @@ class SelectTables {
         astGroupBy.reverse();
 
         for (const orderField of astGroupBy) {
-            const selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
-
+            const selectColumn = this.tableFields.getSelectFieldColumn(orderField.column);
             if (selectColumn !== -1) {
                 SelectTables.sortByColumnASC(selectedData, selectColumn);
             }
@@ -510,7 +496,7 @@ class SelectTables {
 
         const groupedData = [];
         let groupRecords = [];
-        const conglomerate = new ConglomerateRecord(this.virtualFields.selectVirtualFields);
+        const conglomerate = new ConglomerateRecord(this.tableFields.getSelectFields());
 
         let lastKey = this.createGroupByKey(selectedData[0], astGroupBy);
         for (const row of selectedData) {
@@ -540,7 +526,7 @@ class SelectTables {
         let key = "";
 
         for (const orderField of astGroupBy) {
-            const selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
+            const selectColumn = this.tableFields.getSelectFieldColumn(orderField.column);
             if (selectColumn !== -1)
                 key += row[selectColumn].toString();
         }
@@ -556,7 +542,7 @@ class SelectTables {
     */
     having(astHaving, selectedData) {
         //  Add in the title row for now
-        selectedData.unshift(this.getColumnNames());
+        selectedData.unshift(this.tableFields.getColumnNames());
 
         //  Create our virtual GROUP table with data already selected.
         const groupTable = new Table(this.primaryTable).loadArrayData(selectedData);
@@ -591,7 +577,7 @@ class SelectTables {
         const reverseOrderBy = astOrderby.reverse();
 
         for (const orderField of reverseOrderBy) {
-            const selectColumn = this.virtualFields.getSelectFieldColumn(orderField.column);
+            const selectColumn = this.tableFields.getSelectFieldColumn(orderField.column);
 
             if (selectColumn !== -1) {
                 if (orderField.order === "DESC")
@@ -689,9 +675,9 @@ class SelectTables {
         }
         else {
             if (isNaN(fieldCondition)) {
-                if (this.virtualFields.hasField(fieldCondition)) {
-                    columnNumber = this.virtualFields.getFieldColumn(fieldCondition)
-                    fieldConditionTableInfo = this.virtualFields.getTableInfo(fieldCondition)
+                if (this.tableFields.hasField(fieldCondition)) {
+                    columnNumber = this.tableFields.getFieldColumn(fieldCondition)
+                    fieldConditionTableInfo = this.tableFields.getTableInfo(fieldCondition)
                 }
                 else {
                     //  Calculated field?
@@ -801,16 +787,8 @@ class SelectTables {
      * 
      * @returns {String[]}
      */
-    getColumnNames() {
-        return this.virtualFields.getColumnNames();
-    }
-
-    /**
-     * 
-     * @returns {String[]}
-     */
     getColumnTitles() {
-        return this.virtualFields.getColumnTitles();
+        return this.tableFields.getColumnTitles();
     }
 }
 
@@ -820,18 +798,13 @@ class VirtualFields {
         this.virtualFieldMap = new Map();
         /** @type {VirtualField[]} */
         this.virtualFieldList = [];
-        /** @type {String[]} */
-        this.columnNames = [];
-        this.columnTitles = [];
-        /** @type {SelectField[]} */
-        this.selectVirtualFields = [];
     }
 
     /**
      * 
      * @param {VirtualField} field 
      */
-    add(field, checkForDuplicates=false) {
+    add(field, checkForDuplicates = false) {
         if (checkForDuplicates && this.virtualFieldMap.has(field.fieldName)) {
             throw new Error(`Duplicate field name: ${field.fieldName}`);
         }
@@ -841,169 +814,10 @@ class VirtualFields {
 
     /**
      * 
-     * @param {VirtualField} originalField 
-     * @param {VirtualField} newField 
-     */
-    replaceVirtualField(originalField, newField) {
-        const originalCol = originalField.tableColumn;
-        const originalTable = originalField.tableInfo.tableName;
-
-        for (const fld of this.virtualFieldList) {
-            if (originalCol === fld.tableColumn &&
-                originalTable === fld.tableInfo.tableName) {
-                //  Keep field object, just replace contents.
-                fld.tableColumn = newField.tableColumn;
-                fld.tableInfo = newField.tableInfo;
-            }
-        }
-    }
-
-    /**
-     * 
-     * @param {String} field 
-     * @returns {Boolean}
-     */
-    hasField(field) {
-        field = field.trim().toUpperCase();
-
-        return this.virtualFieldMap.has(field);
-    }
-
-    /**
-     * 
-     * @param {String} field
-     * @returns {Table}  
-     */
-    getTableInfo(field) {
-        field = field.trim().toUpperCase();
-        let tableInfo = null;
-
-        if (this.virtualFieldMap.has(field))
-            tableInfo = this.virtualFieldMap.get(field).tableInfo;
-
-        return tableInfo;
-    }
-
-    /**
-     * 
-     * @param {String} field 
-     * @returns {VirtualField}
-     */
-    getFieldInfo(field) {
-        if (field === null || typeof field !== "string")
-            throw new Error("SELECT syntax error.  Failed to retrieve field info.");
-
-        field = field.trim().toUpperCase();
-        let fieldInfo = null;
-
-        if (this.virtualFieldMap.has(field))
-            fieldInfo = this.virtualFieldMap.get(field);
-
-        return fieldInfo;
-    }
-
-    /**
-     * 
-     * @param {any} name1 
-     * @param {any} name2 
-     * @returns {Boolean}
-     */
-    isSameField(name1, name2) {
-        let isSame = false;
-        let leftVirtual = name1;
-        if (typeof name1 === "string")
-            leftVirtual = this.getFieldInfo(name1);
-
-        let rightVirtual = name2;
-        if (typeof name2 === "string")
-            rightVirtual = this.getFieldInfo(name2);
-
-        if (leftVirtual !== null && rightVirtual !== null &&
-            leftVirtual.tableInfo.tableName === rightVirtual.tableInfo.tableName &&
-            leftVirtual.tableColumn === rightVirtual.tableColumn) {
-            isSame = true;
-        }
-        return isSame;
-    }
-
-    /**
-     * 
      * @returns {VirtualField[]}
      */
     getAllVirtualFields() {
         return this.virtualFieldList;
-    }
-
-    /**
-     * 
-     * @param {String} field 
-     * @returns {Number}
-     */
-    getFieldColumn(field) {
-        field = field.trim().toUpperCase();
-        let fieldColumn = null;
-
-        if (this.virtualFieldMap.has(field))
-            fieldColumn = this.virtualFieldMap.get(field).tableColumn;
-
-        return fieldColumn;
-    }
-
-    /**
-     * Iterate through all table fields and create a list of these VirtualFields.
-     * @param {String} primaryTable
-     * @param {Map<String,Table>} tableInfo  
-     */
-    loadVirtualFields(primaryTable, tableInfo) {
-        /** @type {String} */
-        let tableName = "";
-        /** @type {Table} */
-        let tableObject;
-        // @ts-ignore
-        for ([tableName, tableObject] of tableInfo.entries()) {
-            const validFieldNames = tableObject.getAllFieldNames();
-
-            for (const field of validFieldNames) {
-                const tableColumn = tableObject.getFieldColumn(field);
-                if (tableColumn !== -1) {
-                    //  If we have the same field name more than once (without the full DOT notation)
-                    //  we only want the one for the primary table.
-                    if (this.hasField(field)) {
-                        if (tableName.toUpperCase() !== primaryTable.toUpperCase())
-                            continue;
-                    }
-                    const virtualField = new VirtualField(field, tableObject, tableColumn);
-                    this.add(virtualField);
-                }
-            }
-        }
-    }
-
-    /**
-     * 
-     * @param {DerivedTable} derivedTable 
-     */
-    updateDerivedTableVirtualFields(derivedTable) {
-        const existingVirtualFieldsList = derivedTable.tableInfo.getAllVirtualFields();
-
-        for (const field of existingVirtualFieldsList) {
-            if (this.hasField(field.fieldName)) {
-                const originalField = this.getFieldInfo(field.fieldName);
-                this.replaceVirtualField(originalField, field);
-            }
-        }
-    }
-
-    removeNonDerivedTableVirtualFields() {
-        /** @type {VirtualField[]} */
-        const newVirtualFields = [];
-        for (const fld of this.virtualFieldList) {
-            if (fld.tableInfo.tableName === DERIVEDTABLE) {
-                newVirtualFields.push(fld);
-            }
-        }
-
-        this.virtualFieldList = newVirtualFields;
     }
 
     /**
@@ -1031,98 +845,6 @@ class VirtualFields {
 
         return astFields;
     }
-
-    /**
-     * Updates internal SELECTED field list.
-     * @param {*} astFields 
-     */
-    updateSelectFieldList(astFields) {
-        this.columnNames = [];
-        this.columnTitles = [];
-        this.selectVirtualFields = [];
-
-        for (const selField of astFields) {
-            const [columnName, aggregateFunctionName, calculatedField] = this.getSelectFieldNames(selField);
-            this.columnTitles.push(typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
-
-            if (calculatedField === null && this.hasField(columnName)) {
-                const fieldInfo = this.getFieldInfo(columnName);
-                const selectFieldInfo = new SelectField(fieldInfo);
-                selectFieldInfo.aggregateFunction = aggregateFunctionName;
-
-                this.selectVirtualFields.push(selectFieldInfo);
-                this.columnNames.push(selField.name);
-            }
-            else if (calculatedField !== null) {
-                const selectFieldInfo = new SelectField(null);
-                selectFieldInfo.calculatedFormula = selField.name;
-                this.selectVirtualFields.push(selectFieldInfo);
-                this.columnNames.push(selField.name);
-            }
-            else {
-                //  is this a function?
-                const selectFieldInfo = new SelectField(null);
-                selectFieldInfo.calculatedFormula = columnName;
-                selectFieldInfo.aggregateFunction = aggregateFunctionName;
-                this.selectVirtualFields.push(selectFieldInfo);
-                this.columnNames.push(selField.name);
-            }
-        }
-    }
-
-    /**
-     * 
-     * @param {Object} selField 
-     * @returns {any[]}
-     */
-    getSelectFieldNames(selField) {
-        let columnName = selField.name;
-        let aggregateFunctionName = "";
-        const calculatedField = (typeof selField.terms === 'undefined') ? null : selField.terms;
-
-        if (calculatedField === null && !this.hasField(columnName)) {
-            const functionNameRegex = /^\w+\s*(?=\()/;
-            let matches = columnName.match(functionNameRegex)
-            if (matches !== null && matches.length > 0)
-                aggregateFunctionName = matches[0].trim();
-
-            matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName);
-            if (matches !== null && matches.length > 1)
-                columnName = matches[1];
-        }
-
-        return [columnName, aggregateFunctionName, calculatedField];
-    }
-
-    /**
-     * 
-     * @param {String} fieldName 
-     * @returns {Number}
-     */
-    getSelectFieldColumn(fieldName) {
-        for (let i = 0; i < this.selectVirtualFields.length; i++) {
-            if (this.isSameField(this.selectVirtualFields[i].fieldInfo, fieldName) && this.selectVirtualFields[i].aggregateFunction === "")
-                return i;
-        }
-
-        return -1;
-    }
-
-    /**
-     * 
-     * @returns {String[]}
-     */
-    getColumnNames() {
-        return this.columnNames;
-    }
-
-    /**
-     * 
-     * @returns {String[]}
-     */
-    getColumnTitles() {
-        return this.columnTitles;
-    }
 }
 
 /**  Defines all possible table fields including '*' and long/short form (i.e. table.column). */
@@ -1138,48 +860,6 @@ class VirtualField {
         this.tableInfo = tableInfo;
         this.tableColumn = tableColumn;
     }
-
-    /**
-     * 
-     * @param {Number} tableRow 
-     * @returns {any}
-     */
-    getData(tableRow) {
-        if (tableRow < 0 || this.tableColumn < 0)
-            return "";
-
-        return this.tableInfo.tableData[tableRow][this.tableColumn];
-    }
-}
-
-/** Fields specified in SELECT statement. */
-class SelectField {
-    /**
-     * 
-     * @param {VirtualField} fieldInfo 
-     */
-    constructor(fieldInfo) {
-        this._aggregateFunction = "";
-        /** @property {SelectField[]} */
-        this._calculatedFormula = "";
-        this.fieldInfo = fieldInfo;
-    }
-
-    get aggregateFunction() {
-        return this._aggregateFunction;
-    }
-
-    set aggregateFunction(value) {
-        this._aggregateFunction = value.toUpperCase();
-    }
-
-    get calculatedFormula() {
-        return this._calculatedFormula;
-    }
-
-    set calculatedFormula(value) {
-        this._calculatedFormula = value;
-    }
 }
 
 /** Handle the various JOIN table types. */
@@ -1187,39 +867,28 @@ class JoinTables {
     /**
      * 
      * @param {any[]} astJoin 
-     * @param {VirtualFields} virtualFields 
+     * @param {TableFields} tableFields
      */
-    constructor(astJoin, virtualFields) {
+    constructor(astJoin, tableFields = null) {
         /** @type {DerivedTable} */
         this.derivedTable = new DerivedTable();
 
         for (const joinTable of astJoin) {
-            /** @type {VirtualField} */
-            let leftFieldInfo = this.derivedTable.getFieldInfo(joinTable.cond.left);
-            if (leftFieldInfo === null)
-                leftFieldInfo = virtualFields.getFieldInfo(joinTable.cond.left);
-            if (leftFieldInfo === null)
-                throw new Error(`Invalid JOIN field: ${joinTable.cond.left}`);
-
-            /** @type {VirtualField} */
-            let rightFieldInfo = this.derivedTable.getFieldInfo(joinTable.cond.right);
-            if (rightFieldInfo === null)
-                rightFieldInfo = virtualFields.getFieldInfo(joinTable.cond.right);
-            if (rightFieldInfo === null)
-                throw new Error(`Invalid JOIN field: ${joinTable.cond.right}`);
+            /** @type {TableField} */
+            let leftFieldInfo = null;
+            /** @type {TableField} */
+            let rightFieldInfo = null;
+            if (tableFields !== null) {
+                leftFieldInfo = tableFields.getFieldInfo(joinTable.cond.left);
+                rightFieldInfo = tableFields.getFieldInfo(joinTable.cond.right);
+            }
 
             this.derivedTable = JoinTables.joinTables(leftFieldInfo, rightFieldInfo, joinTable);
 
             //  Field locations have changed to the derived table, so update our
             //  virtual field list with proper settings.
-            virtualFields.updateDerivedTableVirtualFields(this.derivedTable);
-
-            this.derivedTable.leftTable = virtualFields.getFieldInfo(leftFieldInfo.fieldName);
-            this.derivedTable.rightTable = virtualFields.getFieldInfo(rightFieldInfo.fieldName);
+            tableFields.updateDerivedTableVirtualFields(this.derivedTable);
         }
-
-        // Don't want any references to the original NON-DERIVED tables.
-        virtualFields.removeNonDerivedTableVirtualFields();
     }
 
     /**
@@ -1240,8 +909,8 @@ class JoinTables {
 
     /**
     * 
-    * @param {VirtualField} leftFieldInfo 
-    * @param {VirtualField} rightFieldInfo 
+    * @param {TableField} leftFieldInfo 
+    * @param {TableField} rightFieldInfo 
     * @param {Object} joinTable 
     * @returns {DerivedTable}
     */
@@ -1311,8 +980,8 @@ class JoinTables {
     /**
      * Returns array of each matching record ID from right table for every record in left table.
      * If the right table entry could NOT be found, -1 is set for that record index.
-     * @param {VirtualField} leftField 
-     * @param {VirtualField} rightField
+     * @param {TableField} leftField 
+     * @param {TableField} rightField
      * @param {String} type
      * @returns {Number[][]} 
      */
@@ -1355,15 +1024,11 @@ class JoinTables {
 /**  The JOIN creates a new logical table. */
 class DerivedTable {
     constructor() {
-        /** @type {VirtualField} */
-        this.leftTable = null;
-        /** @type {VirtualField} */
-        this.rightTable = null;
         /** @type {Table} */
         this.tableInfo = null;
-        /** @type  {VirtualField} */
+        /** @type  {TableField} */
         this.leftField = null;
-        /** @type  {VirtualField} */
+        /** @type  {TableField} */
         this.rightField = null;
         /** @type  {Number[][]} */
         this.leftRecords = null;
@@ -1373,7 +1038,7 @@ class DerivedTable {
 
     /**
      * 
-     * @param {VirtualField} leftField 
+     * @param {TableField} leftField 
      * @returns {DerivedTable}
      */
     setLeftField(leftField) {
@@ -1383,7 +1048,7 @@ class DerivedTable {
 
     /**
      * 
-     * @param {VirtualField} rightField 
+     * @param {TableField} rightField 
      * @returns {DerivedTable}
      */
     setRightField(rightField) {
@@ -1457,17 +1122,8 @@ class DerivedTable {
 
     /**
      * 
-     * @param {String} field
-     * @returns {VirtualField} 
-     */
-    getFieldInfo(field) {
-        return this.tableInfo === null ? null : this.tableInfo.getVirtualFieldInfo(field);
-    }
-
-    /**
-     * 
-     * @param {VirtualField} leftField 
-     * @param {VirtualField} rightField 
+     * @param {TableField} leftField 
+     * @param {TableField} rightField 
      * @returns {String[]}
      */
     static getCombinedColumnTitles(leftField, rightField) {
@@ -1704,7 +1360,7 @@ class SqlServerFunctions {
 class ConglomerateRecord {
     /**
      * 
-     * @param {SelectField[]} virtualFields 
+     * @param {TableField[]} virtualFields 
      */
     constructor(virtualFields) {
         this.selectVirtualFields = virtualFields;
@@ -1721,7 +1377,7 @@ class ConglomerateRecord {
             return row;
 
         let i = 0;
-        for (/** @type {SelectField} */ const field of this.selectVirtualFields) {
+        for (/** @type {TableField} */ const field of this.selectVirtualFields) {
             if (field.aggregateFunction === "")
                 row.push(groupRecords[0][i]);
             else {
@@ -1734,7 +1390,7 @@ class ConglomerateRecord {
 
     /**
      * 
-     * @param {SelectField} field 
+     * @param {TableField} field 
      * @param {any[]} groupRecords 
      * @param {Number} columnIndex 
      * @returns {Number}
@@ -1812,5 +1468,478 @@ class ConglomerateRecord {
             groupValue = data;
 
         return groupValue;
+    }
+}
+
+class TableFields {
+    constructor() {
+        /** @type {TableField[]} */
+        this.allFields = [];
+    }
+
+    /**
+     * Iterate through all table fields and create a list of these VirtualFields.
+     * @param {String} primaryTable
+     * @param {Map<String,Table>} tableInfo  
+     */
+    loadVirtualFields(primaryTable, tableInfo) {
+        /** @type {String} */
+        let tableName = "";
+        /** @type {Table} */
+        let tableObject;
+        // @ts-ignore
+        for ([tableName, tableObject] of tableInfo.entries()) {
+            const validFieldNames = tableObject.getAllFieldNames();
+
+            for (const field of validFieldNames) {
+                const tableColumn = tableObject.getFieldColumn(field);
+                if (tableColumn !== -1) {
+                    const virtualField = this.findTableField(tableName, tableColumn);
+                    if (virtualField !== null) {
+                        virtualField.addAlias(field);
+                    }
+                    else {
+                        const newVirtualField = new TableField()
+                            .setOriginalTable(tableName)
+                            .setOriginalTableColumn(tableColumn)
+                            .addAlias(field)
+                            .setIsPrimaryTable(primaryTable.toUpperCase() === tableName.toUpperCase())
+                            .setTableInfo(tableObject);
+
+                        this.allFields.push(newVirtualField);
+                    }
+                }
+            }
+        }
+
+        this.allFields.sort(this.sortPrimaryFields);
+    }
+
+    /**
+     * 
+     * @param {TableField} fldA 
+     * @param {TableField} fldB 
+     */
+    sortPrimaryFields(fldA, fldB) {
+        let keyA = fldA.primaryTable ? 0 : 1000;
+        let keyB = fldB.primaryTable ? 0 : 1000;
+
+        keyA += fldA.originalTableColumn;
+        keyB += fldB.originalTableColumn;
+
+        if (keyA < keyB)
+            return -1;
+        else if (keyA > keyB)
+            return 1;
+        return 0;
+    }
+
+    /**
+     * 
+     * @param {String} tableName 
+     * @param {Number} tableColumn 
+     * @returns {TableField}
+     */
+    findTableField(tableName, tableColumn) {
+        for (const field of this.allFields) {
+            if (field.isAlias(tableName, tableColumn))
+                return field;
+        }
+
+        return null;
+    }
+
+    /**
+     * 
+     * @param {String} field 
+     * @returns {Boolean}
+     */
+    hasField(field) {
+        for (let fld of this.allFields) {
+            if (fld.hasField(field))
+                return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 
+     * @param {String} field 
+     * @returns {TableField}
+     */
+    getFieldInfo(field) {
+        for (let fld of this.allFields) {
+            if (fld.hasField(field)) {
+                return fld;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 
+     * @param {String} field 
+     * @returns {Table}
+     */
+    getTableInfo(field) {
+        let fldInfo = this.getFieldInfo(field);
+        return fldInfo.tableInfo;
+    }
+
+    /**
+     * 
+     * @param {String} field 
+     * @returns {Number}
+     */
+    getFieldColumn(field) {
+        let fld = this.getFieldInfo(field);
+        if (fld !== null) {
+            return fld.tableColumn;
+        }
+
+        return -1;
+    }
+
+    /**
+     * 
+     * @param {String} field 
+     * @returns {Number}
+     */
+    getSelectFieldColumn(field) {
+        let fld = this.getFieldInfo(field);
+        if (fld !== null) {
+            return fld.selectColumn;
+        }
+
+        return -1;
+    }
+
+    /**
+     * Updates internal SELECTED field list.
+     * @param {*} astFields 
+     */
+    updateSelectFieldList(astFields) {
+        let i = 0;
+        for (const selField of astFields) {
+            const [columnName, aggregateFunctionName, calculatedField] = this.getSelectFieldNames(selField);
+            let columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
+
+            if (calculatedField === null && this.hasField(columnName)) {
+                let fieldInfo = this.getFieldInfo(columnName);
+                if (aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
+                    let newFieldInfo = new TableField();
+                    Object.assign(newFieldInfo, fieldInfo);
+                    fieldInfo = newFieldInfo;
+
+                    this.allFields.push(fieldInfo);
+                }
+
+                fieldInfo
+                    .setAggregateFunction(aggregateFunctionName)
+                    .setColumnTitle(columnTitle)
+                    .setColumnName(selField.name)
+                    .setSelectColumn(i);
+            }
+            else if (calculatedField !== null) {
+                const fieldInfo = new TableField();
+                this.allFields.push(fieldInfo);
+
+                fieldInfo
+                    .setColumnTitle(columnTitle)
+                    .setColumnName(selField.name)
+                    .setSelectColumn(i)
+                    .setCalculatedFormula(selField.name);
+            }
+            else {
+                const fieldInfo = new TableField();
+                this.allFields.push(fieldInfo);
+
+                fieldInfo
+                    .setCalculatedFormula(columnName)
+                    .setAggregateFunction(aggregateFunctionName)
+                    .setSelectColumn(i)
+                    .setColumnName(selField.name)
+                    .setColumnTitle(columnTitle);
+            }
+            i++;
+        }
+    }
+
+    /**
+     * @returns {TableField[]}
+     */
+    getSelectFields() {
+        const selectedFields = this.allFields.filter((a) => a.selectColumn != -1);
+        selectedFields.sort(this.sortSelectFields);
+
+        return selectedFields;
+    }
+
+    /**
+     * 
+     * @param {TableField} fldA 
+     * @param {TableField} fldB
+     * @returns {Number} 
+     */
+    sortSelectFields(fldA, fldB) {
+        if (fldA.selectColumn < fldB.selectColumn)
+            return -1;
+        else if (fldA.selectColumn > fldB.selectColumn)
+            return 1;
+
+        return 0;
+    }
+
+    /**
+     * 
+     * @returns {String[]}
+     */
+     getColumnNames() {
+        let columnNames = [];
+
+        for (let fld of this.getSelectFields()) {
+            columnNames.push(fld.columnName);
+        }
+
+        return columnNames;
+    }
+
+    /**
+     * 
+     * @returns {String[]}
+     */
+    getColumnTitles(){
+        let columnTitles = [];
+
+        for (let fld of this.getSelectFields()) {
+            columnTitles.push(fld.columnTitle);
+        }
+
+        return columnTitles;
+    }
+
+    /**
+     * 
+     * @param {DerivedTable} derivedTable 
+     */
+    updateDerivedTableVirtualFields(derivedTable) {
+        const derivedTableFields = derivedTable.tableInfo.getAllVirtualFields();
+
+        let fieldNo = 0;
+        for (const field of derivedTableFields) {
+            if (this.hasField(field.fieldName)) {
+                const originalField = this.getFieldInfo(field.fieldName);
+                originalField.derivedTableColumn = fieldNo;
+                originalField.tableInfo = derivedTable.tableInfo;
+            }
+
+            fieldNo++;
+        }
+    }
+
+    /**
+     * 
+     * @param {Object} selField 
+     * @returns {any[]}
+     */
+    getSelectFieldNames(selField) {
+        let columnName = selField.name;
+        let aggregateFunctionName = "";
+        const calculatedField = (typeof selField.terms === 'undefined') ? null : selField.terms;
+
+        if (calculatedField === null && !this.hasField(columnName)) {
+            const functionNameRegex = /^\w+\s*(?=\()/;
+            let matches = columnName.match(functionNameRegex)
+            if (matches !== null && matches.length > 0)
+                aggregateFunctionName = matches[0].trim();
+
+            matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName);
+            if (matches !== null && matches.length > 1)
+                columnName = matches[1];
+        }
+
+        return [columnName, aggregateFunctionName, calculatedField];
+    }
+
+    /**
+     * 
+     * @returns {Number}
+     */
+    getConglomerateFieldCount() {
+        let count = 0;
+        for (/** @type {TableField} */ const field of this.getSelectFields()) {
+            if (field.aggregateFunction !== "")
+                count++;
+        }
+
+        return count;
+    }
+}
+
+class TableField {
+    constructor() {
+        this.originalTable = "";
+        this.originalTableColumn = -1;
+        this.aliasNames = [];
+        this.fieldName = "";
+        this.derivedTableColumn = -1;
+        this.selectColumn = -1;
+        this.calculatedFormula = "";
+        this.aggregateFunction = "";
+        this.columnTitle = "";
+        this.columnName = "";
+        this.primaryTable = false;
+        /** @type {Table} */
+        this.tableInfo = null;
+    }
+
+    /**
+     * @returns {Number}
+     */
+    get tableColumn() {
+        return this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
+    }
+
+    /**
+     * 
+     * @param {String} table 
+     * @param {Number} columnNumber 
+     * @returns {Boolean}
+     */
+    isAlias(table, columnNumber) {
+        return table.trim().toUpperCase() === this.originalTable && this.originalTableColumn === columnNumber;
+    }
+
+    /**
+     * 
+     * @param {String} table 
+     * @returns {TableField}
+     */
+    setOriginalTable(table) {
+        this.originalTable = table.trim().toUpperCase();
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Number} column 
+     * @returns {TableField}
+     */
+    setOriginalTableColumn(column) {
+        this.originalTableColumn = column;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} columnAlias 
+     * @returns {TableField}
+     */
+    addAlias(columnAlias) {
+        let alias = columnAlias.trim().toUpperCase();
+        if (this.fieldName === "" || alias.indexOf(".") !== -1) {
+            this.fieldName = alias;
+        }
+
+        if (this.aliasNames.indexOf(alias) == -1) {
+            this.aliasNames.push(alias);
+        }
+
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} field 
+     * @returns {Boolean}
+     */
+    hasField(field) {
+        return this.aliasNames.indexOf(field.toUpperCase()) !== -1;
+    }
+
+    /**
+     * 
+     * @param {Number} column 
+     * @returns {TableField}
+     */
+    setSelectColumn(column) {
+        this.selectColumn = column;
+
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} value 
+     * @returns {TableField}
+     */
+    setAggregateFunction(value) {
+        this.aggregateFunction = value.toUpperCase();
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} value 
+     * @returns {TableField}
+     */
+    setCalculatedFormula(value) {
+        this.calculatedFormula = value;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} column 
+     * @returns {TableField}
+     */
+    setColumnTitle(column) {
+        this.columnTitle = column;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} columnName 
+     * @returns {TableField}
+     */
+    setColumnName(columnName) {
+        this.columnName = columnName;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Boolean} isPrimary 
+     * @returns {TableField}
+     */
+    setIsPrimaryTable(isPrimary) {
+        this.primaryTable = isPrimary;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Table} tableInfo 
+     * @returns {TableField}
+     */
+    setTableInfo(tableInfo) {
+        this.tableInfo = tableInfo;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Number} tableRow 
+     * @returns {any}
+     */
+    getData(tableRow) {
+        let columnNumber = this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
+        if (tableRow < 0 || columnNumber < 0)
+            return "";
+
+        return this.tableInfo.tableData[tableRow][columnNumber];
     }
 }

@@ -99,15 +99,6 @@ class Table {
 
     /**
      * 
-     * @param {String} field 
-     * @returns {VirtualField}
-     */
-    getVirtualFieldInfo(field) {
-        return this.schema.getVirtualFieldInfo(field);
-    }
-
-    /**
-     * 
      * @returns {VirtualField[]}
      */
     getAllVirtualFields() {
@@ -325,15 +316,6 @@ class Schema {
 
     /**
      * 
-     * @param {String} field 
-     * @returns {VirtualField}
-     */
-    getVirtualFieldInfo(field) {
-        return this.virtualFields.getFieldInfo(field);
-    }
-
-    /**
-     * 
      * @returns {VirtualField[]}
      */
     getAllVirtualFields() {
@@ -412,7 +394,6 @@ class Schema {
         //  Add special field for every table.
         //  The asterisk represents ALL fields in table.
         this.fields.set("*", null);
-
 
         return this;
     }

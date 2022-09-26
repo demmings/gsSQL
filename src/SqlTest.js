@@ -23,6 +23,20 @@ function SqlLiveDataTest() {
 
 
 class SqlTester {
+    /*
+    LOAD DATA INFILE '/home/cdemmings/Projects/Sheets/CanadianRetirementPlanner/SQL/csv/books.csv'
+    INTO TABLE books
+    FIELDS 
+        TERMINATED BY ', '
+        ENCLOSED BY '\"'
+        ESCAPED BY ''
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS;
+    */
+
+    /* CREATE TABLE books (id CHAR(6), title VARCHAR(200),
+        type VARCHAR(20), author_id CHAR(6), editor_id CHAR(6), translator_id CHAR(6));
+    */
     bookTable() {
         return [
             ["id", "title", "type", "author id", "editor id", "translator id"],
@@ -38,6 +52,20 @@ class SqlTester {
         ];
     }
 
+    /*
+    LOAD DATA INFILE '/home/cdemmings/Projects/Sheets/CanadianRetirementPlanner/SQL/csv/booksales.csv'
+    INTO TABLE booksales
+    FIELDS 
+        TERMINATED BY ', '
+        ENCLOSED BY '\"'
+        ESCAPED BY ''
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS;
+    */
+
+    /* CREATE TABLE booksales (invoice CHAR(6), book_id CHAR(6),
+        customer_id CHAR(6), quantity integer, price double, date date);
+    */
     bookSalesTable() {
         return [
             ["Invoice", "Book Id", "Customer ID", "Quantity", "Price", "Date"],
@@ -55,6 +83,20 @@ class SqlTester {
 
     }
 
+    /*
+    LOAD DATA INFILE '/home/cdemmings/Projects/Sheets/CanadianRetirementPlanner/SQL/csv/bookreturns.csv'
+    INTO TABLE bookreturns
+    FIELDS 
+        TERMINATED BY ', '
+        ENCLOSED BY '\"'
+        ESCAPED BY ''
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS;
+    */
+
+    /* CREATE TABLE bookreturns (rma CHAR(7), book_id CHAR(6),
+        customer_id CHAR(6), quantity integer, price double, date date);
+    */
     bookReturnsTable() {
         return [
             ["RMA", "Book Id", "Customer ID", "Quantity", "Price", "Date"],
@@ -72,6 +114,20 @@ class SqlTester {
 
     }
 
+    /*
+    LOAD DATA INFILE '/home/cdemmings/Projects/Sheets/CanadianRetirementPlanner/SQL/csv/customers.csv'
+    INTO TABLE customers
+    FIELDS 
+        TERMINATED BY ', '
+        ENCLOSED BY '\"'
+        ESCAPED BY ''
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS;
+    */
+
+    /* CREATE TABLE customers (id CHAR(6), name VARCHAR(100),
+        address VARCHAR(200), city VARCHAR(50), phone CHAR(20), email VARCHAR(200));
+    */
     customerTable() {
         return [
             ["ID", "Name", "Address", "City", "Phone", "eMail"],
@@ -86,6 +142,20 @@ class SqlTester {
 
     }
 
+    /*
+    LOAD DATA INFILE '/home/cdemmings/Projects/Sheets/CanadianRetirementPlanner/SQL/csv/authors.csv'
+    INTO TABLE authors
+    FIELDS 
+        TERMINATED BY ', '
+        ENCLOSED BY '\"'
+        ESCAPED BY ''
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS;
+    */
+
+    /* CREATE TABLE authors (id CHAR(6), first_name VARCHAR(100),
+        last_name VARCHAR(200));
+    */
     authorsTable() {
         return [
             ["id", "first_name", "last_name"],
@@ -97,6 +167,20 @@ class SqlTester {
         ];
     }
 
+    /*
+    LOAD DATA INFILE '/home/cdemmings/Projects/Sheets/CanadianRetirementPlanner/SQL/csv/editors.csv'
+    INTO TABLE editors
+    FIELDS 
+        TERMINATED BY ', '
+        ENCLOSED BY '\"'
+        ESCAPED BY ''
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS;
+    */
+
+    /* CREATE TABLE editors (id CHAR(6), first_name VARCHAR(100),
+        last_name VARCHAR(200));
+    */
     editorsTable() {
         return [
             ["id", "first name", "last name"],
@@ -113,6 +197,21 @@ class SqlTester {
         ];
     }
 
+
+    /*
+    LOAD DATA INFILE '/home/cdemmings/Projects/Sheets/CanadianRetirementPlanner/SQL/csv/translators.csv'
+    INTO TABLE translators
+    FIELDS 
+        TERMINATED BY ', '
+        ENCLOSED BY '\"'
+        ESCAPED BY ''
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS;
+    */
+
+    /* CREATE TABLE translators (id CHAR(6), first_name VARCHAR(100),
+        last_name VARCHAR(200));
+    */
     translatorsTable() {
         return [
             ["id", "first_name", "last_name"],
@@ -395,7 +494,7 @@ class SqlTester {
         let stmt = "SELECT books.id, books.title, editors.last_name, editors.id  " +
             "FROM books " +
             "RIGHT JOIN editors " +
-            "ON books.editor_id = editors.id" +
+            "ON books.editor_id = editors.id " +
             "ORDER BY books.id";
 
         let data = new Sql()
@@ -423,7 +522,7 @@ class SqlTester {
     }
 
     rightJoin2() {
-        let stmt = "SELECT books.id, books.title, books.translator_id, " + 
+        let stmt = "SELECT books.id, books.title, books.translator_id, " +
             "editors.last_name, editors.id,  " +
             "translators.last_name " +
             "FROM books " +
@@ -440,11 +539,12 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["books.id", "books.title", "books.type", "authors.last_name", "translators.last_name"],
-        ["2", "Your Trip", "translated", "Dou", "Weng"],
-        ["5", "Oranges", "translated", "Savelieva", "Davies"],
-        ["6", "Your Happy Life", "translated", "Dou", "Green"],
-        ["7", "Applied AI", "translated", "Smart", "Edwards"]];
+        let expected = [["books.id", "books.title", "books.translator_id", "editors.last_name", "editors.id", "translators.last_name"],
+        ["2", "Your Trip", "32", "Johnson", "22", "Weng"],
+        ["5", "Oranges", "31", "Wright", "25", "Davies"],
+        ["6", "Your Happy Life", "33", "Johnson", "22", "Green"],
+        ["7", "Applied AI", "34", "Evans", "23", "Edwards"],
+        ["9", "Book with Mysterious Author", "34", "Evans", "23", "Edwards"]];
 
         return this.isEqual("rightJoin2", data, expected);
     }
@@ -508,6 +608,41 @@ class SqlTester {
         ["", "", "", "", "", "", "7 Eight Crt.", "C7", "7th Heaven"]];
 
         return this.isEqual("fullJoin2", data, expected);
+    }
+
+    fullJoin3() {
+        let stmt = "SELECT *, customers.address, customers.id, customers.name, books.title " +
+            "FROM booksales " +
+            "FULL JOIN customers " +
+            "ON booksales.customer_id = customers.id " +
+            "FULL JOIN books " +
+            "ON booksales.Book_Id = books.id";
+
+        let data = new Sql()
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("customers", this.customerTable())
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "customers.address", "customers.id", "customers.name", "books.title"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "101 One Way", "C1", "Numereo Uno", "Book with Mysterious Author"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays", "My Last Book"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays", "Applied AI"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "3 Way St", "C3", "Tres Buon Goods", "Book with Mysterious Author"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "", "", "", "Time to Grow Up!"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "Your Trip"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "Lovely Love"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "Dream Your Life"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "101 One Way", "C1", "Numereo Uno", "Applied AI"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "202 Second St.", "C2", "Dewy Tuesdays", "Applied AI"],
+        ["", "", "", "", "", "", "5 ohFive St.", "C5", "Fe Fi Fo Giant Tiger", ""],
+        ["", "", "", "", "", "", "6 Seventh St", "C6", "Sx in Cars", ""],
+        ["", "", "", "", "", "", "7 Eight Crt.", "C7", "7th Heaven", ""],
+        ["", "", "", "", "", "", "", "", "", "Oranges"],
+        ["", "", "", "", "", "", "", "", "", "Your Happy Life"]];
+
+        return this.isEqual("fullJoin3", data, expected);
     }
 
     whereIn1() {
@@ -2289,9 +2424,10 @@ function testerSql() {
     result = result && tester.joinLimit1();
     result = result && tester.leftJoin1();
     result = result && tester.rightJoin1();
-    // result = result && tester.rightJoin2();
+    result = result && tester.rightJoin2();
     result = result && tester.fullJoin1();
     result = result && tester.fullJoin2();
+    result = result && tester.fullJoin3();
     result = result && tester.whereIn1();
     result = result && tester.whereIn2();
     result = result && tester.whereIn3();
