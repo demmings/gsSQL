@@ -122,7 +122,7 @@ class SelectTables {
         const calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
 
         for (let masterRecordID = 1; masterRecordID < this.masterTable.tableData.length; masterRecordID++) {
-            let leftValue = this.getConditionValue(leftFieldConditions,  calcSqlField, masterRecordID);
+            let leftValue = this.getConditionValue(leftFieldConditions, calcSqlField, masterRecordID);
             let rightValue = this.getConditionValue(rightFieldConditions, calcSqlField, masterRecordID);
 
             if (leftValue instanceof Date || rightValue instanceof Date) {
@@ -763,26 +763,41 @@ class CalculatedField {
                 varData = `'${varData}'`;
             }
 
-            for (const aliasName of vField.aliasNames) {
-                if ((this.primaryTable.tableName !== vField.tableInfo.tableName && aliasName.indexOf(".") === -1))
-                    continue;
-
-                if (aliasName.indexOf(".") === -1)
-                    myVars += `let ${aliasName} = ${varData};`;
-                else {
-                    const parts = aliasName.split(".");
-                    if (!objectsDeclared.has(parts[0])) {
-                        myVars += `let ${parts[0]} = {};`;
-                        objectsDeclared.set(parts[0], true);
-                    }
-                    myVars += `${aliasName} = ${varData};`;
-                }
-            }
+            myVars += this.createAssignmentStatments(vField, objectsDeclared, varData);
         }
 
         const functionString = this.sqlServerFunctions(calculatedFormula);
 
         return `${myVars} return ${functionString}`;
+    }
+
+    /**
+     * 
+     * @param {TableField} vField 
+     * @param {Map<String, Boolean>} objectsDeclared
+     * @param {String} varData
+     * @returns {String}
+     */
+    createAssignmentStatments(vField, objectsDeclared, varData) {
+        let myVars = "";
+
+        for (const aliasName of vField.aliasNames) {
+            if ((this.primaryTable.tableName !== vField.tableInfo.tableName && aliasName.indexOf(".") === -1))
+                continue;
+
+            if (aliasName.indexOf(".") === -1)
+                myVars += `let ${aliasName} = ${varData};`;
+            else {
+                const parts = aliasName.split(".");
+                if (!objectsDeclared.has(parts[0])) {
+                    myVars += `let ${parts[0]} = {};`;
+                    objectsDeclared.set(parts[0], true);
+                }
+                myVars += `${aliasName} = ${varData};`;
+            }
+        }
+
+        return myVars;
     }
 
     /**
@@ -1560,7 +1575,7 @@ class TableFields {
      * @param {TableField} field 
      * @param {Boolean} isPrimaryTable
      */
-    indexTableField(field, isPrimaryTable=false) {
+    indexTableField(field, isPrimaryTable = false) {
         for (const aliasField of field.aliasNames) {
             let fieldInfo = this.fieldNameMap.get(aliasField.toUpperCase());
 
@@ -1570,8 +1585,8 @@ class TableFields {
         }
 
         const key = `${field.originalTable}:${field.originalTableColumn}`;
-        if (! this.tableColumnMap.has(key))
-            this.tableColumnMap.set(key, field);        
+        if (!this.tableColumnMap.has(key))
+            this.tableColumnMap.set(key, field);
     }
 
     /**
@@ -1583,7 +1598,7 @@ class TableFields {
     findTableField(tableName, tableColumn) {
         const key = `${tableName}:${tableColumn}`;
 
-        if (! this.tableColumnMap.has(key)) {
+        if (!this.tableColumnMap.has(key)) {
             return null;
         }
 
