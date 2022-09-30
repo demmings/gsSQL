@@ -611,7 +611,7 @@ class SqlTester {
     }
 
     fullJoin3() {
-        let stmt = "SELECT *, customers.address, customers.id, customers.name, books.title " +
+        let stmt = "SELECT *, customers.address, customers.id, customers.name, books.id, books.title " +
             "FROM booksales " +
             "FULL JOIN customers " +
             "ON booksales.customer_id = customers.id " +
@@ -625,22 +625,22 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "customers.address", "customers.id", "customers.name", "books.title"],
-        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "101 One Way", "C1", "Numereo Uno", "Book with Mysterious Author"],
-        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays", "My Last Book"],
-        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays", "Applied AI"],
-        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "3 Way St", "C3", "Tres Buon Goods", "Book with Mysterious Author"],
-        ["I7203", "1", "", 1, 90, "05/02/2022", "", "", "", "Time to Grow Up!"],
-        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "Your Trip"],
-        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "Lovely Love"],
-        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "Dream Your Life"],
-        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "101 One Way", "C1", "Numereo Uno", "Applied AI"],
-        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "202 Second St.", "C2", "Dewy Tuesdays", "Applied AI"],
-        ["", "", "", "", "", "", "5 ohFive St.", "C5", "Fe Fi Fo Giant Tiger", ""],
-        ["", "", "", "", "", "", "6 Seventh St", "C6", "Sx in Cars", ""],
-        ["", "", "", "", "", "", "7 Eight Crt.", "C7", "7th Heaven", ""],
-        ["", "", "", "", "", "", "", "", "", "Oranges"],
-        ["", "", "", "", "", "", "", "", "", "Your Happy Life"]];
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "customers.address", "customers.id", "customers.name", "books.id", "books.title"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "101 One Way", "C1", "Numereo Uno", "9", "Book with Mysterious Author"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays", "8", "My Last Book"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays", "7", "Applied AI"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "3 Way St", "C3", "Tres Buon Goods", "9", "Book with Mysterious Author"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "", "", "", "1", "Time to Grow Up!"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "2", "Your Trip"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "3", "Lovely Love"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "4", "Dream Your Life"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "101 One Way", "C1", "Numereo Uno", "7", "Applied AI"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "202 Second St.", "C2", "Dewy Tuesdays", "7", "Applied AI"],
+        ["", "", "", "", "", "", "5 ohFive St.", "C5", "Fe Fi Fo Giant Tiger", "", ""],
+        ["", "", "", "", "", "", "6 Seventh St", "C6", "Sx in Cars", "", ""],
+        ["", "", "", "", "", "", "7 Eight Crt.", "C7", "7th Heaven", "", ""],
+        ["", "", "", "", "", "", "", "", "", "5", "Oranges"],
+        ["", "", "", "", "", "", "", "", "", "6", "Your Happy Life"]];
 
         return this.isEqual("fullJoin3", data, expected);
     }
@@ -818,6 +818,33 @@ class SqlTester {
         ["I7200", "9", "C1", 10, 34.95, "05/01/2022"]];
 
         return this.isEqual("whereAndOr2", data, expected);
+    }
+
+    whereAndOr3() {
+        let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
+
+        let startDate = new Date();
+        startDate.setDate(1);
+        startDate.setMonth(4);
+        startDate.setFullYear(2022);
+
+        let data = new Sql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .addBindParameter(startDate)
+            .addBindParameter('05/04/2022')
+            .addBindParameter('9')
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022"]];
+
+        return this.isEqual("whereAndOr3", data, expected);
     }
 
     whereAndNotEqual2() {
@@ -1206,6 +1233,40 @@ class SqlTester {
         ["51", "Daniel", "Smart"]];
 
         return this.isEqual("unionAll1", data, expected);
+    }
+
+    unionAll2() {
+        let stmt = "select * from authors UNION ALL select * from editors UNION ALL select * from translators";
+
+        let data = new Sql()
+            .addTableData("authors", this.authorsTable())
+            .addTableData("editors", this.editorsTable())
+            .addTableData("translators", this.translatorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
+        ["11", "Ellen", "Writer"],
+        ["12", "Olga", "Savelieva"],
+        ["13", "Jack", "Smart"],
+        ["14", "Donald", "Brain"],
+        ["15", "Yao", "Dou"],
+        ["13", "Jack", "Smart"],
+        ["21", "Daniel", "Brown"],
+        ["22", "Mark", "Johnson"],
+        ["23", "Maria", "Evans"],
+        ["24", "Cathrine", "Roberts"],
+        ["25", "Sebastian", "Wright"],
+        ["26", "Barbara", "Jones"],
+        ["27", "Matthew", "Smith"],
+        ["50", "Jack", "Dumb"],
+        ["51", "Daniel", "Smart"],
+        ["31", "Ira", "Davies"],
+        ["32", "Ling", "Weng"],
+        ["33", "Kristian", "Green"],
+        ["34", "Roman", "Edwards"]];
+
+        return this.isEqual("unionAll2", data, expected);
     }
 
     except1() {
@@ -2436,6 +2497,7 @@ function testerSql() {
     result = result && tester.whereNotIn1();
     result = result && tester.whereAndOr1();
     result = result && tester.whereAndOr2();
+    result = result && tester.whereAndOr3();
     result = result && tester.whereAndNotEqual2();
     result = result && tester.whereAndNotEqual3();
     result = result && tester.groupBy1();
@@ -2453,6 +2515,7 @@ function testerSql() {
     result = result && tester.unionAlias1();
     result = result && tester.unionBind1();
     result = result && tester.unionAll1();
+    result = result && tester.unionAll2();
     result = result && tester.except1();
     result = result && tester.intersect1();
     result = result && tester.orderByDesc1();

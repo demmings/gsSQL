@@ -21,19 +21,18 @@ class SelectTables {
         this.tableInfo = tableInfo;
         this.bindVariables = bindVariables;
         this.joinedTablesMap = new Map();
-        this.sqlServerFunctionCache = new Map();
         this.dataJoin = new JoinTables([]);
         this.tableFields = new TableFields();
 
         if (!tableInfo.has(this.primaryTable.toUpperCase()))
             throw new Error(`Invalid table name: ${this.primaryTable}`);
-        this.masterTableInfo = tableInfo.get(this.primaryTable.toUpperCase());
+        this.primaryTableInfo = tableInfo.get(this.primaryTable.toUpperCase());
 
         //  Keep a list of all possible fields from all tables.
         this.tableFields.loadVirtualFields(this.primaryTable, tableInfo);
 
         //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
-        this.astFields = VirtualFields.expandWildcardFields(this.masterTableInfo, this.astFields);
+        this.astFields = VirtualFields.expandWildcardFields(this.primaryTableInfo, this.astFields);
 
         this.tableFields.updateSelectFieldList(this.astFields);
     }
@@ -119,11 +118,12 @@ class SelectTables {
         const rightFieldConditions = this.resolveFieldCondition(condition.right);
 
         /** @type {Table} */
-        this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.masterTableInfo;
+        this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.primaryTableInfo;
+        const calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
 
         for (let masterRecordID = 1; masterRecordID < this.masterTable.tableData.length; masterRecordID++) {
-            let leftValue = this.getConditionValue(leftFieldConditions, masterRecordID);
-            let rightValue = this.getConditionValue(rightFieldConditions, masterRecordID);
+            let leftValue = this.getConditionValue(leftFieldConditions,  calcSqlField, masterRecordID);
+            let rightValue = this.getConditionValue(rightFieldConditions, calcSqlField, masterRecordID);
 
             if (leftValue instanceof Date || rightValue instanceof Date) {
                 leftValue = SelectTables.dateToMs(leftValue);
@@ -141,9 +141,10 @@ class SelectTables {
     /**
      * 
      * @param {any[]} fieldConditions 
+     * @param {CalculatedField} calcSqlField
      * @param {Number} masterRecordID
      */
-    getConditionValue(fieldConditions, masterRecordID) {
+    getConditionValue(fieldConditions, calcSqlField, masterRecordID) {
         /** @type {any} */
         let fieldConstant = null;
         /** @type {Number} */
@@ -160,10 +161,12 @@ class SelectTables {
             leftValue = fieldTable.tableData[masterRecordID][fieldCol];
         }
         else if (fieldCalculatedField !== "") {
-            if (fieldCalculatedField.toUpperCase() === "NULL")
+            if (fieldCalculatedField.toUpperCase() === "NULL") {
                 leftValue = "NULL";
-            else
-                leftValue = this.evaluateCalculatedField(fieldCalculatedField, masterRecordID);
+            }
+            else {
+                leftValue = calcSqlField.evaluateCalculatedField(fieldCalculatedField, masterRecordID);
+            }
         }
 
         return leftValue;
@@ -247,6 +250,7 @@ class SelectTables {
      */
     getViewData(recordIDs) {
         const virtualData = [];
+        const calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
 
         for (const masterRecordID of recordIDs) {
             const newRow = [];
@@ -255,7 +259,7 @@ class SelectTables {
                 if (field.tableInfo !== null)
                     newRow.push(field.getData(masterRecordID));
                 else if (field.calculatedFormula !== "") {
-                    const result = this.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
+                    const result = calcSqlField.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
                     newRow.push(result);
                 }
             }
@@ -264,94 +268,6 @@ class SelectTables {
         }
 
         return virtualData;
-    }
-
-    /**
-     * 
-     * @param {String} calculatedFormula 
-     * @param {Number} masterRecordID 
-     * @returns {any}
-     */
-    evaluateCalculatedField(calculatedFormula, masterRecordID) {
-        let result = "";
-        const functionString = this.sqlServerCalcFields(calculatedFormula, masterRecordID);
-        try {
-            result = new Function(functionString)();
-        }
-        catch (ex) {
-            throw new Error(`Calculated Field Error: ${ex.message}.  ${functionString}`);
-        }
-
-        return result;
-    }
-
-    /**
-     * The program is attempting to build some javascript code which we can then execute to 
-     * find the value of the calculated field.  There are two parts.
-     * 1)  Build LET statements to assign to all possible field name variants,
-     * 2)  Add the 'massaged' calculated field so that it can be run in javascript.
-     * @param {String} calculatedFormula 
-     * @param {Number} masterRecordID
-     * @returns {String} - String to be executed.  It is valid javascript lines of code.
-     */
-    sqlServerCalcFields(calculatedFormula, masterRecordID) {
-        //  Working on a calculated field.
-        const objectsDeclared = new Map();
-
-        let myVars = "";
-        for (/** @type {TableField} */ const vField of this.tableFields.allFields) {
-            if (this.masterTable !== vField.tableInfo)
-                continue;
-
-            //  Get the DATA from this field.  We then build a series of LET statments
-            //  and we assign that data to the field name that might be found in a calculated field.
-            let varData = vField.getData(masterRecordID);
-            if (typeof varData === "string" || varData instanceof Date) {
-                varData = `'${varData}'`;
-            }
-
-            for (const aliasName of vField.aliasNames) {
-                if ((this.masterTableInfo.tableName !== vField.tableInfo.tableName && aliasName.indexOf(".") === -1) ||
-                    (this.masterTable !== vField.tableInfo))
-                    continue;
-
-
-                if (aliasName.indexOf(".") === -1)
-                    myVars += `let ${aliasName} = ${varData};`;
-                else {
-                    const parts = aliasName.split(".");
-                    if (!objectsDeclared.has(parts[0])) {
-                        myVars += `let ${parts[0]} = {};`;
-                        objectsDeclared.set(parts[0], true);
-                    }
-                    myVars += `${aliasName} = ${varData};`;
-                }
-            }
-        }
-
-        const functionString = this.sqlServerFunctions(calculatedFormula);
-
-        return `${myVars} return ${functionString}`;
-    }
-
-    /**
-     * 
-     * @param {String} calculatedFormula 
-     * @returns {String}
-     */
-    sqlServerFunctions(calculatedFormula) {
-        //  If this calculated field formula has already been put into the required format,
-        //  pull this out of our cache rather than redo.
-        if (this.sqlServerFunctionCache.has(calculatedFormula))
-            return this.sqlServerFunctionCache.get(calculatedFormula);
-
-        const func = new SqlServerFunctions();
-        const functionString = func.convertToJs(calculatedFormula);
-
-        //  No need to recalculate for each row.
-        this.sqlServerFunctionCache.set(calculatedFormula, functionString);
-
-        return functionString;
     }
 
     /**
@@ -579,16 +495,16 @@ class SelectTables {
         for (const orderField of reverseOrderBy) {
             const selectColumn = this.tableFields.getSelectFieldColumn(orderField.column);
 
-            if (selectColumn !== -1) {
-                if (orderField.order === "DESC")
-                    SelectTables.sortByColumnDESC(selectedData, selectColumn);
-                else
-                    SelectTables.sortByColumnASC(selectedData, selectColumn);
-            }
-            else {
+            if (selectColumn === -1) {
                 throw new Error(`Invalid ORDER BY: ${orderField.column}`);
             }
 
+            if (orderField.order === "DESC") {
+                SelectTables.sortByColumnDESC(selectedData, selectColumn);
+            }
+            else {
+                SelectTables.sortByColumnASC(selectedData, selectColumn);
+            }
         }
     }
 
@@ -790,6 +706,105 @@ class SelectTables {
     getColumnTitles() {
         return this.tableFields.getColumnTitles();
     }
+}
+
+class CalculatedField {
+    /**
+     * 
+     * @param {Table} masterTable 
+     * @param {Table} primaryTable
+     * @param {TableFields} tableFields 
+     */
+    constructor(masterTable, primaryTable, tableFields) {
+        this.masterTable = masterTable;
+        this.primaryTable = primaryTable;
+        this.sqlServerFunctionCache = new Map();
+        this.masterFields = tableFields.allFields.filter((vField) => this.masterTable === vField.tableInfo);
+    }
+
+    /**
+     * 
+     * @param {String} calculatedFormula 
+     * @param {Number} masterRecordID 
+     * @returns {any}
+     */
+    evaluateCalculatedField(calculatedFormula, masterRecordID) {
+        let result = "";
+        const functionString = this.sqlServerCalcFields(calculatedFormula, masterRecordID);
+        try {
+            result = new Function(functionString)();
+        }
+        catch (ex) {
+            throw new Error(`Calculated Field Error: ${ex.message}.  ${functionString}`);
+        }
+
+        return result;
+    }
+
+    /**
+     * The program is attempting to build some javascript code which we can then execute to 
+     * find the value of the calculated field.  There are two parts.
+     * 1)  Build LET statements to assign to all possible field name variants,
+     * 2)  Add the 'massaged' calculated field so that it can be run in javascript.
+     * @param {String} calculatedFormula 
+     * @param {Number} masterRecordID
+     * @returns {String} - String to be executed.  It is valid javascript lines of code.
+     */
+    sqlServerCalcFields(calculatedFormula, masterRecordID) {
+        //  Working on a calculated field.
+        const objectsDeclared = new Map();
+
+        let myVars = "";
+        for (/** @type {TableField} */ const vField of this.masterFields) {
+            //  Get the DATA from this field.  We then build a series of LET statments
+            //  and we assign that data to the field name that might be found in a calculated field.
+            let varData = vField.getData(masterRecordID);
+            if (typeof varData === "string" || varData instanceof Date) {
+                varData = `'${varData}'`;
+            }
+
+            for (const aliasName of vField.aliasNames) {
+                if ((this.primaryTable.tableName !== vField.tableInfo.tableName && aliasName.indexOf(".") === -1))
+                    continue;
+
+                if (aliasName.indexOf(".") === -1)
+                    myVars += `let ${aliasName} = ${varData};`;
+                else {
+                    const parts = aliasName.split(".");
+                    if (!objectsDeclared.has(parts[0])) {
+                        myVars += `let ${parts[0]} = {};`;
+                        objectsDeclared.set(parts[0], true);
+                    }
+                    myVars += `${aliasName} = ${varData};`;
+                }
+            }
+        }
+
+        const functionString = this.sqlServerFunctions(calculatedFormula);
+
+        return `${myVars} return ${functionString}`;
+    }
+
+    /**
+     * 
+     * @param {String} calculatedFormula 
+     * @returns {String}
+     */
+    sqlServerFunctions(calculatedFormula) {
+        //  If this calculated field formula has already been put into the required format,
+        //  pull this out of our cache rather than redo.
+        if (this.sqlServerFunctionCache.has(calculatedFormula))
+            return this.sqlServerFunctionCache.get(calculatedFormula);
+
+        const func = new SqlServerFunctions();
+        const functionString = func.convertToJs(calculatedFormula);
+
+        //  No need to recalculate for each row.
+        this.sqlServerFunctionCache.set(calculatedFormula, functionString);
+
+        return functionString;
+    }
+
 }
 
 class VirtualFields {
@@ -1475,6 +1490,10 @@ class TableFields {
     constructor() {
         /** @type {TableField[]} */
         this.allFields = [];
+        /** @type {Map<String, TableField>} */
+        this.fieldNameMap = new Map();
+        /** @type {Map<String, TableField>} */
+        this.tableColumnMap = new Map();
     }
 
     /**
@@ -1494,20 +1513,22 @@ class TableFields {
             for (const field of validFieldNames) {
                 const tableColumn = tableObject.getFieldColumn(field);
                 if (tableColumn !== -1) {
-                    const virtualField = this.findTableField(tableName, tableColumn);
+                    let virtualField = this.findTableField(tableName, tableColumn);
                     if (virtualField !== null) {
                         virtualField.addAlias(field);
                     }
                     else {
-                        const newVirtualField = new TableField()
+                        virtualField = new TableField()
                             .setOriginalTable(tableName)
                             .setOriginalTableColumn(tableColumn)
                             .addAlias(field)
                             .setIsPrimaryTable(primaryTable.toUpperCase() === tableName.toUpperCase())
                             .setTableInfo(tableObject);
 
-                        this.allFields.push(newVirtualField);
+                        this.allFields.push(virtualField);
                     }
+
+                    this.indexTableField(virtualField, primaryTable.toUpperCase() === tableName.toUpperCase());
                 }
             }
         }
@@ -1521,8 +1542,8 @@ class TableFields {
      * @param {TableField} fldB 
      */
     sortPrimaryFields(fldA, fldB) {
-        let keyA = fldA.primaryTable ? 0 : 1000;
-        let keyB = fldB.primaryTable ? 0 : 1000;
+        let keyA = fldA.isPrimaryTable ? 0 : 1000;
+        let keyB = fldB.isPrimaryTable ? 0 : 1000;
 
         keyA += fldA.originalTableColumn;
         keyB += fldB.originalTableColumn;
@@ -1536,17 +1557,37 @@ class TableFields {
 
     /**
      * 
+     * @param {TableField} field 
+     * @param {Boolean} isPrimaryTable
+     */
+    indexTableField(field, isPrimaryTable=false) {
+        for (const aliasField of field.aliasNames) {
+            let fieldInfo = this.fieldNameMap.get(aliasField.toUpperCase());
+
+            if (typeof fieldInfo === 'undefined' || isPrimaryTable) {
+                this.fieldNameMap.set(aliasField.toUpperCase(), field);
+            }
+        }
+
+        const key = `${field.originalTable}:${field.originalTableColumn}`;
+        if (! this.tableColumnMap.has(key))
+            this.tableColumnMap.set(key, field);        
+    }
+
+    /**
+     * 
      * @param {String} tableName 
      * @param {Number} tableColumn 
      * @returns {TableField}
      */
     findTableField(tableName, tableColumn) {
-        for (const field of this.allFields) {
-            if (field.isAlias(tableName, tableColumn))
-                return field;
+        const key = `${tableName}:${tableColumn}`;
+
+        if (! this.tableColumnMap.has(key)) {
+            return null;
         }
 
-        return null;
+        return this.tableColumnMap.get(key);
     }
 
     /**
@@ -1555,12 +1596,7 @@ class TableFields {
      * @returns {Boolean}
      */
     hasField(field) {
-        for (const fld of this.allFields) {
-            if (fld.hasField(field))
-                return true;
-        }
-
-        return false;
+        return this.fieldNameMap.has(field.toUpperCase());
     }
 
     /**
@@ -1569,13 +1605,7 @@ class TableFields {
      * @returns {TableField}
      */
     getFieldInfo(field) {
-        for (const fld of this.allFields) {
-            if (fld.hasField(field)) {
-                return fld;
-            }
-        }
-
-        return null;
+        return this.fieldNameMap.get(field.toUpperCase());
     }
 
     /**
@@ -1641,6 +1671,8 @@ class TableFields {
                     .setColumnTitle(columnTitle)
                     .setColumnName(selField.name)
                     .setSelectColumn(i);
+
+                this.indexTableField(fieldInfo);
             }
             else if (calculatedField !== null) {
                 const fieldInfo = new TableField();
@@ -1651,6 +1683,8 @@ class TableFields {
                     .setColumnName(selField.name)
                     .setSelectColumn(i)
                     .setCalculatedFormula(selField.name);
+
+                this.indexTableField(fieldInfo);
             }
             else {
                 const fieldInfo = new TableField();
@@ -1662,6 +1696,8 @@ class TableFields {
                     .setSelectColumn(i)
                     .setColumnName(selField.name)
                     .setColumnTitle(columnTitle);
+
+                this.indexTableField(fieldInfo);
             }
             i++;
         }
@@ -1672,31 +1708,16 @@ class TableFields {
      */
     getSelectFields() {
         const selectedFields = this.allFields.filter((a) => a.selectColumn !== -1);
-        selectedFields.sort(this.sortSelectFields);
+        selectedFields.sort((a, b) => a.selectColumn - b.selectColumn);
 
         return selectedFields;
     }
 
     /**
      * 
-     * @param {TableField} fldA 
-     * @param {TableField} fldB
-     * @returns {Number} 
-     */
-    sortSelectFields(fldA, fldB) {
-        if (fldA.selectColumn < fldB.selectColumn)
-            return -1;
-        else if (fldA.selectColumn > fldB.selectColumn)
-            return 1;
-
-        return 0;
-    }
-
-    /**
-     * 
      * @returns {String[]}
      */
-     getColumnNames() {
+    getColumnNames() {
         const columnNames = [];
 
         for (const fld of this.getSelectFields()) {
@@ -1710,7 +1731,7 @@ class TableFields {
      * 
      * @returns {String[]}
      */
-    getColumnTitles(){
+    getColumnTitles() {
         const columnTitles = [];
 
         for (const fld of this.getSelectFields()) {
@@ -1790,7 +1811,7 @@ class TableField {
         this.aggregateFunction = "";
         this.columnTitle = "";
         this.columnName = "";
-        this.primaryTable = false;
+        this._isPrimaryTable = false;
         /** @type {Table} */
         this.tableInfo = null;
     }
@@ -1800,16 +1821,6 @@ class TableField {
      */
     get tableColumn() {
         return this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
-    }
-
-    /**
-     * 
-     * @param {String} table 
-     * @param {Number} columnNumber 
-     * @returns {Boolean}
-     */
-    isAlias(table, columnNumber) {
-        return table.trim().toUpperCase() === this.originalTable && this.originalTableColumn === columnNumber;
     }
 
     /**
@@ -1848,15 +1859,6 @@ class TableField {
         }
 
         return this;
-    }
-
-    /**
-     * 
-     * @param {String} field 
-     * @returns {Boolean}
-     */
-    hasField(field) {
-        return this.aliasNames.indexOf(field.toUpperCase()) !== -1;
     }
 
     /**
@@ -1916,8 +1918,15 @@ class TableField {
      * @returns {TableField}
      */
     setIsPrimaryTable(isPrimary) {
-        this.primaryTable = isPrimary;
+        this._isPrimaryTable = isPrimary;
         return this;
+    }
+
+    /**
+     * @returns {Boolean}
+     */
+    get isPrimaryTable() {
+        return this._isPrimaryTable;
     }
 
     /**
