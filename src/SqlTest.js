@@ -1,7 +1,236 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***  
-import { Sql, parseTableSettings } from './Sql.js';
+import { Sql, parseTableSettings, gsSQL } from './Sql.js';
+import { TableData } from './TableData.js';
+export { CacheService };
+export { LockService };
+export { SpreadsheetApp };
+export { Range };
+export { Utilities };
 export { Logger };
+export { PropertiesService };
+
+//  GAS Mock Ups.
+class CacheService {
+    constructor() {
+        // @type {Map<String, cacheItem>} 
+        this.cacheMap = new Map();
+    }
+    static cacheObject = null;
+
+    static getScriptCache() {
+        if (this.cacheObject === null)
+            this.cacheObject = new CacheService();
+
+        return this.cacheObject;
+    }
+
+    get(tagName) {
+        let cacheValue = this.cacheMap.get(tagName);
+        if (typeof cacheValue === 'undefined')
+            return null;
+
+        if (cacheValue.isExpired()) {
+            this.cacheMap.delete(tagName);
+            return null;
+        }
+
+        return cacheValue.dataValue;
+    }
+
+    put(namedRange, singleData, seconds) {
+        let dataItem = new cacheItem(singleData, seconds);
+        this.cacheMap.set(namedRange, dataItem);
+    }
+
+    putAll(putObject, cacheSeconds) {
+        for (let prop in putObject) {
+            this.put(prop, putObject[prop], cacheSeconds);
+        }
+    }
+}
+
+class cacheItem {
+    constructor(dataValue, seconds) {
+        this.dataValue = dataValue;
+        this.startTime = new Date().getTime();
+        this.seconds = seconds;
+    }
+
+    isExpired() {
+        const endTime = new Date().getTime();
+        let timeDiff = endTime - this.startTime; //in ms
+        // strip the ms
+        timeDiff /= 1000;
+
+        return timeDiff > this.seconds;
+    }
+}
+
+class PropertiesService {
+    constructor() {
+        // @type {Map<String, cacheItem>} 
+        this.cacheMap = new Map();
+    }
+    static cacheObject = null;
+
+    static getScriptProperties() {
+        if (this.cacheObject === null)
+            this.cacheObject = new PropertiesService();
+
+        return this.cacheObject;
+    }
+
+    getProperty(tagName) {
+        let cacheValue = this.cacheMap.get(tagName);
+        if (typeof cacheValue === 'undefined')
+            return null;
+
+        if (cacheValue.isExpired()) {
+            this.cacheMap.delete(tagName);
+            return null;
+        }
+
+        return cacheValue.dataValue;
+    }
+
+    deleteProperty(tagName) {
+        if (this.cacheMap.has(tagName))
+            this.cacheMap.delete(tagName);
+    }
+
+    setProperty(namedRange, singleData, seconds = 999999) {
+        let dataItem = new cacheItem(singleData, seconds);
+        this.cacheMap.set(namedRange, dataItem);
+    }
+
+    getKeys() {
+        return Array.from(this.cacheMap.keys());
+    }
+}
+
+class LockService {
+    static isLocked = false;
+
+    static getScriptLock() {
+        return new LockService();
+    }
+
+    waitLock(ms) {
+        let startTime = new Date().getTime();
+        // @ts-ignore
+        while (this.isLocked || (new Date().getTime() - startTime) > ms) {
+            Utilities.sleep(250);
+        }
+
+        // @ts-ignore
+        if (this.isLocked) {
+            throw new Error("Failed to lock");
+        }
+
+        this.isLocked = true;
+    }
+
+    releaseLock() {
+        this.isLocked = false;
+    }
+}
+
+class SpreadsheetApp {
+    static getActiveSpreadsheet() {
+        return new SpreadsheetApp();
+    }
+
+    getRangeByName(tableNamedRange) {
+        const dataRange = new Range(tableNamedRange);
+        return dataRange.getMockData() === null ? null : dataRange;
+    }
+
+    getSheetByName(sheetTabName) {
+        let sheetObj = new Sheet(sheetTabName);
+        if (sheetObj.getSheetValues(1, 1, 1, 1) === null)
+            return null;
+        return sheetObj;
+    }
+}
+
+class Sheet {
+    constructor(sheetName) {
+        this.sheetName = sheetName;
+    }
+
+    getLastColumn() {
+        let data = this.getSheetValues(-1, -1, -1, -1);
+        if (data !== null && data.length > 0)
+            return data[0].length;
+
+        return -1
+    }
+
+    getLastRow() {
+        let data = this.getSheetValues(-1, -1, -1, -1);
+        if (data !== null && data.length > 0)
+            return data.length;
+
+        return -1;
+    }
+
+    getSheetValues(startRow, startCol, lastRow, lastColumn) {
+        let tester = new SqlTester();
+
+        switch (this.sheetName.toUpperCase()) {
+            case "MASTER TRANSACTIONS":
+                return tester.masterTransactionsTable();
+            default:
+                return null;
+        }
+    }
+}
+
+class Range {
+    constructor(tableNameRange) {
+        this.tableNameRange = tableNameRange;
+    }
+
+    getValues() {
+        return this.getMockData();
+    }
+
+    getValue() {
+        return this.getMockData()
+    }
+
+    //  Set data to be returned for any named range tested.
+    getMockData() {
+        let tester = new SqlTester();
+
+        switch (this.tableNameRange.toUpperCase()) {
+            case 'STARTINCOMEDATE':
+                return '6/7/2019';
+            case 'ENDINCOMEDATE':
+                return '6/20/2019';
+            case "MASTER TRANSACTIONS!$A$1:$I":
+            case "MASTER TRANSACTIONS!$A$1:$I30":
+                return tester.masterTransactionsTable();
+            case 'ACCOUNTNAMESDATA':
+                return tester.bookTable();
+            default:
+                return null;
+        }
+    }
+}
+
+class Utilities {
+    static sleep(seconds) {
+        const startTime = new Date().getTime();
+
+        const waitMs = seconds * 1000;
+        while (new Date().getTime() - startTime < waitMs) {
+            //  waiting...
+        }
+    }
+}
+
 
 class Logger {
     static log(msg) {
@@ -221,6 +450,36 @@ class SqlTester {
             ["34", "Roman", "Edwards"]
         ];
 
+    }
+
+    masterTransactionsTable() {
+        return [
+            ["Name of Institution", "Transaction Date", "Description 1", "Description 2", "Amount", "Expense Category", "Account", "Gross", "Balance"],
+            ["Royal Bank of Canada", new Date("6/7/2019"), "Interac purchase - 3707 NADIM'S NO FRIL", "", -47.85, "Food & Dining - Groceries", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/7/2019"), "Interac purchase - 2357 FRESHCO 3826", "", -130.36, "Food & Dining - Groceries", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/7/2019"), "Payroll Deposit WEST UNIFIED CO", "", 2343.48, "Income - Paycheck", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/7/2019"), "MBNA-MASTERCARD", "", -500, "Transfer - CC", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/7/2019"), "e-Transfer sent S.E", "", -575, "Utilities - Rent", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/11/2019"), "Insurance ADMIN.BY GWL", "", 122.4, "Health & Fitness - Health Insurance", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/13/2019"), "Misc Payment GOODLIFE CLUBS", "", -24.85, "Health & Fitness - Gym", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/13/2019"), "WHITBY TAXES", "", -100, "Taxes - Property Tax", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/13/2019"), "Online Transfer to Deposit Account-***9", "", -15, "Transfer - Savings acct", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/14/2019"), "Interac purchase - 8727 NADIM'S NO FRIL", "", -86.73, "Food & Dining - Groceries", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/14/2019"), "Insurance ADMIN.BY GWL", "", 300, "Health & Fitness - Dentist", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/17/2019"), "Interac purchase - 0238 BAMIYAN KABOB", "", -12.98, "Food & Dining - Restaurants", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/17/2019"), "Interac purchase - 1236 NADIM'S NO FRIL", "", -33.32, "Food & Dining - Groceries", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/17/2019"), "Deposit ONLINE TRANSFER", "", 12000, "Transfer - Savings acct", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/18/2019"), "MBNA-MASTERCARD", "", -1100, "Transfer - CC", "", "", ""],
+            ["MBNA Mastercard", new Date("6/19/2019"), "PAYMENT", "", 1100, "Transfer - Savings acct", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/19/2019"), "Utility Bill Pmt Enbridge Gas", "", -108, "Utilities - Heating (Gas)", "", "", ""],
+            ["MBNA Mastercard", new Date("6/20/2019"), "JOE'S NO FRILLS 3141 WHITBY ON", "", -41.77, "Food & Dining - Groceries", "", "", ""],
+            ["MBNA Mastercard", new Date("6/20/2019"), "PIONEER STN#200 WHITBY ON", "", -28.17, "Auto - Fuel", "", "", ""],
+            ["MBNA Mastercard", new Date("6/20/2019"), "AVIVA GENERAL INSURANC MARKHAM ON", "", -137.93, "Utilities - Insurance", "", "", ""],
+            ["MBNA Mastercard", new Date("6/20/2019"), "AVIVA GENERAL INSURANC MARKHAM ON", "", -307.73, "Auto - Insurance", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/20/2019"), "Misc Payment Archdiocese TO", "", -22, "Gifts & Donations - Donations", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/20/2019"), "ELEXICON-WHITBY", "", -95, "Utilities - Electricity", "", "", ""],
+            ["Royal Bank of Canada", new Date("6/20/2019"), "WHITBY TAXES", "", -100, "Taxes - Property Tax", "", "", ""]
+        ];
     }
 
     selectAll1() {
@@ -2019,6 +2278,101 @@ class SqlTester {
         return this.isEqual("parseTableSettings5", data, expected);
     }
 
+    //  Mock the GAS sheets functions required to load.
+    testTableData1() {
+        try {
+            if (SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Master Transactions") === null) {
+                //  Skip tests if Master Transactions does not exist. (so anybody not CJD)
+                //  BUT it will work if test run in NODE.
+                return true;
+            }
+        }
+        catch (ex) {
+            //  Test will fail running in gas-local.
+            return true;
+        }
+
+        let [selectTrans, allTrans, allTrans2, allTrans3] = this.testTableData();
+
+        let masterTrans = this.masterTransactionsTable();
+        masterTrans.shift();
+
+        let expected = [["Transaction Date", "Gross", "Net"],
+        ["2019-06-07T04:00:00.000Z", 0, 12399.19]];
+
+        let result = true;
+        result = result && this.isEqual("testTableData1.a", selectTrans, expected);
+        result = result && this.isEqual("testTableData1.b", allTrans, masterTrans);
+        result = result && this.isEqual("testTableData1.c", allTrans2, masterTrans);
+        result = result && this.isEqual("testTableData1.d", allTrans3, masterTrans);
+
+        let data = gsSQL("select Name_of_Institution, Transaction_Date, Description_1, Description_2, Amount, Expense_Category, Account, Gross, Balance " +
+            "from 'Master Transactions' " +
+            "where transaction_date >= '6/7/2019' and transaction_date <= '6/20/2019'");
+        data.shift();
+
+        result = result && this.isEqual("testTableData1.e", data, masterTrans);
+
+        return result;
+    }
+
+    testTableData() {
+        //  Hey CJD, remember to set the startIncomeDate and endIncomeDate - June 7 to June 20.
+        const itemData = new Sql()
+            .addTableData('mastertransactions', 'Master Transactions!$A$1:$I', 60)
+            .enableColumnTitle(true)
+            .addBindNamedRangeParameter('startIncomeDate')
+            .addBindNamedRangeParameter('endIncomeDate')
+            .execute("select transaction_date as 'Transaction Date', sum(gross) as Gross, sum(amount) as Net " +
+                "from mastertransactions " +
+                "where transaction_date >=  ? and transaction_date <= ? ");
+
+        //  Load load from sheet.
+        let trans = new Sql()
+            .addTableData('mastertransactions', 'Master Transactions!$A$1:$I', .1)
+            .enableColumnTitle(false)
+            .addBindNamedRangeParameter('startIncomeDate')
+            .addBindNamedRangeParameter('endIncomeDate')
+            .execute("select * " +
+                "from mastertransactions " +
+                "where transaction_date >=  ? and transaction_date <= ? ");
+
+        Utilities.sleep(.12);
+
+        //  Should load from sheet.
+        trans = new Sql()
+            .addTableData('mastertransactions', 'Master Transactions!$A$1:$I', 0)
+            .enableColumnTitle(false)
+            .addBindNamedRangeParameter('startIncomeDate')
+            .addBindNamedRangeParameter('endIncomeDate')
+            .execute("select * " +
+                "from mastertransactions " +
+                "where transaction_date >=  ? and transaction_date <= ? ");
+
+        //  Save to long term cache.
+        let trans2 = new Sql()
+            .addTableData('mastertransactions', 'Master Transactions!$A$1:$I30', 25000)
+            .enableColumnTitle(false)
+            .addBindNamedRangeParameter('startIncomeDate')
+            .addBindNamedRangeParameter('endIncomeDate')
+            .execute("select * " +
+                "from mastertransactions " +
+                "where transaction_date >=  ? and transaction_date <= ? ");
+
+        //  Load from long term cache.
+        let trans3 = new Sql()
+            .addTableData('mastertransactions', 'Master Transactions!$A$1:$I30', 25000)
+            .enableColumnTitle(false)
+            .addBindNamedRangeParameter('startIncomeDate')
+            .addBindNamedRangeParameter('endIncomeDate')
+            .execute("select * " +
+                "from mastertransactions " +
+                "where transaction_date >=  ? and transaction_date <= ? ");
+
+        return [itemData, trans, trans2, trans3];
+    }
+
+
     selectBadTable1() {
         let stmt = "SELECT quantity, price, quantity * price from booksail where price * quantity > 100";
 
@@ -2454,6 +2808,15 @@ class SqlTester {
         if (jsonData != expectedJSON) {
             Logger.log(functionName + "() ----------   F A I L E D   ----------");
             Logger.log(jsonData);
+
+            for (let i = 0; i < jsonData.length; i++) {
+                if (i >= jsonData.length || i >= jsonData.length)
+                    break;
+                if (jsonData.charAt(i) !== expectedJSON.charAt(i)) {
+                    Logger.log("Pos=" + i + ".  DIFF=" + jsonData.substring(i, i + 20) + " != " + expectedJSON.substring(i, i + 20));
+                    break;
+                }
+            }
         }
         else {
             Logger.log(functionName + "() ***   S U C C E S S   ***");
@@ -2575,6 +2938,7 @@ function testerSql() {
     result = result && tester.parseTableSettings3();
     result = result && tester.parseTableSettings4();
     result = result && tester.parseTableSettings5();
+    result = result && tester.testTableData1();
     result = result && tester.badParseTableSettings1();
 
     tester.isEqual("===  E N D   O F   T E S T S  ===", true, result);

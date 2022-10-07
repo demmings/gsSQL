@@ -1,7 +1,8 @@
 //  Remove comments for testing in NODE
+//
 /*  *** DEBUG START ***
 export { TableData };
-import { Sql } from './Sql.js';
+import { CacheService, LockService, SpreadsheetApp, PropertiesService, Utilities } from "./SqlTest.js"; 
 
 class Logger {
     static log(msg) {
@@ -10,27 +11,6 @@ class Logger {
 }
 //  *** DEBUG END  ***/
 
-function testTableData() {
-    const itemData = new Sql()
-        .addTableData('mastertransactions', 'Master Transactions!$A$1:$I', 60)
-        .enableColumnTitle(true)
-        .addBindNamedRangeParameter('startIncomeDate')
-        .addBindNamedRangeParameter('endIncomeDate')
-        .execute("select transaction_date as 'Transaction Date', sum(gross) as Gross, sum(amount) as Net " +
-            "from mastertransactions " +
-            "where transaction_date >=  ? and transaction_date <= ? ");
-    Logger.log(itemData);
-
-    let trans = TableData.loadTableData('Master Transactions!$A$1:$I', 60);
-    Logger.log(trans);
-    trans = TableData.loadTableData('Master Transactions!$A$1:$I', 60);
-    Logger.log(trans);
-
-    let arrData = TableData.loadTableData('accountNamesData', 60);
-    Logger.log(arrData);
-    arrData = TableData.loadTableData('accountNamesData', 60);
-    Logger.log(arrData);
-}
 
 class TableData {
     /**
@@ -67,6 +47,7 @@ class TableData {
         }
         else if (cacheSeconds > 21600) {
             cache = new ScriptSettings();
+            cache.expire(false);
             cacheSeconds = cacheSeconds / 86400;  //  ScriptSettings put() wants days to hold.
         }
         else {
@@ -106,7 +87,13 @@ class TableData {
         if (singleData === null) {
             const ss = SpreadsheetApp.getActiveSpreadsheet();
             singleData = ss.getRangeByName(namedRange).getValue();
-            cache.put(namedRange, singleData, seconds)
+            cache.put(namedRange, JSON.stringify(singleData), seconds)
+        } 
+        else {
+            singleData = JSON.parse(singleData);
+            let tempArr = [[singleData]];
+            TableData.fixJSONdates(tempArr);
+            singleData = tempArr[0][0];
         }
 
         return singleData;
@@ -394,27 +381,6 @@ const TABLE = {
     BLOCKS: "BLOCKS="
 }
 
-
-function testMyScriptsettings() {
-    const testSettings = new ScriptSettings();
-
-    testSettings.put("abcKEY", 123.45, 7);
-    testSettings.put("defKEY", 234.56, 6);
-    testSettings.put("ghiKEY", 345.67, 5);
-    testSettings.put("jklKEY", 456.78, -1);
-
-    let temp = testSettings.get("garbage");
-    Logger.log(temp);
-    temp = testSettings.get("abcKEY");
-    Logger.log(temp);
-    temp = testSettings.get("defKEY");
-    Logger.log(temp);
-    temp = testSettings.get("ghiKEY");
-    Logger.log(temp);
-    temp = testSettings.get("jklKEY");
-    Logger.log(temp);
-}
-
 class ScriptSettings {
     /**
      * For storing cache data for very long periods of time.
@@ -453,7 +419,12 @@ class ScriptSettings {
         //  Our property needs to be a string
         const jsonData = JSON.stringify(objData);
 
+        try {
         this.scriptProperties.setProperty(propertyKey, jsonData);
+        }
+        catch(ex) {
+            throw new Error("Cache Limit Exceeded.  Long cache times have limited storage available.  Only cache small tables for long periods.");
+        }
     }
 
     /**
@@ -509,7 +480,7 @@ class PropertyData {
         /** @property {String} */
         this.myData = JSON.stringify(propertyData);
         /** @property {Date} */
-        this.expiry = someDate.setDate(someDate.getDate() + daysToHold);
+        this.expiry = someDate.setMinutes(someDate.getMinutes() + daysToHold * 1440);
     }
 
     /**

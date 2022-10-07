@@ -150,6 +150,7 @@ class Sql {
     addBindNamedRangeParameter(value) {
         const namedValue = TableData.getValueCached(value, 30);
         this.bindParameters.push(namedValue);
+        Logger.log("BIND=" + value + " = " + namedValue);
         return this;
     }
 
