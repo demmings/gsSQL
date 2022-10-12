@@ -91,7 +91,7 @@ class TableData {
         } 
         else {
             singleData = JSON.parse(singleData);
-            let tempArr = [[singleData]];
+            const tempArr = [[singleData]];
             TableData.fixJSONdates(tempArr);
             singleData = tempArr[0][0];
         }

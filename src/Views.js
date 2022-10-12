@@ -39,11 +39,11 @@ class SelectTables {
 
     /**
      * 
-     * @param {any[]} ast 
+     * @param {Object} ast 
      */
     join(ast) {
-        if (typeof ast['JOIN'] !== 'undefined')
-            this.dataJoin = new JoinTables(ast['JOIN'], this.tableFields);
+        if (typeof ast.JOIN !== 'undefined')
+            this.dataJoin = new JoinTables(ast.JOIN, this.tableFields);
     }
 
     /**
@@ -55,8 +55,8 @@ class SelectTables {
         let sqlData = [];
 
         let conditions = {};
-        if (typeof ast['WHERE'] !== 'undefined') {
-            conditions = ast['WHERE'];
+        if (typeof ast.WHERE !== 'undefined') {
+            conditions = ast.WHERE;
         }
         else {
             //  Entire table is selected.  
@@ -122,8 +122,8 @@ class SelectTables {
         const calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
 
         for (let masterRecordID = 1; masterRecordID < this.masterTable.tableData.length; masterRecordID++) {
-            let leftValue = this.getConditionValue(leftFieldConditions, calcSqlField, masterRecordID);
-            let rightValue = this.getConditionValue(rightFieldConditions, calcSqlField, masterRecordID);
+            let leftValue = SelectTables.getConditionValue(leftFieldConditions, calcSqlField, masterRecordID);
+            let rightValue = SelectTables.getConditionValue(rightFieldConditions, calcSqlField, masterRecordID);
 
             if (leftValue instanceof Date || rightValue instanceof Date) {
                 leftValue = SelectTables.dateToMs(leftValue);
@@ -144,7 +144,7 @@ class SelectTables {
      * @param {CalculatedField} calcSqlField
      * @param {Number} masterRecordID
      */
-    getConditionValue(fieldConditions, calcSqlField, masterRecordID) {
+    static getConditionValue(fieldConditions, calcSqlField, masterRecordID) {
         /** @type {any} */
         let fieldConstant = null;
         /** @type {Number} */
@@ -372,8 +372,8 @@ class SelectTables {
         if (typeof ast['GROUP BY'] !== 'undefined') {
             viewTableData = this.groupByFields(ast['GROUP BY'], viewTableData);
 
-            if (typeof ast['HAVING'] !== 'undefined') {
-                viewTableData = this.having(ast['HAVING'], viewTableData);
+            if (typeof ast.HAVING !== 'undefined') {
+                viewTableData = this.having(ast.HAVING, viewTableData);
             }
         }
         else {
@@ -452,7 +452,7 @@ class SelectTables {
 
     /**
     * 
-    * @param {any[]} astHaving 
+    * @param {Object} astHaving 
     * @param {any[][]} selectedData 
     * @returns {any[][]}
     */
@@ -471,9 +471,9 @@ class SelectTables {
 
         //  Fudge the HAVING to look like a SELECT.
         const astSelect = {};
-        astSelect['FROM'] = [{ table: this.primaryTable }];
-        astSelect['SELECT'] = [{ name: "*" }];
-        astSelect['WHERE'] = astHaving;
+        astSelect.FROM = [{ table: this.primaryTable }];
+        astSelect.SELECT = [{ name: "*" }];
+        astSelect.WHERE = astHaving;
 
         return inSQL.select(astSelect);
     }
@@ -561,7 +561,7 @@ class SelectTables {
 
     /**
      * 
-     * @param {any} fieldCondition 
+     * @param {Object} fieldCondition 
      * @returns {any[]}
      */
     resolveFieldCondition(fieldCondition) {
@@ -575,7 +575,7 @@ class SelectTables {
         let calculatedField = "";
 
         //  Maybe a SELECT within...
-        if (typeof fieldCondition['SELECT'] !== 'undefined') {
+        if (typeof fieldCondition.SELECT !== 'undefined') {
             const inSQL = new Sql().setTables(this.tableInfo);
             inSQL.setBindValues(this.bindVariables);
             const inData = inSQL.select(fieldCondition);
@@ -1520,7 +1520,7 @@ class TableFields {
         /** @type {String} */
         let tableName = "";
         /** @type {Table} */
-        let tableObject;
+        let tableObject = null;
         // @ts-ignore
         for ([tableName, tableObject] of tableInfo.entries()) {
             const validFieldNames = tableObject.getAllFieldNames();
@@ -1548,7 +1548,7 @@ class TableFields {
             }
         }
 
-        this.allFields.sort(this.sortPrimaryFields);
+        this.allFields.sort(TableFields.sortPrimaryFields);
     }
 
     /**
@@ -1556,7 +1556,7 @@ class TableFields {
      * @param {TableField} fldA 
      * @param {TableField} fldB 
      */
-    sortPrimaryFields(fldA, fldB) {
+    static sortPrimaryFields(fldA, fldB) {
         let keyA = fldA.isPrimaryTable ? 0 : 1000;
         let keyB = fldB.isPrimaryTable ? 0 : 1000;
 
@@ -1577,7 +1577,7 @@ class TableFields {
      */
     indexTableField(field, isPrimaryTable = false) {
         for (const aliasField of field.aliasNames) {
-            let fieldInfo = this.fieldNameMap.get(aliasField.toUpperCase());
+            const fieldInfo = this.fieldNameMap.get(aliasField.toUpperCase());
 
             if (typeof fieldInfo === 'undefined' || isPrimaryTable) {
                 this.fieldNameMap.set(aliasField.toUpperCase(), field);

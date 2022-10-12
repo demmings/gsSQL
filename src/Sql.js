@@ -194,7 +194,7 @@ class Sql {
                 .loadSchema();
         }
 
-        if (typeof this.ast['SELECT'] !== 'undefined')
+        if (typeof this.ast.SELECT !== 'undefined')
             sqlData = this.select(this.ast);
         else
             throw new Error("Only SELECT statements are supported.");
@@ -283,8 +283,8 @@ class Sql {
      * @returns {String}
      */
     getTableAliasWhereIn(tableAlias, tableName, ast) {
-        if (tableAlias === "" && typeof ast["WHERE"] !== 'undefined' && ast["WHERE"].operator === "IN") {
-            tableAlias = this.getTableAlias(tableName, ast["WHERE"].right);
+        if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
+            tableAlias = this.getTableAlias(tableName, ast.WHERE.right);
         }
 
         if (tableAlias === "" && ast.operator === "IN") {
@@ -302,8 +302,8 @@ class Sql {
      * @returns {String}
      */
     getTableAliasWhereTerms(tableAlias, tableName, ast) {
-        if (tableAlias === "" && typeof ast["WHERE"] !== 'undefined' && typeof ast["WHERE"].terms !== 'undefined') {
-            for (const term of ast["WHERE"].terms) {
+        if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
+            for (const term of ast.WHERE.terms) {
                 if (tableAlias === "")
                     tableAlias = this.getTableAlias(tableName, term);
             }
@@ -387,8 +387,8 @@ class Sql {
      */
     static getTableNamesWhereIn(ast, tableSet) {
         //  where IN ().
-        if (typeof ast["WHERE"] !== 'undefined' && ast["WHERE"].operator === "IN") {
-            this.extractAstTables(ast["WHERE"].right, tableSet);
+        if (typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
+            this.extractAstTables(ast.WHERE.right, tableSet);
         }
 
         if (ast.operator === "IN") {
@@ -402,8 +402,8 @@ class Sql {
      * @param {Set} tableSet 
      */
     static getTableNamesWhereTerms(ast, tableSet) {
-        if (typeof ast["WHERE"] !== 'undefined' && typeof ast["WHERE"].terms !== 'undefined') {
-            for (const term of ast["WHERE"].terms) {
+        if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
+            for (const term of ast.WHERE.terms) {
                 this.extractAstTables(term, tableSet);
             }
         }
@@ -431,14 +431,14 @@ class Sql {
 
     /**
      * Load SELECT data and return in double array.
-     * @param {*} ast 
+     * @param {Object} ast 
      * @returns {any[][]}
      */
     select(ast) {
         let recordIDs = [];
         let viewTableData = [];
 
-        if (typeof ast['FROM'] === 'undefined')
+        if (typeof ast.FROM === 'undefined')
             throw new Error("Missing keyword FROM");
 
         //  Manipulate AST to add GROUP BY if DISTINCT keyword.
@@ -447,7 +447,7 @@ class Sql {
         //  Manipulate AST add pivot fields.
         ast = this.pivotField(ast);
 
-        const view = new SelectTables(ast['FROM'], ast['SELECT'], this.tables, this.bindParameters);
+        const view = new SelectTables(ast.FROM, ast.SELECT, this.tables, this.bindParameters);
 
         //  JOIN tables to create a derived table.
         view.join(ast);
@@ -464,8 +464,8 @@ class Sql {
         //  Sort our selected data.
         view.orderBy(ast, viewTableData);
 
-        if (typeof ast['LIMIT'] !== 'undefined') {
-            const maxItems = ast['LIMIT'].nb;
+        if (typeof ast.LIMIT !== 'undefined') {
+            const maxItems = ast.LIMIT.nb;
             if (viewTableData.length > maxItems)
                 viewTableData.splice(maxItems);
         }
@@ -487,7 +487,7 @@ class Sql {
      * @returns {Object}
      */
     static distinctField(ast) {
-        const astFields = ast['SELECT'];
+        const astFields = ast.SELECT;
 
         if (astFields.length > 0) {
             const firstField = astFields[0].name.toUpperCase();
@@ -516,7 +516,7 @@ class Sql {
      */
     pivotField(ast) {
         //  If we are doing a PIVOT, it then requires a GROUP BY.
-        if (typeof ast['PIVOT'] !== 'undefined') {
+        if (typeof ast.PIVOT !== 'undefined') {
             if (typeof ast['GROUP BY'] === 'undefined')
                 throw new Error("PIVOT requires GROUP BY");
         }
@@ -526,7 +526,7 @@ class Sql {
         // These are all of the unique PIVOT field data points.
         const pivotFieldData = this.getUniquePivotData(ast);
 
-        ast['SELECT'] = Sql.addCalculatedPivotFieldsToAst(ast, pivotFieldData);
+        ast.SELECT = Sql.addCalculatedPivotFieldsToAst(ast, pivotFieldData);
 
         return ast;
     }
@@ -539,10 +539,10 @@ class Sql {
     getUniquePivotData(ast) {
         const pivotAST = {};
 
-        pivotAST['SELECT'] = ast['PIVOT'];
-        pivotAST['SELECT'][0].name = `DISTINCT ${pivotAST['SELECT'][0].name}`;
-        pivotAST['FROM'] = ast['FROM'];
-        pivotAST['WHERE'] = ast['WHERE'];
+        pivotAST.SELECT = ast.PIVOT;
+        pivotAST.SELECT[0].name = `DISTINCT ${pivotAST.SELECT[0].name}`;
+        pivotAST.FROM = ast.FROM;
+        pivotAST.WHERE = ast.WHERE;
 
         // These are all of the unique PIVOT field data points.
         const oldSetting = this.columnTitle;
@@ -564,7 +564,7 @@ class Sql {
     static addCalculatedPivotFieldsToAst(ast, pivotFieldData) {
         const newPivotAstFields = [];
 
-        for (const selectField of ast['SELECT']) {
+        for (const selectField of ast.SELECT) {
             //  If this is an aggregrate function, we will add one for every pivotFieldData item
             const functionNameRegex = /^\w+\s*(?=\()/;
             const matches = selectField.name.match(functionNameRegex)
@@ -572,7 +572,7 @@ class Sql {
                 const args = SelectTables.parseForFunctions(selectField.name, matches[0].trim());
 
                 for (const fld of pivotFieldData) {
-                    const caseTxt = matches[0] + "(CASE WHEN " + ast['PIVOT'][0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 'null' END)";
+                    const caseTxt = matches[0] + "(CASE WHEN " + ast.PIVOT[0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 'null' END)";
                     const asField = fld[0] + " " + (typeof selectField.as !== 'undefined' && selectField.as !== "" ? selectField.as : selectField.name);
                     newPivotAstFields.push({ name: caseTxt, as: asField });
                 }
