@@ -421,63 +421,7 @@ function sql2ast(query) {
     });
 
     // Reorganize joins
-    if (typeof result['LEFT JOIN'] !== 'undefined') {
-        if (typeof result['JOIN'] === 'undefined') result.JOIN = [];
-        if (typeof result['LEFT JOIN'][0] !== 'undefined') {
-            result['LEFT JOIN'].forEach(function (item) {
-                item.type = 'left';
-                result.JOIN.push(item);
-            });
-        }
-        else {
-            result['LEFT JOIN'].type = 'left';
-            result.JOIN.push(result['LEFT JOIN']);
-        }
-        delete result['LEFT JOIN'];
-    }
-    if (typeof result['INNER JOIN'] !== 'undefined') {
-        if (typeof result.JOIN === 'undefined') result.JOIN = [];
-        if (typeof result['INNER JOIN'][0] !== 'undefined') {
-            result['INNER JOIN'].forEach(function (item) {
-                item.type = 'inner';
-                result.JOIN.push(item);
-            });
-        }
-        else {
-            result['INNER JOIN'].type = 'inner';
-            result.JOIN.push(result['INNER JOIN']);
-        }
-        delete result['INNER JOIN'];
-    }
-    if (typeof result['RIGHT JOIN'] !== 'undefined') {
-        if (typeof result.JOIN === 'undefined') result.JOIN = [];
-        if (typeof result['RIGHT JOIN'][0] !== 'undefined') {
-            result['RIGHT JOIN'].forEach(function (item) {
-                item.type = 'right';
-                result.JOIN.push(item);
-            });
-        }
-        else {
-            result['RIGHT JOIN'].type = 'right';
-            result.JOIN.push(result['RIGHT JOIN']);
-        }
-        delete result['RIGHT JOIN'];
-    }
-    if (typeof result['FULL JOIN'] !== 'undefined') {
-        if (typeof result.JOIN === 'undefined') result.JOIN = [];
-        if (typeof result['FULL JOIN'][0] !== 'undefined') {
-            result['FULL JOIN'].forEach(function (item) {
-                item.type = 'full';
-                result.JOIN.push(item);
-            });
-        }
-        else {
-            result['FULL JOIN'].type = 'full';
-            result.JOIN.push(result['FULL JOIN']);
-        }
-        delete result['FULL JOIN'];
-    }
-
+    reorganizeJoins(result);
 
     // Parse conditions
     if (typeof result.WHERE === 'string') {
@@ -492,43 +436,69 @@ function sql2ast(query) {
         });
     }
 
-    if (typeof result.UNION === 'string') {
-        result.UNION = [sql2ast(parseUnion(result.UNION))];
-    }
-    else if (typeof result.UNION !== 'undefined') {
-        for (let i = 0; i < result.UNION.length; i++) {
-            result.UNION[i] = sql2ast(parseUnion(result.UNION[i]));
-        }
-    }
-
-    if (typeof result['UNION ALL'] === 'string') {
-        result['UNION ALL'] = [sql2ast(parseUnion(result['UNION ALL']))];
-    }
-    else if (typeof result['UNION ALL'] !== 'undefined') {
-        for (let i = 0; i < result['UNION ALL'].length; i++) {
-            result['UNION ALL'][i] = sql2ast(parseUnion(result['UNION ALL'][i]));
-        }
-    }
-
-    if (typeof result.INTERSECT === 'string') {
-        result.INTERSECT = [sql2ast(parseUnion(result.INTERSECT))];
-    }
-    else if (typeof result.INTERSECT !== 'undefined') {
-        for (let i = 0; i < result.INTERSECT.length; i++) {
-            result.INTERSECT[i] = sql2ast(parseUnion(result.INTERSECT[i]));
-        }
-    }
-
-    if (typeof result.EXCEPT === 'string') {
-        result.EXCEPT = [sql2ast(parseUnion(result.EXCEPT))];
-    }
-    else if (typeof result.EXCEPT !== 'undefined') {
-        for (let i = 0; i < result['EXCEPT'].length; i++) {
-            result.EXCEPT[i] = sql2ast(parseUnion(result.EXCEPT[i]));
-        }
-    }
+    reorganizeUnions(result);
 
     return result;
+}
+
+/**
+ * 
+ * @param {Object} result 
+ */
+function reorganizeJoins(result) {
+    const joinArr = [
+        ['FULL JOIN', 'full'],
+        ['RIGHT JOIN', 'right'],
+        ['INNER JOIN', 'inner'],
+        ['LEFT JOIN', 'left']
+    ];
+
+    for (const join of joinArr) {
+        const [joinName, joinType] = join;
+        reorganizeSpecificJoin(result, joinName, joinType);
+    }
+}
+
+/**
+ * 
+ * @param {Object} result 
+ * @param {String} joinName 
+ * @param {String} joinType 
+ */
+function reorganizeSpecificJoin(result, joinName, joinType) {
+    if (typeof result[joinName] !== 'undefined') {
+        if (typeof result.JOIN === 'undefined') result.JOIN = [];
+        if (typeof result[joinName][0] !== 'undefined') {
+            result[joinName].forEach(function (item) {
+                item.type = joinType;
+                result.JOIN.push(item);
+            });
+        }
+        else {
+            result[joinName].type = joinType;
+            result.JOIN.push(result[joinName]);
+        }
+        delete result[joinName];
+    }
+}
+
+/**
+ * 
+ * @param {Object} result 
+ */
+function reorganizeUnions(result) {
+    const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+
+    for (const union of astRecursiveTableBlocks) {
+        if (typeof result[union] === 'string') {
+            result[union] = [sql2ast(parseUnion(result[union]))];
+        }
+        else if (typeof result[union] !== 'undefined') {
+            for (let i = 0; i < result[union].length; i++) {
+                result[union][i] = sql2ast(parseUnion(result[union][i]));
+            }
+        }
+    }
 }
 
 function parseUnion(inStr) {
