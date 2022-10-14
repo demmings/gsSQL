@@ -845,7 +845,7 @@ function sqlCondition2JsCondition(cond) {
 
 class SelectKeywordAnalysis {
     static analyze(itemName, part) {
-        const keyWord = itemName.toUpperCase().replace(/[" "]/g, "_");
+        const keyWord = itemName.toUpperCase().replace(/ /g, '_');
 
         if (typeof SelectKeywordAnalysis[keyWord] === 'undefined') {
             throw new Error(`Can't analyze statement ${itemName}`);
