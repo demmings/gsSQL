@@ -258,166 +258,25 @@ function sql2ast(query) {
         parts[i] = hideInnerSql(parts[i], words, unprotect);
     }
 
-    // Define analysis functions
-    const analysis = {};
-
-    analysis.SELECT = function (str) {
-        let selectResult = protect_split(',', str);
-        selectResult = selectResult.filter(function (item) {
-            return item !== '';
-        }).map(function (item) {
-            //  Is there a column alias?
-            const [field, alias] = getNameAndAlias(item);
-
-            const splitPattern = /[\s()*/%+-]+/g;
-            let terms = field.split(splitPattern);
-
-            if (terms !== null) {
-                const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
-                terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
-            }
-            if (field !== "*" && terms !== null && terms.length > 1) {
-                return {
-                    name: field,
-                    terms: terms,
-                    as: alias
-                };
-            }
-            return { name: field, as: alias };
-        });
-        return selectResult;
-    };
-
-    analysis.FROM = function (str) {
-        let fromResult = str.split(',');
-        fromResult = fromResult.map(function (item) {
-            return trim(item);
-        });
-        fromResult = fromResult.map(function (item) {
-            const [table, alias] = getNameAndAlias(item);
-            return { table: table, as: alias };
-        });
-        return fromResult;
-    };
-
-    analysis['LEFT JOIN'] = analysis.JOIN = analysis['INNER JOIN'] = analysis['RIGHT JOIN'] = analysis['FULL JOIN'] = function (str) {
-        const strParts = str.toUpperCase().split(' ON ');
-        const table = strParts[0].split(' AS ');
-        const joinResult = {};
-        joinResult.table = trim(table[0]);
-        joinResult.as = trim(table[1]) || '';
-        joinResult.cond = trim(strParts[1]);
-
-        return joinResult;
-    };
-
-    analysis.WHERE = function (str) {
-        return trim(str);
-    };
-
-    analysis['ORDER BY'] = function (str) {
-        const strParts = str.split(',');
-        const orderByResult = [];
-        strParts.forEach(function (item, _key) {
-            const order_by = /([\w\.]+)\s*(ASC|DESC)?/gi;
-            const orderData = order_by.exec(item);
-            if (orderData !== null) {
-                const tmp = {};
-                tmp.column = trim(orderData[1]);
-                tmp.order = trim(orderData[2]);
-                if (typeof orderData[2] === 'undefined') {
-                    const orderParts = item.trim().split(" ");
-                    if (orderParts.length > 1)
-                        throw new Error(`Invalid ORDER BY:  ${item}`);
-                    tmp.order = "ASC";
-                }
-                orderByResult.push(tmp);
-            }
-        });
-        return orderByResult;
-    };
-
-    analysis['GROUP BY'] = function (str) {
-        const strParts = str.split(',');
-        const groupByResult = [];
-        strParts.forEach(function (item, _key) {
-            const group_by = /([\w\.]+)/gi;
-            const groupData = group_by.exec(item);
-            if (groupData !== null) {
-                const tmp = {};
-                tmp.column = trim(groupData[1]);
-                groupByResult.push(tmp);
-            }
-        });
-        return groupByResult;
-    };
-
-    analysis.PIVOT = function (str) {
-        const strParts = str.split(',');
-        const pivotResult = [];
-        strParts.forEach(function (item, _key) {
-            const pivotOn = /([\w\.]+)/gi;
-            const pivotData = pivotOn.exec(item);
-            if (pivotData !== null) {
-                const tmp = {};
-                tmp.name = trim(pivotData[1]);
-                tmp.as = "";
-                pivotResult.push(tmp);
-            }
-        });
-        return pivotResult;
-    };
-
-    analysis.LIMIT = function (str) {
-        const limitResult = {};
-        limitResult.nb = parseInt(str, 10);
-        limitResult.from = 0;
-        return limitResult;
-    };
-
-    analysis.HAVING = function (str) {
-        return trim(str);
-    };
-
-    analysis.UNION = function (str) {
-        return trim(str);
-    };
-
-    analysis['UNION ALL'] = function (str) {
-        return trim(str);
-    };
-
-    analysis.INTERSECT = function (str) {
-        return trim(str);
-    };
-
-    analysis.EXCEPT = function (str) {
-        return trim(str);
-    };
-
     // Analyze parts
     const result = {};
     let j = 0;
     parts_order.forEach(function (item, _key) {
         const itemName = item.toUpperCase();
         j++;
-        if (typeof analysis[itemName] !== 'undefined') {
-            const part_result = analysis[itemName](parts[j]);
+        const part_result = SelectKeywordAnalysis.analyze(item, parts[j]);
 
-            if (typeof result[itemName] !== 'undefined') {
-                if (typeof result[itemName] === 'string' || typeof result[itemName][0] === 'undefined') {
-                    const tmp = result[itemName];
-                    result[itemName] = [];
-                    result[itemName].push(tmp);
-                }
-
-                result[itemName].push(part_result);
+        if (typeof result[itemName] !== 'undefined') {
+            if (typeof result[itemName] === 'string' || typeof result[itemName][0] === 'undefined') {
+                const tmp = result[itemName];
+                result[itemName] = [];
+                result[itemName].push(tmp);
             }
-            else result[itemName] = part_result;
+
+            result[itemName].push(part_result);
         }
-        else {
-            throw new Error(`Can't analyze statement ${itemName}`);
-        }
+        else result[itemName] = part_result;
+
     });
 
     // Reorganize joins
@@ -982,4 +841,167 @@ function sqlCondition2JsCondition(cond) {
     }
 
     return sqlData;
+}
+
+class SelectKeywordAnalysis {
+    static analyze(itemName, part) {
+        const keyWord = itemName.toUpperCase().replaceAll(' ', '_');
+
+        if (typeof SelectKeywordAnalysis[keyWord] === 'undefined') {
+            throw new Error(`Can't analyze statement ${itemName}`);
+        }
+
+        return SelectKeywordAnalysis[keyWord](part);
+    }
+
+    static SELECT(str) {
+        const selectParts = protect_split(',', str);
+        const selectResult = selectParts.filter(function (item) {
+            return item !== '';
+        }).map(function (item) {
+            //  Is there a column alias?
+            const [field, alias] = getNameAndAlias(item);
+
+            const splitPattern = /[\s()*/%+-]+/g;
+            let terms = field.split(splitPattern);
+
+            if (terms !== null) {
+                const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
+                terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
+            }
+            if (field !== "*" && terms !== null && terms.length > 1) {
+                return {
+                    name: field,
+                    terms: terms,
+                    as: alias
+                };
+            }
+            return { name: field, as: alias };
+        });
+        
+        return selectResult;
+    }
+
+    static FROM(str) {
+        let fromResult = str.split(',');
+        fromResult = fromResult.map(function (item) {
+            return trim(item);
+        });
+        fromResult = fromResult.map(function (item) {
+            const [table, alias] = getNameAndAlias(item);
+            return { table: table, as: alias };
+        });
+        return fromResult;
+    }
+
+    static LEFT_JOIN(str) {
+        return SelectKeywordAnalysis.allJoins(str);
+    }
+
+    static INNER_JOIN(str) {
+        return SelectKeywordAnalysis.allJoins(str);
+    }
+
+    static RIGHT_JOIN(str) {
+        return SelectKeywordAnalysis.allJoins(str);
+    }
+
+    static FULL_JOIN(str) {
+        return SelectKeywordAnalysis.allJoins(str);
+    }
+
+    static allJoins(str) {
+        const strParts = str.toUpperCase().split(' ON ');
+        const table = strParts[0].split(' AS ');
+        const joinResult = {};
+        joinResult.table = trim(table[0]);
+        joinResult.as = trim(table[1]) || '';
+        joinResult.cond = trim(strParts[1]);
+
+        return joinResult;
+    }
+
+    static WHERE(str) {
+        return trim(str);
+    }
+
+    static ORDER_BY(str) {
+        const strParts = str.split(',');
+        const orderByResult = [];
+        strParts.forEach(function (item, _key) {
+            const order_by = /([\w\.]+)\s*(ASC|DESC)?/gi;
+            const orderData = order_by.exec(item);
+            if (orderData !== null) {
+                const tmp = {};
+                tmp.column = trim(orderData[1]);
+                tmp.order = trim(orderData[2]);
+                if (typeof orderData[2] === 'undefined') {
+                    const orderParts = item.trim().split(" ");
+                    if (orderParts.length > 1)
+                        throw new Error(`Invalid ORDER BY:  ${item}`);
+                    tmp.order = "ASC";
+                }
+                orderByResult.push(tmp);
+            }
+        });
+        return orderByResult;
+    }
+
+    static GROUP_BY(str) {
+        const strParts = str.split(',');
+        const groupByResult = [];
+        strParts.forEach(function (item, _key) {
+            const group_by = /([\w\.]+)/gi;
+            const groupData = group_by.exec(item);
+            if (groupData !== null) {
+                const tmp = {};
+                tmp.column = trim(groupData[1]);
+                groupByResult.push(tmp);
+            }
+        });
+        return groupByResult;
+    }
+
+    static PIVOT(str) {
+        const strParts = str.split(',');
+        const pivotResult = [];
+        strParts.forEach(function (item, _key) {
+            const pivotOn = /([\w\.]+)/gi;
+            const pivotData = pivotOn.exec(item);
+            if (pivotData !== null) {
+                const tmp = {};
+                tmp.name = trim(pivotData[1]);
+                tmp.as = "";
+                pivotResult.push(tmp);
+            }
+        });
+        return pivotResult;
+    }
+
+    static LIMIT(str) {
+        const limitResult = {};
+        limitResult.nb = parseInt(str, 10);
+        limitResult.from = 0;
+        return limitResult;
+    }
+
+    static HAVING = function (str) {
+        return trim(str);
+    }
+
+    static UNION(str) {
+        return trim(str);
+    }
+
+    static UNION_ALL(str) {
+        return trim(str);
+    }
+
+    static INTERSECT(str) {
+        return trim(str);
+    }
+
+    static EXCEPT(str) {
+        return trim(str);
+    }
 }
