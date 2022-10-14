@@ -985,7 +985,7 @@ class SelectKeywordAnalysis {
         return limitResult;
     }
 
-    static HAVING = function (str) {
+    static HAVING(str) {
         return trim(str);
     }
 

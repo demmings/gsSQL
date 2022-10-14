@@ -267,9 +267,9 @@ class TableData {
         const json = JSON.stringify(arrData);
 
         //  Split up data (for re-assembly on get() later)
-        let splitCount = (json.length / (100 * 1024)) * 1.2;    // 1.2 - assumes some blocks may be bigger.
+        let splitCount = (json.length / (100 * 1024)) * 1.3;    // 1.3 - assumes some blocks may be bigger.
         splitCount = splitCount < 1 ? 1 : splitCount;
-        const arrayLength = Math.round(arrData.length / splitCount);
+        const arrayLength = Math.ceil(arrData.length / splitCount);
         const putObject = {};
         let blockCount = 0;
         let startIndex = 0;
