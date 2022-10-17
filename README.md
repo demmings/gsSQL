@@ -223,7 +223,6 @@ Most all SELECT functionality is implemented, however if you want to do anything
 
 3)  Not really an issue, but the use of bind variables does not mean that the SELECT is compiled and reused.  It is only to make your SELECT easier to read.
 
-4)  All SELECT KEYWORDS must be in the same case.  Individual keywords like 'SELECT', 'FROM', 'ORDER BY', ... must be either upper or lower case. You can have a mixture of upper and lower case in the entire statement, but individual keywords must be in one case only.  For example, ```Select * from table``` will give an error. 
 
 # Install
 * Install files to your node_modules folder by using NPM.  This is installed as a package, but Google App Script (GAS) files do not 'require' or 'import'.  Copy the .js files from the /src folder into the location where you have your current google script files and then 'clasp push'.  The @customfunction "gsSQL" will be usable right away.  The class "Sql" is also available from your current javascript application.
