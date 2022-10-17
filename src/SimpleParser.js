@@ -1,424 +1,458 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
-export { sql2ast, sqlCondition2JsCondition };
+export { SqlParse };
 //  *** DEBUG END  ***/
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 
-function trim(str) {
-    if (typeof str === 'string')
-        return str.trim();
-    return str;
-}
+class SqlParse {
+    /**
+     * 
+     * @param {String} cond 
+     * @returns {String}
+     */
+    static sqlCondition2JsCondition(cond) {
+        const ast = SqlParse.sql2ast(`SELECT A FROM c WHERE ${cond}`);
+        let sqlData = "";
 
-// Split a string using a separator, only if this separator isn't beetween brackets
-/**
- * 
- * @param {String} separator 
- * @param {String} str 
- * @returns {String[]}
- */
-function protect_split(separator, str) {
-    const sep = '######';
+        if (typeof ast.WHERE !== 'undefined') {
+            const conditions = ast.WHERE;
+            if (typeof conditions.logic === 'undefined')
+                sqlData = SqlParse.resolveSqlCondition("OR", [conditions]);
+            else
+                sqlData = SqlParse.resolveSqlCondition(conditions.logic, conditions.terms);
 
-    let inQuotedString = false;
-    let quoteChar = "";
-    let bracketCount = 0;
-    let newStr = "";
-    for (const c of str) {
-        if (!inQuotedString && /['"`]/.test(c)) {
-            inQuotedString = true;
-            quoteChar = c;
-        }
-        else if (inQuotedString && c === quoteChar) {
-            inQuotedString = false;
-        }
-        else if (!inQuotedString && c === '(') {
-            bracketCount++;
-        }
-        else if (!inQuotedString && c === ')') {
-            bracketCount--;
         }
 
-        if (c === separator && (bracketCount > 0 || inQuotedString)) {
-            newStr += sep;
-        }
-        else {
-            newStr += c;
-        }
+        return sqlData;
     }
 
-    let strParts = newStr.split(separator);
-    strParts = strParts.map(function (item) {
-        return trim(item.replace(new RegExp(sep, 'g'), separator));
-    });
+    /**
+     * Parse a query
+     * @param {String} query 
+     * @returns {Object}
+     */
+    static sql2ast(query) {
+        // Define which words can act as separator
+        let myKeyWords = SqlParse.generateUsedKeywordList(query);
+        let [parts_name, parts_name_escaped] = SqlParse.generateSqlSeparatorWords(myKeyWords);
 
-    return strParts;
-}
+        //  Include brackets around separate selects used in things like UNION, INTERSECT...
+        let modifiedQuery = SqlParse.sqlStatementSplitter(query);
 
-// Add some # inside a string to avoid it to match a regex/split
-function protect(str) {
-    let result = '#';
-    const length = str.length;
-    for (let i = 0; i < length; i++) {
-        result += `${str[i]}#`;
-    }
-    return result;
-}
+        // Hide words defined as separator but written inside brackets in the query
+        modifiedQuery = SqlParse.hideInnerSql(modifiedQuery, parts_name_escaped, SqlParse.protect);
 
-// Restore a string output by protect() to its original state
-function unprotect(str) {
-    let result = '';
-    const length = str.length;
-    for (let i = 1; i < length; i = i + 2) result += str[i];
-    return result;
-}
+        // Write the position(s) in query of these separators
+        const parts_order = SqlParse.getPositionsOfSqlParts(modifiedQuery, parts_name);
 
-/**
- * 
- * @param {String} str 
- * @param {String[]} parts_name_escaped
- * @param {Object} replaceFunction
- */
-function hideInnerSql(str, parts_name_escaped, replaceFunction) {
-    if (str.indexOf("(") === -1 && str.indexOf(")") === -1)
-        return str;
+        // Delete duplicates (caused, for example, by JOIN and INNER JOIN)
+        SqlParse.removeDuplicateEntries(parts_order);
 
-    let bracketCount = 0;
-    let endCount = -1;
-    let newStr = str;
+        // Generate protected word list to reverse the use of protect()
+        let words = parts_name_escaped.slice(0);
+        words = words.map(function (item) {
+            return SqlParse.protect(item);
+        });
 
-    for (let i = newStr.length - 1; i >= 0; i--) {
-        const ch = newStr.charAt(i);
+        // Split parts
+        const parts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
 
-        if (ch === ")") {
-            bracketCount++;
-
-            if (bracketCount === 1) {
-                endCount = i;
-            }
+        // Unhide words precedently hidden with protect()
+        for (let i = 0; i < parts.length; i++) {
+            parts[i] = SqlParse.hideInnerSql(parts[i], words, SqlParse.unprotect);
         }
-        else if (ch === "(") {
-            bracketCount--;
-            if (bracketCount === 0) {
 
-                let query = newStr.substring(i, endCount + 1);
+        // Analyze parts
+        const result = SqlParse.analyzeParts(parts_order, parts);
 
-                // Hide words defined as separator but written inside brackets in the query
-                query = query.replace(new RegExp(parts_name_escaped.join('|'), 'gi'), replaceFunction);
+        // Reorganize joins
+        SqlParse.reorganizeJoins(result);
 
-                newStr = newStr.substring(0, i) + query + newStr.substring(endCount + 1);
-            }
+        // Parse conditions
+        if (typeof result.WHERE === 'string') {
+            result.WHERE = CondParser.parse(result.WHERE);
         }
-    }
-    return newStr;
-}
+        if (typeof result.HAVING === 'string') {
+            result.HAVING = CondParser.parse(result.HAVING);
+        }
+        if (typeof result.JOIN !== 'undefined') {
+            result.JOIN.forEach(function (item, key) {
+                result.JOIN[key]['cond'] = CondParser.parse(item['cond']);
+            });
+        }
 
-/**
- * 
- * @param {String} src 
- * @returns {String}
- */
-function sqlStatementSplitter(src) {
-    let newStr = src;
+        SqlParse.reorganizeUnions(result);
 
-    // Define which words can act as separator
-    const reg = makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
-
-    const matchedUnions = newStr.match(reg);
-    if (matchedUnions === null || matchedUnions.length === 0)
-        return newStr;
-
-    let prefix = "";
-    const parts = [];
-    let pos = newStr.search(matchedUnions[0]);
-    if (pos > 0) {
-        prefix = newStr.substring(0, pos);
-        newStr = newStr.substring(pos + matchedUnions[0].length);
+        return result;
     }
 
-    for (let i = 1; i < matchedUnions.length; i++) {
-        const match = matchedUnions[i];
-        pos = newStr.search(match);
+    /**
+    * 
+    * @param {String} logic 
+    * @param {Object} terms 
+    * @returns {String}
+    */
+    static resolveSqlCondition(logic, terms) {
+        let jsCondition = "";
 
-        parts.push(newStr.substring(0, pos));
-        newStr = newStr.substring(pos + match.length);
-    }
-    if (newStr.length > 0)
-        parts.push(newStr);
-
-    newStr = prefix;
-    for (let i = 0; i < matchedUnions.length; i++) {
-        newStr += `${matchedUnions[i]} (${parts[i]}) `;
-    }
-
-    return newStr;
-}
-
-/**
- * 
- * @param {String[]} keywords 
- * @returns {RegExp}
- */
-function makeSqlPartsSplitterRegEx(keywords) {
-    // Define which words can act as separator
-    let parts_name = keywords.map(function (item) {
-        return `${item} `;
-    });
-    parts_name = parts_name.concat(keywords.map(function (item) {
-        return `${item}(`;
-    }));
-    parts_name = parts_name.concat(parts_name.map(function (item) {
-        return item.toLowerCase();
-    }));
-    const parts_name_escaped = parts_name.map(function (item) {
-        return item.replace('(', '[\\(]');
-    });
-
-    return new RegExp(parts_name_escaped.join('|'), 'gi');
-}
-
-
-/**
- * Parse a query
- * @param {String} query 
- * @returns {Object}
- */
-function sql2ast(query) {
-    // Define which words can act as separator
-    const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
-
-    let parts_name = keywords.map(function (item) {
-        return `${item} `;
-    });
-    parts_name = parts_name.concat(keywords.map(function (item) {
-        return `${item}(`;
-    }));
-    parts_name = parts_name.concat(parts_name.map(function (item) {
-        return item.toLowerCase();
-    }));
-    const parts_name_escaped = parts_name.map(function (item) {
-        return item.replace('(', '[\\(]');
-    });
-
-    let modifiedQuery = sqlStatementSplitter(query);
-
-    // Hide words defined as separator but written inside brackets in the query
-    modifiedQuery = hideInnerSql(modifiedQuery, parts_name_escaped, protect);
-
-    // Write the position(s) in query of these separators
-    const parts_order = [];
-    function realNameCallback(_match, name) {
-        return name;
-    }
-    parts_name.forEach(function (item) {
-        let pos = 0;
-        let part = 0;
-
-        do {
-            part = modifiedQuery.indexOf(item, pos);
-            if (part !== -1) {
-                const realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, realNameCallback);
-
-                if (typeof parts_order[part] === 'undefined' || parts_order[part].length < realName.length) {
-                    parts_order[part] = realName;	// Position won't be exact because the use of protect()  (above) and unprotect() alter the query string ; but we just need the order :)
+        for (const cond of terms) {
+            if (typeof cond.logic === 'undefined') {
+                if (jsCondition !== "" && logic === "AND") {
+                    jsCondition += " && ";
+                }
+                else if (jsCondition !== "" && logic === "OR") {
+                    jsCondition += " || ";
                 }
 
-                pos = part + realName.length;
+                jsCondition += ` ${cond.left}`;
+                if (cond.operator === "=")
+                    jsCondition += " == ";
+                else
+                    jsCondition += ` ${cond.operator}`;
+                jsCondition += ` ${cond.right}`;
+            }
+            else {
+                jsCondition += SqlParse.resolveSqlCondition(cond.logic, cond.terms);
             }
         }
-        while (part !== -1);
-    });
 
-    // Delete duplicates (caused, for example, by JOIN and INNER JOIN)
-    let busy_until = 0;
-    parts_order.forEach(function (item, key) {
-        if (busy_until > key) delete parts_order[key];
-        else {
-            busy_until = parseInt(key, 10) + item.length;
-
-            // Replace JOIN by INNER JOIN
-            if (item === 'JOIN') parts_order[key] = 'INNER JOIN';
-        }
-    });
-
-    // Generate protected word list to reverse the use of protect()
-    let words = parts_name_escaped.slice(0);
-    words = words.map(function (item) {
-        return protect(item);
-    });
-
-    // Split parts
-    const parts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
-
-    // Unhide words precedently hidden with protect()
-    modifiedQuery = hideInnerSql(modifiedQuery, words, unprotect);
-
-    for (let i = 0; i < parts.length; i++) {
-        parts[i] = hideInnerSql(parts[i], words, unprotect);
+        return jsCondition;
     }
 
-    // Analyze parts
-    const result = {};
-    let j = 0;
-    parts_order.forEach(function (item, _key) {
-        const itemName = item.toUpperCase();
-        j++;
-        const part_result = SelectKeywordAnalysis.analyze(item, parts[j]);
+    /**
+     * 
+     * @param {String} query
+     * @returns {String[]} 
+     */
+    static generateUsedKeywordList(query) {
+        const generatedList = new Set();
+        // Define which words can act as separator
+        const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
 
-        if (typeof result[itemName] !== 'undefined') {
-            if (typeof result[itemName] === 'string' || typeof result[itemName][0] === 'undefined') {
-                const tmp = result[itemName];
-                result[itemName] = [];
-                result[itemName].push(tmp);
+        let modifiedQuery = query.toUpperCase();
+
+        for (let word of keywords) {
+            let pos = 0;
+            while (pos != -1) {
+                pos = modifiedQuery.indexOf(word, pos);
+
+                if (pos != -1) {
+                    generatedList.add(query.substring(pos, pos + word.length));
+                    pos++;
+                }
             }
-
-            result[itemName].push(part_result);
         }
-        else result[itemName] = part_result;
 
-    });
-
-    // Reorganize joins
-    reorganizeJoins(result);
-
-    // Parse conditions
-    if (typeof result.WHERE === 'string') {
-        result.WHERE = CondParser.parse(result.WHERE);
+        // @ts-ignore
+        return [...generatedList];
     }
-    if (typeof result.HAVING === 'string') {
-        result.HAVING = CondParser.parse(result.HAVING);
+
+    /**
+     * 
+     * @param {String[]} keywords 
+     * @returns {String[][]}
+     */
+    static generateSqlSeparatorWords(keywords) {
+        let parts_name = keywords.map(function (item) {
+            return `${item} `;
+        });
+        parts_name = parts_name.concat(keywords.map(function (item) {
+            return `${item}(`;
+        }));
+        parts_name = parts_name.concat(parts_name.map(function (item) {
+            return item.toLowerCase();
+        }));
+        const parts_name_escaped = parts_name.map(function (item) {
+            return item.replace('(', '[\\(]');
+        });
+
+        return [parts_name, parts_name_escaped];
     }
-    if (typeof result.JOIN !== 'undefined') {
-        result.JOIN.forEach(function (item, key) {
-            result.JOIN[key]['cond'] = CondParser.parse(item['cond']);
+
+    /**
+     * 
+     * @param {String} src 
+     * @returns {String}
+     */
+    static sqlStatementSplitter(src) {
+        let newStr = src;
+
+        // Define which words can act as separator
+        const reg = SqlParse.makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
+
+        const matchedUnions = newStr.match(reg);
+        if (matchedUnions === null || matchedUnions.length === 0)
+            return newStr;
+
+        let prefix = "";
+        const parts = [];
+        let pos = newStr.search(matchedUnions[0]);
+        if (pos > 0) {
+            prefix = newStr.substring(0, pos);
+            newStr = newStr.substring(pos + matchedUnions[0].length);
+        }
+
+        for (let i = 1; i < matchedUnions.length; i++) {
+            const match = matchedUnions[i];
+            pos = newStr.search(match);
+
+            parts.push(newStr.substring(0, pos));
+            newStr = newStr.substring(pos + match.length);
+        }
+        if (newStr.length > 0)
+            parts.push(newStr);
+
+        newStr = prefix;
+        for (let i = 0; i < matchedUnions.length; i++) {
+            newStr += `${matchedUnions[i]} (${parts[i]}) `;
+        }
+
+        return newStr;
+    }
+
+    /**
+     * 
+     * @param {String[]} keywords 
+     * @returns {RegExp}
+     */
+    static makeSqlPartsSplitterRegEx(keywords) {
+        // Define which words can act as separator
+        let parts_name = keywords.map(function (item) {
+            return `${item} `;
+        });
+        parts_name = parts_name.concat(keywords.map(function (item) {
+            return `${item}(`;
+        }));
+        parts_name = parts_name.concat(parts_name.map(function (item) {
+            return item.toLowerCase();
+        }));
+        const parts_name_escaped = parts_name.map(function (item) {
+            return item.replace('(', '[\\(]');
+        });
+
+        return new RegExp(parts_name_escaped.join('|'), 'gi');
+    }
+
+    /**
+     * 
+     * @param {String} str 
+     * @param {String[]} parts_name_escaped
+     * @param {Object} replaceFunction
+     */
+    static hideInnerSql(str, parts_name_escaped, replaceFunction) {
+        if (str.indexOf("(") === -1 && str.indexOf(")") === -1)
+            return str;
+
+        let bracketCount = 0;
+        let endCount = -1;
+        let newStr = str;
+
+        for (let i = newStr.length - 1; i >= 0; i--) {
+            const ch = newStr.charAt(i);
+
+            if (ch === ")") {
+                bracketCount++;
+
+                if (bracketCount === 1) {
+                    endCount = i;
+                }
+            }
+            else if (ch === "(") {
+                bracketCount--;
+                if (bracketCount === 0) {
+
+                    let query = newStr.substring(i, endCount + 1);
+
+                    // Hide words defined as separator but written inside brackets in the query
+                    query = query.replace(new RegExp(parts_name_escaped.join('|'), 'gi'), replaceFunction);
+
+                    newStr = newStr.substring(0, i) + query + newStr.substring(endCount + 1);
+                }
+            }
+        }
+        return newStr;
+    }
+
+    /**
+     * 
+     * @param {String} modifiedQuery 
+     * @param {String[]} parts_name 
+     * @returns {String[]}
+     */
+    static getPositionsOfSqlParts(modifiedQuery, parts_name) {
+        // Write the position(s) in query of these separators
+        const parts_order = [];
+        function realNameCallback(_match, name) {
+            return name;
+        }
+        parts_name.forEach(function (item) {
+            let pos = 0;
+            let part = 0;
+
+            do {
+                part = modifiedQuery.indexOf(item, pos);
+                if (part !== -1) {
+                    const realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, realNameCallback);
+
+                    if (typeof parts_order[part] === 'undefined' || parts_order[part].length < realName.length) {
+                        parts_order[part] = realName;	// Position won't be exact because the use of protect()  (above) and unprotect() alter the query string ; but we just need the order :)
+                    }
+
+                    pos = part + realName.length;
+                }
+            }
+            while (part !== -1);
+        });
+
+        return parts_order;
+    }
+
+    /**
+     * Delete duplicates (caused, for example, by JOIN and INNER JOIN)
+     * @param {String[]} parts_order
+     */
+    static removeDuplicateEntries(parts_order) {
+        let busy_until = 0;
+        parts_order.forEach(function (item, key) {
+            if (busy_until > key)
+                delete parts_order[key];
+            else {
+                busy_until = key + item.length;
+
+                // Replace JOIN by INNER JOIN
+                if (item.toUpperCase() === 'JOIN')
+                    parts_order[key] = 'INNER JOIN';
+            }
         });
     }
 
-    reorganizeUnions(result);
-
-    return result;
-}
-
-/**
- * 
- * @param {Object} result 
- */
-function reorganizeJoins(result) {
-    const joinArr = [
-        ['FULL JOIN', 'full'],
-        ['RIGHT JOIN', 'right'],
-        ['INNER JOIN', 'inner'],
-        ['LEFT JOIN', 'left']
-    ];
-
-    for (const join of joinArr) {
-        const [joinName, joinType] = join;
-        reorganizeSpecificJoin(result, joinName, joinType);
+    /**
+     * Add some # inside a string to avoid it to match a regex/split
+     * @param {String} str 
+     * @returns {String}
+     */
+    static protect(str) {
+        let result = '#';
+        const length = str.length;
+        for (let i = 0; i < length; i++) {
+            result += `${str[i]}#`;
+        }
+        return result;
     }
-}
 
-/**
- * 
- * @param {Object} result 
- * @param {String} joinName 
- * @param {String} joinType 
- */
-function reorganizeSpecificJoin(result, joinName, joinType) {
-    if (typeof result[joinName] !== 'undefined') {
-        if (typeof result.JOIN === 'undefined') result.JOIN = [];
-        if (typeof result[joinName][0] !== 'undefined') {
-            result[joinName].forEach(function (item) {
-                item.type = joinType;
-                result.JOIN.push(item);
-            });
-        }
-        else {
-            result[joinName].type = joinType;
-            result.JOIN.push(result[joinName]);
-        }
-        delete result[joinName];
+    /**
+     * Restore a string output by protect() to its original state
+     * @param {String} str 
+     * @returns {String}
+     */
+    static unprotect(str) {
+        let result = '';
+        const length = str.length;
+        for (let i = 1; i < length; i = i + 2) result += str[i];
+        return result;
     }
-}
 
-/**
- * 
- * @param {Object} result 
- */
-function reorganizeUnions(result) {
-    const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+    /**
+     * 
+     * @param {String[]} parts_order 
+     * @param {String[]} parts 
+     * @returns {Object}
+     */
+    static analyzeParts(parts_order, parts) {
+        const result = {};
+        let j = 0;
+        parts_order.forEach(function (item, _key) {
+            const itemName = item.toUpperCase();
+            j++;
+            const part_result = SelectKeywordAnalysis.analyze(item, parts[j]);
 
-    for (const union of astRecursiveTableBlocks) {
-        if (typeof result[union] === 'string') {
-            result[union] = [sql2ast(parseUnion(result[union]))];
+            if (typeof result[itemName] !== 'undefined') {
+                if (typeof result[itemName] === 'string' || typeof result[itemName][0] === 'undefined') {
+                    const tmp = result[itemName];
+                    result[itemName] = [];
+                    result[itemName].push(tmp);
+                }
+
+                result[itemName].push(part_result);
+            }
+            else {
+                result[itemName] = part_result;
+            }
+
+        });
+
+        return result;
+    }
+
+    /**
+     * 
+     * @param {Object} result 
+     */
+    static reorganizeJoins(result) {
+        const joinArr = [
+            ['FULL JOIN', 'full'],
+            ['RIGHT JOIN', 'right'],
+            ['INNER JOIN', 'inner'],
+            ['LEFT JOIN', 'left']
+        ];
+
+        for (const join of joinArr) {
+            const [joinName, joinType] = join;
+            SqlParse.reorganizeSpecificJoin(result, joinName, joinType);
         }
-        else if (typeof result[union] !== 'undefined') {
-            for (let i = 0; i < result[union].length; i++) {
-                result[union][i] = sql2ast(parseUnion(result[union][i]));
+    }
+
+    /**
+     * 
+     * @param {Object} result 
+     * @param {String} joinName 
+     * @param {String} joinType 
+     */
+    static reorganizeSpecificJoin(result, joinName, joinType) {
+        if (typeof result[joinName] !== 'undefined') {
+            if (typeof result.JOIN === 'undefined') result.JOIN = [];
+            if (typeof result[joinName][0] !== 'undefined') {
+                result[joinName].forEach(function (item) {
+                    item.type = joinType;
+                    result.JOIN.push(item);
+                });
+            }
+            else {
+                result[joinName].type = joinType;
+                result.JOIN.push(result[joinName]);
+            }
+            delete result[joinName];
+        }
+    }
+
+    /**
+     * 
+     * @param {Object} result 
+     */
+    static reorganizeUnions(result) {
+        const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+
+        for (const union of astRecursiveTableBlocks) {
+            if (typeof result[union] === 'string') {
+                result[union] = [SqlParse.sql2ast(SqlParse.parseUnion(result[union]))];
+            }
+            else if (typeof result[union] !== 'undefined') {
+                for (let i = 0; i < result[union].length; i++) {
+                    result[union][i] = SqlParse.sql2ast(SqlParse.parseUnion(result[union][i]));
+                }
             }
         }
     }
-}
 
-function parseUnion(inStr) {
-    let unionString = inStr;
-    if (unionString.startsWith("(") && unionString.endsWith(")")) {
-        unionString = unionString.substring(1, unionString.length - 1);
+    static parseUnion(inStr) {
+        let unionString = inStr;
+        if (unionString.startsWith("(") && unionString.endsWith(")")) {
+            unionString = unionString.substring(1, unionString.length - 1);
+        }
+
+        return unionString;
     }
-
-    return unionString;
-}
-
-/**
- * If an ALIAS is specified after 'AS', return the field/table name and the alias.
- * @param {String} item 
- * @returns {[String, String]}
- */
-function getNameAndAlias(item) {
-    let realName = item;
-    let alias = "";
-    const lastAs = lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
-    if (lastAs !== -1) {
-        const subStr = item.substring(lastAs + 4).trim();
-        if (subStr.length > 0) {
-            alias = subStr;
-            //  Remove quotes, if any.
-            if ((subStr.startsWith("'") && subStr.endsWith("'")) ||
-                (subStr.startsWith('"') && subStr.endsWith('"')) ||
-                (subStr.startsWith('[') && subStr.endsWith(']')))
-                alias = subStr.substring(1, subStr.length - 1);
-
-            //  Remove everything after 'AS'.
-            realName = item.substring(0, lastAs);
-        }
-    }
-
-    return [realName, alias];
-}
-
-function lastIndexOfOutsideLiteral(srcString, searchString) {
-    let index = -1;
-    let inQuote = "";
-
-    for (let i = 0; i < srcString.length; i++) {
-        const ch = srcString.charAt(i);
-
-        if (inQuote !== "") {
-            //  The ending quote.
-            if ((inQuote === "'" && ch === "'") || (inQuote === '"' && ch === '"') || (inQuote === "[" && ch === "]"))
-                inQuote = "";
-        }
-        else if ("\"'[".indexOf(ch) !== -1) {
-            //  The starting quote.
-            inQuote = ch;
-        }
-        else if (srcString.substring(i).startsWith(searchString)) {
-            //  Matched search.
-            index = i;
-        }
-    }
-
-    return index;
 }
 
 /*
@@ -780,7 +814,7 @@ CondParser.prototype = {
         }
 
         if (isSelectStatement) {
-            astNode = sql2ast(astNode);
+            astNode = SqlParse.sql2ast(astNode);
         }
 
         return astNode;
@@ -792,56 +826,6 @@ CondParser.prototype = {
 CondParser.parse = function (source) {
     return new CondParser(source).parseExpressionsRecursively();
 };
-
-/**
-* 
-* @param {String} logic 
-* @param {Object} terms 
-* @returns {String}
-*/
-function resolveSqlCondition(logic, terms) {
-    let jsCondition = "";
-
-    for (const cond of terms) {
-        if (typeof cond.logic === 'undefined') {
-            if (jsCondition !== "" && logic === "AND") {
-                jsCondition += " && ";
-            }
-            else if (jsCondition !== "" && logic === "OR") {
-                jsCondition += " || ";
-            }
-
-            jsCondition += ` ${cond.left}`;
-            if (cond.operator === "=")
-                jsCondition += " == ";
-            else
-                jsCondition += ` ${cond.operator}`;
-            jsCondition += ` ${cond.right}`;
-        }
-        else {
-            jsCondition += resolveSqlCondition(cond.logic, cond.terms);
-        }
-    }
-
-    return jsCondition;
-}
-
-
-function sqlCondition2JsCondition(cond) {
-    const ast = sql2ast(`SELECT A FROM c WHERE ${cond}`);
-    let sqlData = "";
-
-    if (typeof ast.WHERE !== 'undefined') {
-        const conditions = ast.WHERE;
-        if (typeof conditions.logic === 'undefined')
-            sqlData = resolveSqlCondition("OR", [conditions]);
-        else
-            sqlData = resolveSqlCondition(conditions.logic, conditions.terms);
-
-    }
-
-    return sqlData;
-}
 
 class SelectKeywordAnalysis {
     static analyze(itemName, part) {
@@ -855,12 +839,12 @@ class SelectKeywordAnalysis {
     }
 
     static SELECT(str) {
-        const selectParts = protect_split(',', str);
+        const selectParts = SelectKeywordAnalysis.protect_split(',', str);
         const selectResult = selectParts.filter(function (item) {
             return item !== '';
         }).map(function (item) {
             //  Is there a column alias?
-            const [field, alias] = getNameAndAlias(item);
+            const [field, alias] = SelectKeywordAnalysis.getNameAndAlias(item);
 
             const splitPattern = /[\s()*/%+-]+/g;
             let terms = field.split(splitPattern);
@@ -878,17 +862,17 @@ class SelectKeywordAnalysis {
             }
             return { name: field, as: alias };
         });
-        
+
         return selectResult;
     }
 
     static FROM(str) {
         let fromResult = str.split(',');
         fromResult = fromResult.map(function (item) {
-            return trim(item);
+            return SelectKeywordAnalysis.trim(item);
         });
         fromResult = fromResult.map(function (item) {
-            const [table, alias] = getNameAndAlias(item);
+            const [table, alias] = SelectKeywordAnalysis.getNameAndAlias(item);
             return { table: table, as: alias };
         });
         return fromResult;
@@ -914,15 +898,15 @@ class SelectKeywordAnalysis {
         const strParts = str.toUpperCase().split(' ON ');
         const table = strParts[0].split(' AS ');
         const joinResult = {};
-        joinResult.table = trim(table[0]);
-        joinResult.as = trim(table[1]) || '';
-        joinResult.cond = trim(strParts[1]);
+        joinResult.table = SelectKeywordAnalysis.trim(table[0]);
+        joinResult.as = SelectKeywordAnalysis.trim(table[1]) || '';
+        joinResult.cond = SelectKeywordAnalysis.trim(strParts[1]);
 
         return joinResult;
     }
 
     static WHERE(str) {
-        return trim(str);
+        return SelectKeywordAnalysis.trim(str);
     }
 
     static ORDER_BY(str) {
@@ -933,8 +917,8 @@ class SelectKeywordAnalysis {
             const orderData = order_by.exec(item);
             if (orderData !== null) {
                 const tmp = {};
-                tmp.column = trim(orderData[1]);
-                tmp.order = trim(orderData[2]);
+                tmp.column = SelectKeywordAnalysis.trim(orderData[1]);
+                tmp.order = SelectKeywordAnalysis.trim(orderData[2]);
                 if (typeof orderData[2] === 'undefined') {
                     const orderParts = item.trim().split(" ");
                     if (orderParts.length > 1)
@@ -955,7 +939,7 @@ class SelectKeywordAnalysis {
             const groupData = group_by.exec(item);
             if (groupData !== null) {
                 const tmp = {};
-                tmp.column = trim(groupData[1]);
+                tmp.column = SelectKeywordAnalysis.trim(groupData[1]);
                 groupByResult.push(tmp);
             }
         });
@@ -970,7 +954,7 @@ class SelectKeywordAnalysis {
             const pivotData = pivotOn.exec(item);
             if (pivotData !== null) {
                 const tmp = {};
-                tmp.name = trim(pivotData[1]);
+                tmp.name = SelectKeywordAnalysis.trim(pivotData[1]);
                 tmp.as = "";
                 pivotResult.push(tmp);
             }
@@ -986,22 +970,125 @@ class SelectKeywordAnalysis {
     }
 
     static HAVING(str) {
-        return trim(str);
+        return SelectKeywordAnalysis.trim(str);
     }
 
     static UNION(str) {
-        return trim(str);
+        return SelectKeywordAnalysis.trim(str);
     }
 
     static UNION_ALL(str) {
-        return trim(str);
+        return SelectKeywordAnalysis.trim(str);
     }
 
     static INTERSECT(str) {
-        return trim(str);
+        return SelectKeywordAnalysis.trim(str);
     }
 
     static EXCEPT(str) {
-        return trim(str);
+        return SelectKeywordAnalysis.trim(str);
+    }
+
+    // Split a string using a separator, only if this separator isn't beetween brackets
+    /**
+     * 
+     * @param {String} separator 
+     * @param {String} str 
+     * @returns {String[]}
+     */
+    static protect_split(separator, str) {
+        const sep = '######';
+
+        let inQuotedString = false;
+        let quoteChar = "";
+        let bracketCount = 0;
+        let newStr = "";
+        for (const c of str) {
+            if (!inQuotedString && /['"`]/.test(c)) {
+                inQuotedString = true;
+                quoteChar = c;
+            }
+            else if (inQuotedString && c === quoteChar) {
+                inQuotedString = false;
+            }
+            else if (!inQuotedString && c === '(') {
+                bracketCount++;
+            }
+            else if (!inQuotedString && c === ')') {
+                bracketCount--;
+            }
+
+            if (c === separator && (bracketCount > 0 || inQuotedString)) {
+                newStr += sep;
+            }
+            else {
+                newStr += c;
+            }
+        }
+
+        let strParts = newStr.split(separator);
+        strParts = strParts.map(function (item) {
+            return SelectKeywordAnalysis.trim(item.replace(new RegExp(sep, 'g'), separator));
+        });
+
+        return strParts;
+    }
+
+    static trim(str) {
+        if (typeof str === 'string')
+            return str.trim();
+        return str;
+    }
+
+    /**
+    * If an ALIAS is specified after 'AS', return the field/table name and the alias.
+    * @param {String} item 
+    * @returns {[String, String]}
+    */
+    static getNameAndAlias(item) {
+        let realName = item;
+        let alias = "";
+        const lastAs = SelectKeywordAnalysis.lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
+        if (lastAs !== -1) {
+            const subStr = item.substring(lastAs + 4).trim();
+            if (subStr.length > 0) {
+                alias = subStr;
+                //  Remove quotes, if any.
+                if ((subStr.startsWith("'") && subStr.endsWith("'")) ||
+                    (subStr.startsWith('"') && subStr.endsWith('"')) ||
+                    (subStr.startsWith('[') && subStr.endsWith(']')))
+                    alias = subStr.substring(1, subStr.length - 1);
+
+                //  Remove everything after 'AS'.
+                realName = item.substring(0, lastAs);
+            }
+        }
+
+        return [realName, alias];
+    }
+
+    static lastIndexOfOutsideLiteral(srcString, searchString) {
+        let index = -1;
+        let inQuote = "";
+
+        for (let i = 0; i < srcString.length; i++) {
+            const ch = srcString.charAt(i);
+
+            if (inQuote !== "") {
+                //  The ending quote.
+                if ((inQuote === "'" && ch === "'") || (inQuote === '"' && ch === '"') || (inQuote === "[" && ch === "]"))
+                    inQuote = "";
+            }
+            else if ("\"'[".indexOf(ch) !== -1) {
+                //  The starting quote.
+                inQuote = ch;
+            }
+            else if (srcString.substring(i).startsWith(searchString)) {
+                //  Matched search.
+                index = i;
+            }
+        }
+
+        return index;
     }
 }

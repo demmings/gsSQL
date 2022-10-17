@@ -3,7 +3,7 @@
 export { Sql, gsSQL, parseTableSettings };
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
-import { sql2ast } from './SimpleParser.js';
+import { SqlParse } from './SimpleParser.js';
 import { SelectTables } from './Views.js';
 
 class Logger {
@@ -183,7 +183,7 @@ class Sql {
     execute(statement) {
         let sqlData = [];
 
-        this.ast = sql2ast(statement);
+        this.ast = SqlParse.sql2ast(statement);
 
         // @ts-ignore
         for (const table of this.tables.keys()) {
@@ -319,7 +319,7 @@ class Sql {
      */
     static getReferencedTableNames(statement) {
         const tableSet = new Set();
-        const ast = sql2ast(statement);
+        const ast = SqlParse.sql2ast(statement);
 
         Sql.extractAstTables(ast, tableSet);
 
