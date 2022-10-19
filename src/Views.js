@@ -3,7 +3,7 @@
 export { DERIVEDTABLE, VirtualFields, VirtualField, SelectTables };
 import { Table } from './Table.js';
 import { Sql } from './Sql.js';
-import { sqlCondition2JsCondition } from './SimpleParser.js';
+import { SqlParse } from './SimpleParser.js';
 //  *** DEBUG END  ***/
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
@@ -1207,7 +1207,7 @@ class SqlServerFunctions {
                         replacement = `Math.floor(${parms[0]})`;
                         break;
                     case "IF":
-                        const ifCond = sqlCondition2JsCondition(parms[0]);
+                        const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
                         replacement = `${ifCond} ? ${parms[1]} : ${parms[2]};`;
                         break;
                     case "LEFT":
@@ -1362,7 +1362,7 @@ class SqlServerFunctions {
                 }
                 else
                     replacement = "else if (";
-                replacement += `${sqlCondition2JsCondition(args[1])}) return ${args[2]} ;`;
+                replacement += `${SqlParse.sqlCondition2JsCondition(args[1])}) return ${args[2]} ;`;
             }
         }
 

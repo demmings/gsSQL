@@ -486,6 +486,10 @@ class SqlTester {
         return this.selectAllAuthors("selectAll1", "select * from authors");
     }
 
+    selectAllCase1() {
+        return this.selectAllAuthors("selectAllCase1", "Select * from authors");
+    }
+
     selectIsNotNull1() {
         return this.selectAllAuthors("selectIsNotNull1", "select * from authors where id is not null");
     }
@@ -520,13 +524,27 @@ class SqlTester {
     }
 
 
-    innerJoin1() {
+    innerJoin1a() {
         let stmt = "SELECT books.id, books.title, authors.first_name, authors.last_name " +
             "FROM books " +
             "INNER JOIN authors " +
             "ON books.author_id = authors.id " +
             "ORDER BY books.id";
 
+        return this.innerJoin1(stmt, "innerJoin1a");
+    }
+
+    innerJoin1case() {
+        let stmt = "SELECT books.id, books.title, authors.first_name, authors.last_name " +
+            "FROM books " +
+            "Inner Join authors " +
+            "ON books.author_id = authors.id " +
+            "ORDER BY books.id";
+
+        return this.innerJoin1(stmt, "innerJoin1case");
+    }
+
+    innerJoin1(stmt, funcName) {
         let data = new Sql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
@@ -543,7 +561,7 @@ class SqlTester {
         ["7", "Applied AI", "Jack", "Smart"],
         ["8", "My Last Book", "Ellen", "Writer"]];
 
-        return this.isEqual("innerJoin1", data, expected);
+        return this.isEqual(funcName, data, expected);
     }
 
     innerJoin2() {
@@ -644,12 +662,26 @@ class SqlTester {
         return this.isEqual("innerJoinAlias2b", data, expected);
     }
 
-    join2() {
+    join2a() {
         let stmt = "SELECT books.id, books.title, books.type, translators.last_name  " +
             "FROM books " +
             "JOIN translators " +
             "ON books.translator_id = translators.id " +
             "ORDER BY books.id";
+
+        return this.join2(stmt, "join2a");
+    }
+    join2b() {
+        let stmt = "sElEcT books.id, books.title, books.type, translators.last_name  " +
+            "froM books " +
+            "Join translators " +
+            "On books.translator_id = translators.id " +
+            "ORDEr  By books.id";
+
+        return this.join2(stmt, "join2b");
+    }
+
+    join2(stmt, funcName) {
 
         let data = new Sql()
             .addTableData("books", this.bookTable())
@@ -664,7 +696,7 @@ class SqlTester {
         ["7", "Applied AI", "translated", "Edwards"],
         ["9", "Book with Mysterious Author", "translated", "Edwards"]];
 
-        return this.isEqual("join2", data, expected);
+        return this.isEqual(funcName, data, expected);
     }
 
     join3() {
@@ -2837,13 +2869,16 @@ function testerSql() {
     let tester = new SqlTester();
 
     result = result && tester.selectAll1();
+    result = result && tester.selectAllCase1();
     result = result && tester.selectIsNotNull1();
     result = result && tester.selectIsNull1();
-    result = result && tester.innerJoin1();
+    result = result && tester.innerJoin1a();
+    result = result && tester.innerJoin1case();
     result = result && tester.innerJoin2();
     result = result && tester.innerJoinAlias1();
     result = result && tester.innerJoinAlias2();
-    result = result && tester.join2();
+    result = result && tester.join2a();
+    result = result && tester.join2b();
     result = result && tester.join3();
     result = result && tester.joinLimit1();
     result = result && tester.leftJoin1();
