@@ -13,204 +13,245 @@
 
 [![NPM](https://nodei.co/npm/@demmings/gssql.png?compact=true)](https://npmjs.org/package/@demmings/gssql)
 [![npm version](https://badge.fury.io/js/@demmings%2Fgssql.png)](https://badge.fury.io/js/@demmings%2Fgssql)
+<img alt="npm" src="https://img.shields.io/npm/dt/@demmings/gssql?style=plastic">
 
 
-# gsSQL
-* Simple and standard SQL SELECT syntax to extract data from your google sheets.  For a simple example where we have sheets that are treated as a table:
+---
 
-```
-=gsSQL("select name_of_institution as 'Name of Institution', transaction_date as 'Transaction Date', balance as 'Balance' 
-        from 'master transactions' 
-        where name_of_institution in (select account_name from accounts where type = 'Bank') 
-            and balance is not null and transaction_date >= '01/01/2021' and transaction_date <= '12/31/2021' 
-        order by transaction_date")
+# About
 
-```
+<table>
+<tr>
+<td>
+  
+**gsSQL** is a **high-quality** custom function for _Google Sheets_ that aims to **provide standard SQL SELECT syntax** to quickly **filter and summarize data**, using any **sheet or range** as an SQL table.
 
-The Google Sheets ***QUERY*** function is very flexible and powerful.  However it is:
+Easy to learn and understand: the **SQL query** consists mainly of English statements, making it easy to write - rather than the cryptic syntax of the **Google Sheet QUERY** function.
 
-- Only available as a function in sheets.  It cannot be used to query data within your apps script (GAS).
-- Beyond basic lookups, the syntax of your select statement can quickly get very complicated and verbose.
-- Complicated QUERY statements written long ago become uninteligible, especially when your simulated JOINs to other 'tables' clutter up your long statements.
-- References to fields using the column letters is both hard to figure out what is going on and also very brittle.  What happens when a column is inserted before those referenced in the SELECT.  Well it fails of course.
+</td>
+</tr>
+</table>
+
+![gsSQL GIF Demo](img/example1.gif)
+
+> **gsSQL** Demo of SELECT statement using JOIN and calculated fields.
+
+
+
+---
+
+# Usage
+
+```=gsSQL( SelectSqlStatement, [TableDefinitions], [ColumnOutputFlag], [BindVariableData])```
+
+1.  **SelectSqlStatement.**  (Required)
+    * Only the **SELECT** statement is supported.
+    * Most all common usage is supported (see below).  
+    * The first row of the table MUST contain unique column titles (for field names).
+      * To reference a field where the title contains spaces, just use the underscore in place of the space.
+        * e.g.  Title = "Transaction Date", SELECT=```"SELECT transaction_date from master_transactions"```
+    * If parameter 2 is to be omitted, the table must be a sheet name.  If the sheet name contains spaces, you must use single quotes around the table name within the select.
+      * e.g.  ```select * from 'master transactions' where account = 'bank'```
+    * Bind variables use the question mark as a placeholder.  There must be matching question marks to bind variable data - which is specified starting in parameter 4.  
+      * e.g.  ```select * from transactions where transaction_date >= ? and transaction_date <= ?``` 
+    * The PIVOT command is also supported.  The 'PIVOT field' if used is the last part of the statement.  It must be used in conjunction with 'group by'.
+      * e.g.  ```select transaction_date, sum(gross), sum(amount) from mastertransactions where transaction_date >=  '01/01/2022' and transaction_date <= '05/19/2022' and expense_category in (select income from budgetCategories where income <> '') group by transaction_date pivot account```
+
+2. **TableDefinitions**  (Optional) 
+   * Defines each table referenced in **SELECT** statement.
+   * If a table does not encompass an entire sheet or you need to specify a range for the data, a table definition is required.
+   * The table definition is an Array of arrays.  Each inner array defines ONE table.
+     * a) Table name - this is the table name referenced in the select. This is a logical table name which will associated with the data range.  It does not have to be the sheet name (string).
+     * b) Range of data - the google range that contains the data with the first row containing titles (used as field names).  This is any valid Google Sheet range name (i.e. Sheet Name, A1 notation or named range), but it must be passed in as a **STRING** (string)
+     * c) Cache seconds - (integer) number of seconds that data loaded from range is held in cache memory before another select of the same range would load again.
+    * Use the CURLY bracket notations to create the double array of table definitions.  If two separate tables are used within your SELECT, the table specifications would be entered as follows.
+        * **{{a, b, c}; {a, b, c}}**
+        * e.g. ```gsSQL("select transaction_date, sum(gross), sum(amount) from mastertransactions where transaction_date >= '01/01/2022' and transaction_date <= '05/19/2022' and expense_category in (select income from budgetCategories where income <> '') group by transaction_date pivot account", {{"mastertransactions", "Master Transactions!$A$1:$I", 60};{"budgetCategories","budgetIncomeCategories", 3600}})```
+
     
-The gsSQL project is meant to help simplify your QUERY statements.  It is also available to be used from within your scripts.
-All regular SQL SELECT syntax is supported, along with:
+3.  **ColumnOutputFlag**  (Optional)
+    * Include column title in output or not. (true adds column titles, false omits the title row).
+      * This example will include the title row on output.
 
--The PIVOT option - which is also available from the QUERY command.  (A new column is created for each distinct data in the PIVOT field for EVERY aggregate field).
+![Title SELECTED](img/example2.png)
+
+4.  **BindVariableData**. (Optional) 
+   * There should be one data item listed PER question mark in the SELECT statement.  Data for the variables can be literal data, cell references (A1 notation), and named fields.
+   * Using the data from the GIF above, here is an example a date input and appropriate data selected.
+   * The dates are stored in named ranges **startDate** and **endDate**.
+
+![Bind Variables](img/example3.png)
+
+---
+
+# Usage Bonus (for all you GAS lovers)
+
+1.  The Google **QUERY** is only available as a sheet function and it is not available for use for your javascript functions.
+
+2.  The Sql.gs (Sql.js) contains the Sql() class.  This is what the gsSQL() custom function uses to implement the data selects.
+    * Commands can be chained.
+
+    * Sql() Methods
+      * addTableData(table, data, cacheSeconds) 
+        *  **table** name referenced in SQL statement.
+        *  **data**  either a double array with column title in first row OR a string indicating a sheet range (named range or A1 notation).
+        *  **cacheSeconds**  number of seconds that loaded table data will be available from the cache after the initial loading.  default=0.
+      * enableColumnTitle(true) 
+        *  true or false.  Output a column title (default is none or false)
+      * addBindParameter(value)
+        *  For every question mark (no quotes) in your SELECT statement, there needs to be a matching bind variable data.  Call this method as for as many question marks in the select are used - in the order that they are found.
+        *  Do not use for named range data, in that case use the method **addBindNamedRangeParameter**  
+      * addBindNamedRangeParameter(nameRange)
+        *   For a bind variable that references a SINGLE cell named range.  Input is a STRING.  
+      * execute(stmt)
+        * stmt:  SQL SELECT statement to run.  
+            Returns a double array of data (first row is column title - if enabled).
+
+3.  Example usage:
+   
 ```
-select date, sum(quantity) from bookReturns group by date pivot customer_id
-```
+let stmt = "select date, sum(quantity) from bookReturns where date >= ? and date <= ? group by date pivot customer_id";
 
--BIND variables are available.  These are used to help simplify your select statement. e.g.
-
-```
-    groupPivot3() {
-        let stmt = "select date, sum(quantity) from bookReturns where date >= ? and date <= ? group by date pivot customer_id";
-
-        let data = new Sql()
+let data = new Sql()
             .addTableData("bookReturns", this.bookReturnsTable())
             .enableColumnTitle(true)
             .addBindParameter("05/01/2022")
             .addBindParameter("05/04/2022")
             .execute(stmt);
-
-        let expected = [["date", "c1 sum(quantity)", "c2 sum(quantity)", "c3 sum(quantity)", "c4 sum(quantity)"],
-        ["05/01/2022", 10, 8, 0, 0],
-        ["05/02/2022", 1, 0, 1, 0],
-        ["05/03/2022", 0, 0, 0, 300],
-        ["05/04/2022", 1, 100, 0, 0]];
-
-        return this.isEqual("groupPivot3", data, expected);
-    }
 ```
 
-# USING gsSQL
 
-1.  Copy the .js files into your google app script folder and CLASP PUSH if necessary.
-2.  The SqlTest.js file is not required. It is just used for a basic sanity check for various SQL SELECT statements.
-3.  The Sql.js file contains the custom function ***gsSQL***
-4.  Sql.js file also contains the ***Sql()*** class which is used for app script SQL SELECT statement use. 
+---
+
+# Installing
 
 
-# Using from App Script.
-example:
-```
-    whereNotIn1() {
-        let stmt = "SELECT books.id, books.title, books.author_id " +
-            "FROM books " +
-            "WHERE books.author_id NOT IN (SELECT id from authors)" +
-            "ORDER BY books.title";
+1.  Copy files manually.
+    * There are **FIVE** required files:
+      * SimpleParser.js
+      * Sql.js
+      * Table.js
+      * TableData.js
+      * Views.js
+    * And the optional file
+      * SqlTest.js
+    * The simple approach is to copy and paste each file.
+      * From your sheets Select **Extensions** and then **Apps Script**
+      * Ensure that Editor is selected.  It is the **< >**
+      * Click the PLUS sign beside **File** and then select **Script**
+      * Find each file in turn in the **src** folder in the Github repository.
+      * Click on a file, and then click on **Copy Raw Contents** which puts the file into your copy buffer.
+      * Back in your Google Project, rename **Untitled** to the file name you just selected in Github.  It is not necessary to enter the .gs extension.
+      * Remove the default contents of the file **myFunction()** and paste in the new content you have copied from Github (Ctrl-v).
+      * Click the little diskette icon to save.
+      * Continue with all five files until done.
+      * Change to your spreadsheet screen and try typing in any cell
+        * ```=gsSQL()```.  The new function with online help should be available.
+  
+2.  **clasp push**
+    * Install the gsSQL source files locally.
+      * Use ```npm install @demmings/gssql``` to install to node_modules folder.
+        * I have included a sanity check after you have installed to your node_modules folder.  Look for "@demmings/gssql" folder and run ```npm test```
+        * To find where your node_modules folder is just type ```npm root```
+        * Please note that **gsSQL** is not really a node package since Google Sheets does not recognize this.  The use of **npm** to install is just a simple way to get the javascript to your local machine.
+      * Clone the project from github repository to a local local.
+        * In your existing local Google Sheet project, create a folder called **SQL** below your existing javascript source folder.
+        * **clasp push** all your source files to Google.
 
-        let data = new Sql()
-            .addTableData("books", this.bookTable())
-            .addTableData("authors", this.authorsTable())
-            .enableColumnTitle(true)
-            .execute(stmt);
 
-        let expected = [["books.id", "books.title", "books.author_id"],
-        ["9", "Book with Mysterious Author", "1"]];
+---
 
-        return this.isEqual("whereNotIn1", data, expected);
-    }
-    
-    bookTable() {
-        return [
-            ["id", "title", "type", "author id", "editor id", "translator id"],
-            ["1", "Time to Grow Up!", "original", "11", "21", ""],
-            ["2", "Your Trip", "translated", "15", "22", "32"],
-            ["3", "Lovely Love", "original", "14", "24", ""],
-            ["4", "Dream Your Life", "original", "11", "24", ""],
-            ["5", "Oranges", "translated", "12", "25", "31"],
-            ["6", "Your Happy Life", "translated", "15", "22", "33"],
-            ["7", "Applied AI", "translated", "13", "23", "34"],
-            ["9", "Book with Mysterious Author", "translated", "1", "23", "34"],
-            ["8", "My Last Book", "original", "11", "28", ""]
-        ];
-    }
-    
-    authorsTable() {
-        return [
-            ["id", "first_name", "last_name"],
-            ["11", "Ellen", "Writer"],
-            ["12", "Olga", "Savelieva"],
-            ["13", "Jack", "Smart"],
-            ["14", "Donald", "Brain"],
-            ["15", "Yao", "Dou"]
-        ];
-    }
- ```
- 
-Sql() Methods:
-
-    addTableData(table, data, cacheSeconds) 
-        1)  table: name referenced in SQL statement.
-        2)  data:  either a double array with column title in first row OR a string indicating a sheet range (named range or A1 notation).
-        3)  cacheSeconds:  number of seconds that loaded table data will be available from the cache after the initial loading.  default=0.
-
-    enableColumnTitle(true) 
-        1)  true or false.  Output a column title (default is none or false)
+# Supported SELECT syntax.
+* All supported major keywords.
+  * 'SELECT', 
+  * 'FROM', 
+  * 'JOIN', 
+  * 'LEFT JOIN', 
+  * 'RIGHT JOIN', 
+  * 'INNER JOIN', 
+  * 'FULL JOIN', 
+  * 'ORDER BY', 
+  * 'GROUP BY', 
+  * 'HAVING', 
+  * 'WHERE', 
+  * 'LIMIT', 
+  * 'UNION ALL', 
+  * 'UNION', 
+  * 'INTERSECT', 
+  * 'EXCEPT', 
+  * 'PIVOT'
+* Supported **JOINS**
+  * 'FULL JOIN'
+  * 'RIGHT JOIN'
+  * 'INNER JOIN'
+  * 'LEFT JOIN'
+* Supported **SET** commands.
+  * 'UNION', 
+  * 'UNION ALL', 
+  * 'INTERSECT', 
+  * 'EXCEPT'
+* Aggregate Functions (group by)
+  * "SUM", 
+  * "MIN", 
+  * "MAX", 
+  * "COUNT", 
+  * "AVG", 
+  * "DISTINCT"
+* SQL Server Functions
+  * "ABS",
+  * "CASE", 
+  * "CEILING", 
+  * "CHARINDEX", 
+  * "FLOOR", 
+  * "IF", 
+  * "LEFT", 
+  * "LEN", 
+  * "LENGTH", 
+  * "LOG", 
+  * "LOG10", 
+  * "LOWER",
+  * "LTRIM", 
+  * "NOW", 
+  * "POWER", 
+  * "RAND", 
+  * "REPLICATE", 
+  * "REVERSE", 
+  * "RIGHT", 
+  * "ROUND", 
+  * "RTRIM",
+  * "SPACE", 
+  * "STUFF", 
+  * "SUBSTRING", 
+  * "SQRT", 
+  * "TRIM", 
+  * "UPPER"
+* Logical Operators.
+  *  '='
+  *  '>'
+  *  '<'
+  *  '>='
+  *  '<>'
+  *  '!='
+  *  'LIKE'
+  *  'NOT LIKE'
+  *  'IN'
+  *  'NOT IN'
+  *  'IS NOT'
+  *  'IS'
         
-    addBindParameter(value)
-        1)  For every question mark (no quotes) in your SELECT statement, there needs to be a matching bind variable data.  Call this method as for as many question marks in the select are used - in the order that they are found.
-        
-    addBindNamedRangeParameter(nameRange)
-        1)  For a bind variable that references a SINGLE cell named range.  Input is a STRING.  
 
-    execute(stmt)
-        1)  stmt:  SQL SELECT statement to run.  
-            Returns a double array of data (first row is column title - if enabled).
-
-# Using from SHEETS.
-   Custom Function example:
-
-```
-        =gsSQL("SELECT * FROM masterTransactions WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = ? ",
-        {{"masterTransactions", "Master Transactions!$A$1:$I", 60}; {"accounts", "accountNamesData", 3600}},      
-           true, "TFSA")
-```
-
-   Example 2, if you have google sheets named 'Master Transactions' and  'accounts', you can use the simple select without any other parameters.
-   By default, the cache is 60 seconds and column titles are output.
-   
-```   
-
-        =gsSQL("SELECT * FROM 'Master Transactions' WHERE registration = 'RRSP' UNION SELECT * from accounts WHERE registration = 'TFSA' ")
-        
-```
- 
-# gsSQL Parameters.
-
-1.  Select statement.  Most all common usage is supported.  
-     * If parameter 2 is to be omitted, the table must be a sheet name.  If the sheet name contains spaces, you must use single quotes around
-       the table name within the select.
-     * Bind variables use the question mark as a placeholder.  There must be matching question marks to bind variable data - which is 
-       specified starting in parameter 4.  
-     * The PIVOT command is also supported.  The 'PIVOT field' if used is the last part of the statement.  It must be used in conjunction with           'group by'l
-
-2.  Array of arrays:  a) table name, b) Range of data, c) cache seconds
-    * Use the CURLY bracket notations to create the double array of table definitions.  If three separate tables are used within your
-      SELECT, the table specifications would be entered as follows.
-      - {{a, b, c}; {a, b, c}; {a, b, c}}
-      - a) table name - this is the table name referenced in the select. (string)
-      - b) range - the google range that contains the data with the first row containing titles (used as field names).  (string)
-      - c) cache seconds - number of seconds that data loaded from range is held in cache memory before another select of the same
-           range would load again.  As you know, the slowest possible thing you can do is request values from a range, so this is
-           useful when a custom function that uses the same tables is used in many locations in your sheet.  Only the first
-           function executed would actually load from the API.  The other functions requiring the data will wait and load
-           from the refreshed cache when the first function has finished loading. (Integer).
-    * If the table referenced in the SELECT is the name of a SHEET, this parameter is optional.  For example:  
-      "select * from transactions"  and you have a sheet called "transactions" and the first row of the sheet has unique column
-      titles, it is not necessary to define the array of table definitions.  However, if you want to specify a specific range
-      or set a cache holding seconds, you need to specify this paramter.
-    * If the sheet name contains spaces, you need to use single quotes around the table name in your select, like
-      "select * from 'master transactions'" if your sheet name is called 'master transactions'.
-    * For RANGE of DATA,  either used NAMED RANGE, A1 notation range, SHEET NAME or empty (table name used as sheet name).  This input is a string.       The first row of each range MUST be unique column titles.
-    
-3.  Include column title in output or not. (true adds column titles, false omits the title row)
-
-4.  Optional BIND variable data.  There should be one data item listed PER question mark in the SELECT statement.  Data for the variables
-    can be literal data, cell references (A1 notation), and named fields.
-
-NOTE:
+# NOTES
 1.  First ROW of data MUST be the column name.
 2.  If the column includes spaces, the SELECT statement must replace the spaces with an underscore.  e.g.:  "First Name" is the column and the select would be "select first_name from myTable"
 3.  Column names do not support the period ".", so you must remove periods before trying the select.
 4.  Column names must be unique (obviously).
 5.  When specifying the input table definitions, you should only specify tables referenced in the SELECT as all data from every table is loaded into memory for processing.
 6.  When ***gsSQL*** is used within your sheet multiple times and the same tables are also referenced multiple times, it makes sense to specify a cache seconds value.  For tables that change often and up to date info is required, keep the cache either very low or zero.  However, for tables that rarely change, it makes sense to cache for a longer period.  
-7.  The Google cache does have size and duration limits.  If the table is huge, it is probably best to set the cache size to zero.  Also note that the cache has a duration limit of 21600 seconds.  Beyond that number of seconds, the script properties are used to store the data - which may not be as quick as the cache.
+7.  The Google cache does have size and duration limits.  If the table is huge, it is probably best to set the cache size to zero.  Also note that the cache has a duration limit of 21600 seconds.  Beyond that number of saeconds, the script properties are used to store the data - which may not be as quick as the cache and the long term cache has **VERY** limited capacity.
 8.  Use BIND variables to simplify the SELECT statement.  In the following statement, you must supply 3 bind variables  e.g.
+9.  BIND variables simplify the use of date comparisons.  The QUERY statement requires that you format the date in your SELECT.  Any DATE BIND variables are converted automatically.  Just specify the named range or A1 range in your gsSQL statement (without quotes) for each parameter and in your SELECT, just substitute with a question mark.  
 
-```
-SELECT * FROM books WHERE author_id IN (select id from authors where first_name = ?) or editor_id in (select id from editors where last_name = ?) or title = ? ORDER BY title
-```
-
-9.  BIND variables simplify the use of date comparisons.  The QUERY statement requires that you format the date in your SELECT.  Any DATE BIND variables are converted automatically.  Just specify the named range or A1 range in your gsSQL statement (without quotes) for each parameter and in your SELECT, just substitute with a question mark.  Here is an example from my sheet:
-
-```
-=-gsSQL("select sum(amount) from mastertransactions where account = ? and expense_category = ? and transaction_date >= ? and transaction_date <= ?",  {{"mastertransactions", "Master Transactions!$A$1:$I",60}}, false, myName, "Savings - TFSA", startIncomeDate, endIncomeDate)
-```
+---
 
 # Known Issues:
 
@@ -223,22 +264,3 @@ Most all SELECT functionality is implemented, however if you want to do anything
 
 3)  Not really an issue, but the use of bind variables does not mean that the SELECT is compiled and reused.  It is only to make your SELECT easier to read.
 
-4)  All SELECT KEYWORDS must be in the same case.  Individual keywords like 'SELECT', 'FROM', 'ORDER BY', ... must be either upper or lower case. You can have a mixture of upper and lower case in the entire statement, but individual keywords must be in one case only.  For example, ```Select * from table``` will give an error. 
-
-# Install
-* Install files to your node_modules folder by using NPM.  This is installed as a package, but Google App Script (GAS) files do not 'require' or 'import'.  Copy the .js files from the /src folder into the location where you have your current google script files and then 'clasp push'.  The @customfunction "gsSQL" will be usable right away.  The class "Sql" is also available from your current javascript application.
-```
-    npm install @demmings/gssql
-```
-
-* I have included a sanity check after you have installed to your node_modules folder.  Look for "@demmings/gssql" folder.  
-```
-   npm test
-```
-
-* To find where your node_modules folder is just type:
-```
-   npm root
-```
-
-* If you have not configured CLASP, you can always just copy and paste into the .gs files using "App Script" inside of Google Sheets.  Go to "Extensions" and then "Apps Script".   Click on the "+" to add a file and paste in the contents of each script.  The "src/SqlTest.js" is optional and is only needed if you wish to run the test suite from within Google Sheets itself. 
