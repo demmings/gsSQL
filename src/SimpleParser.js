@@ -134,10 +134,10 @@ class SqlParse {
 
         for (let word of keywords) {
             let pos = 0;
-            while (pos != -1) {
+            while (pos !== -1) {
                 pos = modifiedQuery.indexOf(word, pos);
 
-                if (pos != -1) {
+                if (pos !== -1) {
                     generatedList.add(query.substring(pos, pos + word.length));
                     pos++;
                 }

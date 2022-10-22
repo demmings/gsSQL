@@ -76,9 +76,9 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
 ![Title SELECTED](img/example2.png)
 
 4.  **BindVariableData**. (Optional) 
-   * There should be one data item listed PER question mark in the SELECT statement.  Data for the variables can be literal data, cell references (A1 notation), and named fields.
-   * Using the data from the GIF above, here is an example a date input and appropriate data selected.
-   * The dates are stored in named ranges **startDate** and **endDate**.
+    * There should be one data item listed PER question mark in the SELECT statement.  Data for the variables can be literal data, cell references (A1 notation), and named fields.
+    * Using the data from the GIF above, here is an example a date input and appropriate data selected.
+    * The dates are stored in named ranges **startDate** and **endDate**.
 
 ![Bind Variables](img/example3.png)
 

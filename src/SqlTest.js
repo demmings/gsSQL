@@ -1,7 +1,6 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***  
 import { Sql, parseTableSettings, gsSQL } from './Sql.js';
-import { TableData } from './TableData.js';
 export { CacheService };
 export { LockService };
 export { SpreadsheetApp };

@@ -245,6 +245,7 @@ class TableData {
                 output = sheetHandle.getSheetValues(1, 1, lastRow, lastColumn);
             }
             else {
+                // @ts-ignore
                 output = sheetNamedRange.getValues();
             }
         }
