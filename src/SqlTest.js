@@ -1559,6 +1559,44 @@ class SqlTester {
         return this.isEqual("unionAll2", data, expected);
     }
 
+    unionJoin1() {
+        let stmt = "select booksales.invoice as 'Invoice', booksales.quantity as 'Quantity', booksales.price as 'Price', booksales.quantity * booksales.price as 'Sales', booksales.date, booktable.title, customer.name, authors.first_name + ' ' + authors.last_name as 'Author', translators.first_name + ' ' + translators.last_name as 'Translator', editors.first_name + ' ' + editors.last_name as 'Editor' " +
+            "from booksales left join booktable on booksales.book_id = booktable.id " +
+            "left join customer on booksales.customer_id = customer.id " +
+            "left join authors on booktable.author_id = authors.id " +
+            "left join translators on booktable.translator_id = translators.id " +
+            "left join editors on booktable.editor_id = editors.id " +
+            "where booksales.date >= ? and booksales.date <= ? " +
+            "union all select 'Total', SUM(booksales.quantity), avg(booksales.price), SUM(booksales.price * booksales.quantity), '' ,'', '', '', '', '' from booksales " +
+            "where booksales.date >= ? and booksales.date <= ? ";
+
+        let data = new Sql()
+            .addTableData("authors", this.authorsTable())
+            .addTableData("editors", this.editorsTable())
+            .addTableData("translators", this.translatorsTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("customer", this.customerTable())
+            .addTableData("editors", this.editorsTable())
+            .addTableData("booktable", this.bookTable())
+            .addBindParameter("05/01/2022")
+            .addBindParameter("05/02/2022")
+            .addBindParameter("05/01/2022")
+            .addBindParameter("05/02/2022")
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["Invoice", "Quantity", "Price", "Sales", "booksales.date", "booktable.title", "customer.name", "Author", "Translator", "Editor"],
+        ["I7200", 10, 34.95, 349.5, "05/01/2022", "Book with Mysterious Author", "Numereo Uno", " ", "Roman Edwards", "Maria Evans"],
+        ["I7201", 3, 29.95, 89.85, "05/01/2022", "My Last Book", "Dewy Tuesdays", "Ellen Writer", " ", " "],
+        ["I7201", 5, 18.99, 94.94999999999999, "05/01/2022", "Applied AI", "Dewy Tuesdays", "Jack Smart", "Roman Edwards", "Maria Evans"],
+        ["I7202", 1, 59.99, 59.99, "05/02/2022", "Book with Mysterious Author", "Tres Buon Goods", " ", "Roman Edwards", "Maria Evans"],
+        ["I7203", 1, 90, 90, "05/02/2022", "Time to Grow Up!", "", "Ellen Writer", " ", "Daniel Brown"],
+        ["Total", 20, 46.775999999999996, 684.29, "", "", "", "", "", ""]];
+
+        return this.isEqual("unionJoin1", data, expected);
+
+    }
+
     except1() {
         let stmt = "select * from authors EXCEPT select * from authors where last_name like 'S%'";
 
@@ -2913,6 +2951,7 @@ function testerSql() {
     result = result && tester.unionBind1();
     result = result && tester.unionAll1();
     result = result && tester.unionAll2();
+    result = result && tester.unionJoin1();
     result = result && tester.except1();
     result = result && tester.intersect1();
     result = result && tester.orderByDesc1();

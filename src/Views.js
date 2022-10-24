@@ -753,6 +753,7 @@ class CalculatedField {
     sqlServerCalcFields(calculatedFormula, masterRecordID) {
         //  Working on a calculated field.
         const objectsDeclared = new Map();
+        const variablesDeclared = new Map();
 
         let myVars = "";
         for (/** @type {TableField} */ const vField of this.masterFields) {
@@ -763,7 +764,7 @@ class CalculatedField {
                 varData = `'${varData}'`;
             }
 
-            myVars += this.createAssignmentStatments(vField, objectsDeclared, varData);
+            myVars += this.createAssignmentStatments(vField, objectsDeclared, variablesDeclared, varData);
         }
 
         const functionString = this.sqlServerFunctions(calculatedFormula);
@@ -775,18 +776,23 @@ class CalculatedField {
      * 
      * @param {TableField} vField 
      * @param {Map<String, Boolean>} objectsDeclared
+     * @param {Map<String, Boolean>} variablesDeclared
      * @param {String} varData
      * @returns {String}
      */
-    createAssignmentStatments(vField, objectsDeclared, varData) {
+    createAssignmentStatments(vField, objectsDeclared, variablesDeclared, varData) {
         let myVars = "";
 
         for (const aliasName of vField.aliasNames) {
             if ((this.primaryTable.tableName !== vField.tableInfo.tableName && aliasName.indexOf(".") === -1))
                 continue;
 
-            if (aliasName.indexOf(".") === -1)
-                myVars += `let ${aliasName} = ${varData};`;
+            if (aliasName.indexOf(".") === -1) {
+                if (!variablesDeclared.has(aliasName)) {
+                    myVars += `let ${aliasName} = ${varData};`;
+                    variablesDeclared.set(aliasName, true);
+                }
+            }
             else {
                 const parts = aliasName.split(".");
                 if (!objectsDeclared.has(parts[0])) {

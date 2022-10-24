@@ -127,7 +127,11 @@ let data = new Sql()
 
 
 1.  Copy files manually.
-    * There are **FIVE** required files:
+    * In the ./dist folder there is **ONE** required file:
+      * gssql.js  
+      * If you never plan to run the test suite, just use this ONE file in your app script.
+      * None of the files in ./src are required if you use **gssql.js**
+    * **OR** in the ./src folder there are **FIVE** required files:
       * SimpleParser.js
       * Sql.js
       * Table.js
@@ -139,7 +143,7 @@ let data = new Sql()
       * From your sheets Select **Extensions** and then **Apps Script**
       * Ensure that Editor is selected.  It is the **< >**
       * Click the PLUS sign beside **File** and then select **Script**
-      * Find each file in turn in the **src** folder in the Github repository.
+      * Find each file in turn in the **src** OR **dist** folder in the Github repository.
       * Click on a file, and then click on **Copy Raw Contents** which puts the file into your copy buffer.
       * Back in your Google Project, rename **Untitled** to the file name you just selected in Github.  It is not necessary to enter the .gs extension.
       * Remove the default contents of the file **myFunction()** and paste in the new content you have copied from Github (Ctrl-v).
