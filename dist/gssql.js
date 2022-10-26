@@ -619,9 +619,8 @@ class SelectTables {
      */
     static isConditionTrue(leftValue, operator, rightValue) {
         let keep = false;
-        operator = operator.toUpperCase();
 
-        switch (operator) {
+        switch (operator.toUpperCase()) {
             case "=":
                 keep = leftValue === rightValue;
                 break;
@@ -806,12 +805,13 @@ class SelectTables {
      * @returns {any[][]}
      */
     groupBy(ast, viewTableData) {
+        let groupedTableData = viewTableData;
 
         if (typeof ast['GROUP BY'] !== 'undefined') {
-            viewTableData = this.groupByFields(ast['GROUP BY'], viewTableData);
+            groupedTableData = this.groupByFields(ast['GROUP BY'], viewTableData);
 
             if (typeof ast.HAVING !== 'undefined') {
-                viewTableData = this.having(ast.HAVING, viewTableData);
+                groupedTableData = this.having(ast.HAVING, groupedTableData);
             }
         }
         else {
@@ -821,11 +821,11 @@ class SelectTables {
                 const compressedData = [];
                 const conglomerate = new ConglomerateRecord(this.tableFields.getSelectFields());
                 compressedData.push(conglomerate.squish(viewTableData));
-                viewTableData = compressedData;
+                groupedTableData = compressedData;
             }
         }
 
-        return viewTableData;
+        return groupedTableData;
     }
 
     /**
@@ -1390,7 +1390,10 @@ class JoinTables {
     */
     static joinTables(leftFieldInfo, rightFieldInfo, joinTable) {
         let matchedRecordIDs = [];
+        let leftJoinRecordIDs = [];
+        let rightJoinRecordIDs = [];
         let derivedTable = null;
+        let rightDerivedTable = null;
 
         switch (joinTable.type) {
             case "left":
@@ -1425,7 +1428,7 @@ class JoinTables {
                 break;
 
             case "full":
-                const leftJoinRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
+                leftJoinRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(leftFieldInfo)
                     .setRightField(rightFieldInfo)
@@ -1433,8 +1436,8 @@ class JoinTables {
                     .setIsOuterJoin(true)
                     .createTable();
 
-                const rightJoinRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
-                const rightDerivedTable = new DerivedTable()
+                rightJoinRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
+                rightDerivedTable = new DerivedTable()
                     .setLeftField(rightFieldInfo)
                     .setRightField(leftFieldInfo)
                     .setLeftRecords(rightJoinRecordIDs)
@@ -1771,20 +1774,21 @@ class SqlServerFunctions {
      * @returns {[any[], String]}
      */
     caseStart(func, args, functionString) {
+        let caseArguments = args;
         if (func === "CASE") {
-            args = functionString.match(/CASE(.*?)END/i);
+            caseArguments = functionString.match(/CASE(.*?)END/i);
 
-            if (args !== null && args.length > 1) {
+            if (caseArguments !== null && caseArguments.length > 1) {
                 this.firstCase = true;
                 this.originalFunctionString = functionString;
-                this.originalCaseStatement = args[0];
-                functionString = args[1];
+                this.originalCaseStatement = caseArguments[0];
+                functionString = caseArguments[1];
 
-                args = args[1].match(this.matchCaseWhenThenStr);
+                caseArguments = caseArguments[1].match(this.matchCaseWhenThenStr);
             }
         }
 
-        return [args, functionString];
+        return [caseArguments, functionString];
     }
 
     /**
@@ -2470,18 +2474,19 @@ function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {
  */
 function parseTableSettings(tableArr, statement = "", randomOrder = true) {
     let tableList = [];
+    let referencedTableSettings = tableArr;
 
     //  Get table names from the SELECT statement when no table range info is given.
     if (tableArr.length === 0 && statement !== "") {
-        tableArr = Sql.getReferencedTableNames(statement);
+        referencedTableSettings = Sql.getReferencedTableNames(statement);
     }
 
-    if (tableArr.length === 0) {
+    if (referencedTableSettings.length === 0) {
         throw new Error('Missing table definition {{"name","range",cache};{...}}');
     }
 
-    Logger.log(`tableArr = ${tableArr}`);
-    for (/** @type {any[]} */ const table of tableArr) {
+    Logger.log(`tableArr = ${referencedTableSettings}`);
+    for (/** @type {any[]} */ const table of referencedTableSettings) {
         if (table.length === 1)
             table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
         if (table.length === 2)
@@ -2633,12 +2638,12 @@ class Sql {
     */
     getTableAlias(tableName, ast) {
         let tableAlias = "";
-        tableName = tableName.toUpperCase();
+        const ucTableName = tableName.toUpperCase();
 
-        tableAlias = Sql.getTableAliasFromJoin(tableAlias, tableName, ast);
-        tableAlias = this.getTableAliasUnion(tableAlias, tableName, ast);
-        tableAlias = this.getTableAliasWhereIn(tableAlias, tableName, ast);
-        tableAlias = this.getTableAliasWhereTerms(tableAlias, tableName, ast);
+        tableAlias = Sql.getTableAliasFromJoin(tableAlias, ucTableName, ast);
+        tableAlias = this.getTableAliasUnion(tableAlias, ucTableName, ast);
+        tableAlias = this.getTableAliasWhereIn(tableAlias, ucTableName, ast);
+        tableAlias = this.getTableAliasWhereTerms(tableAlias, ucTableName, ast);
 
         return tableAlias;
     }
@@ -2715,14 +2720,15 @@ class Sql {
      * @returns {String}
      */
     getTableAliasWhereTerms(tableAlias, tableName, ast) {
+        let extractedTableAlias =  tableAlias;
         if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
             for (const term of ast.WHERE.terms) {
-                if (tableAlias === "")
-                    tableAlias = this.getTableAlias(tableName, term);
+                if (extractedTableAlias === "")
+                extractedTableAlias = this.getTableAlias(tableName, term);
             }
         }
 
-        return tableAlias;
+        return extractedTableAlias;
     }
 
     /**
@@ -2844,12 +2850,13 @@ class Sql {
 
     /**
      * Load SELECT data and return in double array.
-     * @param {Object} ast 
+     * @param {Object} selectAst 
      * @returns {any[][]}
      */
-    select(ast) {
+    select(selectAst) {
         let recordIDs = [];
         let viewTableData = [];
+        let ast = selectAst;
 
         if (typeof ast.FROM === 'undefined')
             throw new Error("Missing keyword FROM");
@@ -3005,6 +3012,7 @@ class Sql {
      */
     unionSets(ast, viewTableData) {
         const unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+        let unionTableData = viewTableData;
 
         for (const type of unionTypes) {
             if (typeof ast[type] !== 'undefined') {
@@ -3013,28 +3021,28 @@ class Sql {
                     .setTables(this.tables);
                 for (const union of ast[type]) {
                     const unionData = unionSQL.select(union);
-                    if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length !== unionData[0].length)
+                    if (unionTableData.length > 0 && unionData.length > 0 && unionTableData[0].length !== unionData[0].length)
                         throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
 
                     switch (type) {
                         case "UNION":
                             //  Remove duplicates.
-                            viewTableData = Sql.appendUniqueRows(viewTableData, unionData);
+                            unionTableData = Sql.appendUniqueRows(unionTableData, unionData);
                             break;
 
                         case "UNION ALL":
                             //  Allow duplicates.
-                            viewTableData = viewTableData.concat(unionData);
+                            unionTableData = unionTableData.concat(unionData);
                             break;
 
                         case "INTERSECT":
                             //  Must exist in BOTH tables.
-                            viewTableData = Sql.intersectRows(viewTableData, unionData);
+                            unionTableData = Sql.intersectRows(unionTableData, unionData);
                             break;
 
                         case "EXCEPT":
                             //  Remove from first table all rows that match in second table.
-                            viewTableData = Sql.exceptRows(viewTableData, unionData);
+                            unionTableData = Sql.exceptRows(unionTableData, unionData);
                             break;
 
                         default:
@@ -3044,7 +3052,7 @@ class Sql {
             }
         }
 
-        return viewTableData;
+        return unionTableData;
     }
 
     /**
@@ -3205,7 +3213,7 @@ class SqlParse {
         }
         if (typeof result.JOIN !== 'undefined') {
             result.JOIN.forEach(function (item, key) {
-                result.JOIN[key]['cond'] = CondParser.parse(item['cond']);
+                result.JOIN[key].cond = CondParser.parse(item.cond);
             });
         }
 
@@ -4268,7 +4276,11 @@ class TableData {
         }
         else if (cacheSeconds > 21600) {
             cache = new ScriptSettings();
-            cache.expire(false);
+            const shortCache = CacheService.getScriptCache();
+            if (shortCache.get("LONG_CACHE_EXPIRY") === null) {
+                cache.expire(false);
+                cache.put("LONG_CACHE_EXPIRY", true, 21000);
+            }
             cacheSeconds = cacheSeconds / 86400;  //  ScriptSettings put() wants days to hold.
         }
         else {
@@ -4283,13 +4295,7 @@ class TableData {
 
         Logger.log(`Not in cache: ${namedRange}`);
 
-        if (TableData.isRangeLoading(cache, namedRange)) {
-            //  Just wait until data loaded elsewhere.
-            arrData = TableData.waitForRangeToLoad(cache, namedRange, cacheSeconds);
-        }
-        else {
-            arrData = TableData.lockLoadAndCache(cache, namedRange, cacheSeconds);
-        }
+        arrData = TableData.lockLoadAndCache(cache, namedRange, cacheSeconds);
 
         return arrData;
     }
@@ -4401,17 +4407,6 @@ class TableData {
      * @returns {any[][]} - data from range
      */
     static lockLoadAndCache(cache, namedRange, cacheSeconds) {
-        //  Data is now loaded in cache.
-        let arrData = TableData.cacheGetArray(cache, namedRange);
-        if (arrData !== null) {
-            return arrData;
-        }
-
-        //  The status indicates this named range is being loaded in another process.
-        if (TableData.isRangeLoading(cache, namedRange)) {
-            return TableData.waitForRangeToLoad(cache, namedRange, cacheSeconds);
-        }
-
         //  Only change our CACHE STATUS if we have a lock.
         const lock = LockService.getScriptLock();
         try {
@@ -4431,7 +4426,7 @@ class TableData {
         lock.releaseLock();
 
         //  Load data from SHEETS.
-        arrData = TableData.loadValuesFromRangeOrSheet(namedRange);
+        const arrData = TableData.loadValuesFromRangeOrSheet(namedRange);
 
         Logger.log(`Just LOADED from SHEET: ${arrData.length}`);
 

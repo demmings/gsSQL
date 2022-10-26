@@ -78,7 +78,7 @@ class SqlParse {
         }
         if (typeof result.JOIN !== 'undefined') {
             result.JOIN.forEach(function (item, key) {
-                result.JOIN[key]['cond'] = CondParser.parse(item['cond']);
+                result.JOIN[key].cond = CondParser.parse(item.cond);
             });
         }
 

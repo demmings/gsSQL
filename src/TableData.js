@@ -47,7 +47,11 @@ class TableData {
         }
         else if (cacheSeconds > 21600) {
             cache = new ScriptSettings();
-            cache.expire(false);
+            const shortCache = CacheService.getScriptCache();
+            if (shortCache.get("LONG_CACHE_EXPIRY") === null) {
+                cache.expire(false);
+                cache.put("LONG_CACHE_EXPIRY", true, 21000);
+            }
             cacheSeconds = cacheSeconds / 86400;  //  ScriptSettings put() wants days to hold.
         }
         else {
@@ -62,13 +66,7 @@ class TableData {
 
         Logger.log(`Not in cache: ${namedRange}`);
 
-        if (TableData.isRangeLoading(cache, namedRange)) {
-            //  Just wait until data loaded elsewhere.
-            arrData = TableData.waitForRangeToLoad(cache, namedRange, cacheSeconds);
-        }
-        else {
-            arrData = TableData.lockLoadAndCache(cache, namedRange, cacheSeconds);
-        }
+        arrData = TableData.lockLoadAndCache(cache, namedRange, cacheSeconds);
 
         return arrData;
     }
@@ -180,17 +178,6 @@ class TableData {
      * @returns {any[][]} - data from range
      */
     static lockLoadAndCache(cache, namedRange, cacheSeconds) {
-        //  Data is now loaded in cache.
-        let arrData = TableData.cacheGetArray(cache, namedRange);
-        if (arrData !== null) {
-            return arrData;
-        }
-
-        //  The status indicates this named range is being loaded in another process.
-        if (TableData.isRangeLoading(cache, namedRange)) {
-            return TableData.waitForRangeToLoad(cache, namedRange, cacheSeconds);
-        }
-
         //  Only change our CACHE STATUS if we have a lock.
         const lock = LockService.getScriptLock();
         try {
@@ -210,7 +197,7 @@ class TableData {
         lock.releaseLock();
 
         //  Load data from SHEETS.
-        arrData = TableData.loadValuesFromRangeOrSheet(namedRange);
+        const arrData = TableData.loadValuesFromRangeOrSheet(namedRange);
 
         Logger.log(`Just LOADED from SHEET: ${arrData.length}`);
 

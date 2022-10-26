@@ -2386,7 +2386,7 @@ class SqlTester {
     }
 
     testTableData() {
-        //  Hey CJD, remember to set the startIncomeDate and endIncomeDate - June 7 to June 20.
+        //  Hey CJD, remember to set the startIncomeDate and endIncomeDate - June 7 to June 20 2019
         const itemData = new Sql()
             .addTableData('mastertransactions', 'Master Transactions!$A$1:$I', 60)
             .enableColumnTitle(true)

@@ -181,9 +181,8 @@ class SelectTables {
      */
     static isConditionTrue(leftValue, operator, rightValue) {
         let keep = false;
-        operator = operator.toUpperCase();
 
-        switch (operator) {
+        switch (operator.toUpperCase()) {
             case "=":
                 keep = leftValue === rightValue;
                 break;
@@ -368,12 +367,13 @@ class SelectTables {
      * @returns {any[][]}
      */
     groupBy(ast, viewTableData) {
+        let groupedTableData = viewTableData;
 
         if (typeof ast['GROUP BY'] !== 'undefined') {
-            viewTableData = this.groupByFields(ast['GROUP BY'], viewTableData);
+            groupedTableData = this.groupByFields(ast['GROUP BY'], viewTableData);
 
             if (typeof ast.HAVING !== 'undefined') {
-                viewTableData = this.having(ast.HAVING, viewTableData);
+                groupedTableData = this.having(ast.HAVING, groupedTableData);
             }
         }
         else {
@@ -383,11 +383,11 @@ class SelectTables {
                 const compressedData = [];
                 const conglomerate = new ConglomerateRecord(this.tableFields.getSelectFields());
                 compressedData.push(conglomerate.squish(viewTableData));
-                viewTableData = compressedData;
+                groupedTableData = compressedData;
             }
         }
 
-        return viewTableData;
+        return groupedTableData;
     }
 
     /**
@@ -952,7 +952,10 @@ class JoinTables {
     */
     static joinTables(leftFieldInfo, rightFieldInfo, joinTable) {
         let matchedRecordIDs = [];
+        let leftJoinRecordIDs = [];
+        let rightJoinRecordIDs = [];
         let derivedTable = null;
+        let rightDerivedTable = null;
 
         switch (joinTable.type) {
             case "left":
@@ -987,7 +990,7 @@ class JoinTables {
                 break;
 
             case "full":
-                const leftJoinRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
+                leftJoinRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(leftFieldInfo)
                     .setRightField(rightFieldInfo)
@@ -995,8 +998,8 @@ class JoinTables {
                     .setIsOuterJoin(true)
                     .createTable();
 
-                const rightJoinRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
-                const rightDerivedTable = new DerivedTable()
+                rightJoinRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
+                rightDerivedTable = new DerivedTable()
                     .setLeftField(rightFieldInfo)
                     .setRightField(leftFieldInfo)
                     .setLeftRecords(rightJoinRecordIDs)
@@ -1333,20 +1336,21 @@ class SqlServerFunctions {
      * @returns {[any[], String]}
      */
     caseStart(func, args, functionString) {
+        let caseArguments = args;
         if (func === "CASE") {
-            args = functionString.match(/CASE(.*?)END/i);
+            caseArguments = functionString.match(/CASE(.*?)END/i);
 
-            if (args !== null && args.length > 1) {
+            if (caseArguments !== null && caseArguments.length > 1) {
                 this.firstCase = true;
                 this.originalFunctionString = functionString;
-                this.originalCaseStatement = args[0];
-                functionString = args[1];
+                this.originalCaseStatement = caseArguments[0];
+                functionString = caseArguments[1];
 
-                args = args[1].match(this.matchCaseWhenThenStr);
+                caseArguments = caseArguments[1].match(this.matchCaseWhenThenStr);
             }
         }
 
-        return [args, functionString];
+        return [caseArguments, functionString];
     }
 
     /**

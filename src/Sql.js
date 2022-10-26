@@ -57,18 +57,19 @@ function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {
  */
 function parseTableSettings(tableArr, statement = "", randomOrder = true) {
     let tableList = [];
+    let referencedTableSettings = tableArr;
 
     //  Get table names from the SELECT statement when no table range info is given.
     if (tableArr.length === 0 && statement !== "") {
-        tableArr = Sql.getReferencedTableNames(statement);
+        referencedTableSettings = Sql.getReferencedTableNames(statement);
     }
 
-    if (tableArr.length === 0) {
+    if (referencedTableSettings.length === 0) {
         throw new Error('Missing table definition {{"name","range",cache};{...}}');
     }
 
-    Logger.log(`tableArr = ${tableArr}`);
-    for (/** @type {any[]} */ const table of tableArr) {
+    Logger.log(`tableArr = ${referencedTableSettings}`);
+    for (/** @type {any[]} */ const table of referencedTableSettings) {
         if (table.length === 1)
             table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
         if (table.length === 2)
@@ -220,12 +221,12 @@ class Sql {
     */
     getTableAlias(tableName, ast) {
         let tableAlias = "";
-        tableName = tableName.toUpperCase();
+        const ucTableName = tableName.toUpperCase();
 
-        tableAlias = Sql.getTableAliasFromJoin(tableAlias, tableName, ast);
-        tableAlias = this.getTableAliasUnion(tableAlias, tableName, ast);
-        tableAlias = this.getTableAliasWhereIn(tableAlias, tableName, ast);
-        tableAlias = this.getTableAliasWhereTerms(tableAlias, tableName, ast);
+        tableAlias = Sql.getTableAliasFromJoin(tableAlias, ucTableName, ast);
+        tableAlias = this.getTableAliasUnion(tableAlias, ucTableName, ast);
+        tableAlias = this.getTableAliasWhereIn(tableAlias, ucTableName, ast);
+        tableAlias = this.getTableAliasWhereTerms(tableAlias, ucTableName, ast);
 
         return tableAlias;
     }
@@ -302,14 +303,15 @@ class Sql {
      * @returns {String}
      */
     getTableAliasWhereTerms(tableAlias, tableName, ast) {
+        let extractedTableAlias =  tableAlias;
         if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
             for (const term of ast.WHERE.terms) {
-                if (tableAlias === "")
-                    tableAlias = this.getTableAlias(tableName, term);
+                if (extractedTableAlias === "")
+                extractedTableAlias = this.getTableAlias(tableName, term);
             }
         }
 
-        return tableAlias;
+        return extractedTableAlias;
     }
 
     /**
@@ -431,12 +433,13 @@ class Sql {
 
     /**
      * Load SELECT data and return in double array.
-     * @param {Object} ast 
+     * @param {Object} selectAst 
      * @returns {any[][]}
      */
-    select(ast) {
+    select(selectAst) {
         let recordIDs = [];
         let viewTableData = [];
+        let ast = selectAst;
 
         if (typeof ast.FROM === 'undefined')
             throw new Error("Missing keyword FROM");
@@ -592,6 +595,7 @@ class Sql {
      */
     unionSets(ast, viewTableData) {
         const unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+        let unionTableData = viewTableData;
 
         for (const type of unionTypes) {
             if (typeof ast[type] !== 'undefined') {
@@ -600,28 +604,28 @@ class Sql {
                     .setTables(this.tables);
                 for (const union of ast[type]) {
                     const unionData = unionSQL.select(union);
-                    if (viewTableData.length > 0 && unionData.length > 0 && viewTableData[0].length !== unionData[0].length)
+                    if (unionTableData.length > 0 && unionData.length > 0 && unionTableData[0].length !== unionData[0].length)
                         throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
 
                     switch (type) {
                         case "UNION":
                             //  Remove duplicates.
-                            viewTableData = Sql.appendUniqueRows(viewTableData, unionData);
+                            unionTableData = Sql.appendUniqueRows(unionTableData, unionData);
                             break;
 
                         case "UNION ALL":
                             //  Allow duplicates.
-                            viewTableData = viewTableData.concat(unionData);
+                            unionTableData = unionTableData.concat(unionData);
                             break;
 
                         case "INTERSECT":
                             //  Must exist in BOTH tables.
-                            viewTableData = Sql.intersectRows(viewTableData, unionData);
+                            unionTableData = Sql.intersectRows(unionTableData, unionData);
                             break;
 
                         case "EXCEPT":
                             //  Remove from first table all rows that match in second table.
-                            viewTableData = Sql.exceptRows(viewTableData, unionData);
+                            unionTableData = Sql.exceptRows(unionTableData, unionData);
                             break;
 
                         default:
@@ -631,7 +635,7 @@ class Sql {
             }
         }
 
-        return viewTableData;
+        return unionTableData;
     }
 
     /**
