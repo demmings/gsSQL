@@ -50,7 +50,7 @@ class TableData {
             const shortCache = CacheService.getScriptCache();
             if (shortCache.get("LONG_CACHE_EXPIRY") === null) {
                 cache.expire(false);
-                cache.put("LONG_CACHE_EXPIRY", true, 21000);
+                shortCache.put("LONG_CACHE_EXPIRY", true, 21000);
             }
             cacheSeconds = cacheSeconds / 86400;  //  ScriptSettings put() wants days to hold.
         }
