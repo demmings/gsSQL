@@ -36,7 +36,245 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
 
 > **gsSQL** Demo of SELECT statement using JOIN and calculated fields.
 
+<br/>
 
+---
+
+# Why use gsSQL
+- It's easier and less work than using QUERY.
+- It is less cryptic when attempting simple things like JOIN and SELECT IN.
+
+<br/>
+
+# Example Data
+- See table data that was used below.
+- Each table is in its own sheet, where the sheet name is the table name.
+
+---
+
+<br/>
+
+## Inner Join
+| gsSQL | QUERY |
+| ---   | ---   |
+| ```=gsSQL("SELECT books.id, books.title, authors.first_name, authors.last_name FROM books INNER JOIN authors ON books.author_id = authors.id ORDER BY books.id")```  | No easy solution just using QUERY.  Not sure how to make it work 100%.  Book '9' should not be included. <br/> ```=ArrayFormula({Books!A1:B10,vlookup(Books!D1:D10, {Authors!A1:A6, Authors!B1:C6}, {2,3}, false)})```  &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;|
+
+### gsSQL Results
+| books.id | books.title | authors.first_name | authors.last_name |
+|---|---|---|---|
+| 1 | Time to Grow Up! | Ellen | Writer |
+| 2 | Your Trip | Yao | Dou |
+| 3 | Lovely Love | Donald | Brain |
+| 4 | Dream Your Life | Ellen | Writer |
+| 5 | Oranges | Olga | Savelieva |
+| 6 | Your Happy Life | Yao | Dou |
+| 7 | Applied AI | Jack | Smart |
+| 8 | My Last Book | Ellen | Writer |
+
+### QUERY Results
+|id	|title	|#N/A	|#N/A|
+|---|---|---|---|
+|1	|Time to Grow Up!	|Ellen	|Writer|
+|2	|Your Trip	|Yao	|Dou|
+|3	|Lovely Love	|Donald	|Brain|
+|4	|Dream Your Life	|Ellen	|Writer|
+|5	|Oranges	|Olga	|Savelieva|
+|6	|Your Happy Life	|Yao	|Dou|
+|7	|Applied AI	|Jack	|Smart|
+|9	|Book with Mysterious Author	|#N/A	|#N/A|
+|8	|My Last Book	|Ellen	|Writer |
+
+---
+<br/>
+
+## Multiple Inner Joins
+| gsSQL | QUERY |
+| ---   | ---   |
+| ```=gsSQL("SELECT books.id, books.title, books.type, authors.last_name, translators.last_name FROM books INNER JOIN authors ON books.author_id = authors.id INNER JOIN translators ON books.translator_id = translators.id ORDER BY books.id")``` | No easy solution just using QUERY &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;|
+
+### Results
+| books.id | books.title | books.type | authors.last_name | translators.last_name |
+|---|---|---|---|---|
+| 2 | Your Trip | translated | Dou | Weng |
+| 5 | Oranges | translated | Savelieva | Davies |
+| 6 | Your Happy Life | translated | Dou | Green |
+| 7 | Applied AI | translated | Smart | Edwards |
+
+---
+
+## Multiple Right Joins
+| gsSQL | QUERY |
+| ---   | ---   |
+| ```=gsSQL("SELECT books.id, books.title, books.translator_id, editors.last_name, editors.id,  translators.last_name FROM books RIGHT JOIN editors ON books.editor_id = editors.id RIGHT JOIN translators ON books.translator_id = translators.id ORDER BY books.id")```| ={query(Books!A1:F10,"Select A,B,F where E matches '"&TEXTJOIN("\|",true,Editors!A1:A11)&"' AND F matches '"&TEXTJOIN("\|",true,Translators!A1:A5)&"' order by A", 1), {"Editors.Last_Name"; ARRAYFORMULA( VLOOKUP(query(Books!A2:F10,"Select E where E matches '"&TEXTJOIN("\|",true,Editors!A2:A11)&"' AND F matches '"&TEXTJOIN("\|",true,Translators!A2:A5)&"' order by A", -1), Editors!A2:C11, 3))}, {"Editors.ID"; ARRAYFORMULA( VLOOKUP(query(Books!A2:F10,"Select E where E matches '"&TEXTJOIN("\|",true,Editors!A2:A11)&"' AND F matches '"&TEXTJOIN("\|",true,Translators!A2:A5)&"' order by A", -1), Editors!A2:C11, 1))}, {"Translators.Last_Name"; ARRAYFORMULA( VLOOKUP(query(Books!A2:F10,"Select F where E matches '"&TEXTJOIN("\|",true,Editors!A2:A11)&"' AND F matches '"&TEXTJOIN("\|",true,Translators!A2:A5)&"' order by A", -1), Translators!A2:C11, 3))} } |
+
+### gsSQL Results
+
+| books.id | books.title | books.translator_id | editors.last_name | editors.id | translators.last_name |
+|---|---|---|---|---|---|
+| 2 | Your Trip | 32 | Johnson | 22 | Weng |
+| 5 | Oranges | 31 | Wright | 25 | Davies |
+| 6 | Your Happy Life | 33 | Johnson | 22 | Green |
+| 7 | Applied AI | 34 | Evans | 23 | Edwards |
+| 9 | Book with Mysterious Author | 34 | Evans | 23 | Edwards |
+
+### QUERY Results
+|id	|title	|translator id	|Editors.Last_Name	|Editors.ID	|Translators.Last_Name|
+|---|---|---|---|---|---|
+|2	|Your Trip	|32	|Johnson	|22	|Weng|
+|5	|Oranges	|31	|Wright	|25	|Davies|
+|6	|Your Happy Life	|33	|Johnson	|22	|Green|
+|7	|Applied AI	|34	|Evans	|23	|Edwards|
+|9	|Book with Mysterious Author	|34	|Evans	|23	|Edwards|
+
+---
+
+<br/>
+
+## Full Join
+| gsSQL | QUERY |
+| ---   | ---   |
+| ```=gsSQL("SELECT authors.id, authors.last_name, editors.id, editors.last_name FROM authors FULL JOIN editors ON authors.id = editors.id")``` | Life is too short finding a replacement QUERY.  &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;|
+
+### Results
+
+| authors.id | authors.last_name | editors.id | editors.last_name |
+|---|---|---|---|
+| 11 | Writer |  |  |
+| 12 | Savelieva |  |  |
+| 13 | Smart | 13 | Smart |
+| 14 | Brain |  |  |
+| 15 | Dou |  |  |
+|  |  | 21 | Brown |
+|  |  | 22 | Johnson |
+|  |  | 23 | Evans |
+|  |  | 24 | Roberts |
+|  |  | 25 | Wright |
+|  |  | 26 | Jones |
+|  |  | 27 | Smith |
+|  |  | 50 | Dumb |
+|  |  | 51 | Smart |
+
+
+## Select Where IN Select
+| gsSQL | QUERY |
+| ---   | ---   |
+|```=gsSQL("SELECT books.id, books.title, books.author_id FROM books WHERE books.author_id IN (SELECT id from authors)ORDER BY books.title")``` | ```=QUERY(Books!A1:F10,"Select A,B,D where D matches '"&TEXTJOIN("\|",true,Authors!A1:A6)&"' order by B", 1)```|
+
+| books.id | books.title | books.author_id |                    
+|---|---|---|
+| 7 | Applied AI | 13 |
+| 4 | Dream Your Life | 11 |
+| 3 | Lovely Love | 14 |
+| 8 | My Last Book | 11 |
+| 5 | Oranges | 12 |
+| 1 | Time to Grow Up! | 11 |
+| 6 | Your Happy Life | 15 |
+| 2 | Your Trip | 15 |
+
+## Select Like
+| gsSQL | QUERY |
+| ---   | ---   |
+| ```=gsSQL("SELECT id, title, author_id FROM books WHERE author_id IN (select id from authors where first_name like '%ald') ORDER BY title")``` | ```=QUERY(Books!A1:F10,"Select A,B,D where D matches '"&TEXTJOIN("\|",true, query(Authors!A1:C5,"Select A where B contains 'ald'"))&"' order by B", 1))``` |
+
+| id | title | author_id |
+|---|---|---|
+| 3 | Lovely Love | 14 |
+
+---
+##  Example Summary
+* We could go on with more examples, but in general, using **gsSQL** is easier.
+* You can see that most standard SELECT syntax is supported.
+
+---
+
+<br/>
+
+# Example Source Table Data
+
+## Authors
+| id | first_name | last_name |
+|---|---|---|
+| 11 | Ellen | Writer |
+| 12 | Olga | Savelieva |
+| 13 | Jack | Smart |
+| 14 | Donald | Brain |
+| 15 | Yao | Dou |
+---
+## BookReturns
+| RMA | Book Id | Customer ID | Quantity | Price | Date |
+|---|---|---|---|---|---|
+| Rma001 | 9 | c1 | 10 | 34.95 | 05/01/2022 |
+| rma020 | 8 | c2 | 3 | 29.95 | 05/01/2022 |
+| rmA030 | 7 | c2 | 5 | 18.99 | 05/01/2022 |
+| RMA040 | 9 | c3 | 1 | 59.99 | 05/02/2022 |
+| rma005 | 1 | c1 | 1 | 90 | 05/02/2022 |
+| RMA600 | 2 | c4 | 100 | 65.49 | 05/03/2022 |
+| Rma701 | 3 | c4 | 150 | 24.95 | 05/03/2022 |
+| RmA800 | 4 | c4 | 50 | 19.99 | 05/03/2022 |
+| RMA900 | 7 | c1 | 1 | 33.97 | 05/04/2022 |
+| rma1010 | 7 | c2 | 100 | 17.99 | 05/04/2022 |
+---
+## BookSales
+| Invoice | Book Id | Customer ID | Quantity | Price | Date |
+|---|---|---|---|---|---|
+| I7200 | 9 | C1 | 10 | 34.95 | 05/01/2022 |
+| I7201 | 8 | C2 | 3 | 29.95 | 05/01/2022 |
+| I7201 | 7 | C2 | 5 | 18.99 | 05/01/2022 |
+| I7202 | 9 | C3 | 1 | 59.99 | 05/02/2022 |
+| I7203 | 1 |  | 1 | 90 | 05/02/2022 |
+| I7204 | 2 | C4 | 100 | 65.49 | 05/03/2022 |
+| I7204 | 3 | C4 | 150 | 24.95 | 05/03/2022 |
+| I7204 | 4 | C4 | 50 | 19.99 | 05/03/2022 |
+| I7205 | 7 | C1 | 1 | 33.97 | 05/04/2022 |
+| I7206 | 7 | C2 | 100 | 17.99 | 05/04/2022 |
+---
+## Books
+| id | title | type | author id | editor id | translator id |
+|---|---|---|---|---|---|
+| 1 | Time to Grow Up! | original | 11 | 21 |  |
+| 2 | Your Trip | translated | 15 | 22 | 32 |
+| 3 | Lovely Love | original | 14 | 24 |  |
+| 4 | Dream Your Life | original | 11 | 24 |  |
+| 5 | Oranges | translated | 12 | 25 | 31 |
+| 6 | Your Happy Life | translated | 15 | 22 | 33 |
+| 7 | Applied AI | translated | 13 | 23 | 34 |
+| 9 | Book with Mysterious Author | translated | 1 | 23 | 34 |
+| 8 | My Last Book | original | 11 | 28 |  |
+---
+## Customer
+| ID | Name | Address | City | Phone | eMail |
+|---|---|---|---|---|---|
+| C1 | Numereo Uno | 101 One Way | One Point City | 9051112111 | bigOne@gmail.com |
+| C2 | Dewy Tuesdays | 202 Second St. | Second City | 4162022222 | twoguys@gmail.com |
+| C3 | Tres Buon Goods | 3 Way St | Tres City | 5193133303 | thrice@hotmail.com |
+| C4 | ForMe Resellers | 40 Four St | FourtNight City | 2894441234 | fourtimes@hotmail.com |
+| C5 | Fe Fi Fo Giant Tiger | 5 ohFive St. | FifthDom | 4165551234 |    fiver@gmail.com |
+| C6 | Sx in Cars | 6 Seventh St | Sx City | 6661116666 | gotyourSix@hotmail.com    |
+| C7 | 7th Heaven | 7 Eight Crt. | Lucky City | 5551117777 |  timesAcharm@gmail.com  |
+---
+## Editors
+| id | first name | last name |
+|---|---|---|
+| 13 | Jack | Smart |
+| 21 | Daniel | Brown |
+| 22 | Mark | Johnson |
+| 23 | Maria | Evans |
+| 24 | Cathrine | Roberts |
+| 25 | Sebastian | Wright |
+| 26 | Barbara | Jones |
+| 27 | Matthew | Smith |
+| 50 | Jack | Dumb |
+| 51 | Daniel | Smart |
+---
+## Translators
+| id | first_name | last_name |
+|---|---|---|
+| 31 | Ira | Davies |
+| 32 | Ling | Weng |
+| 33 | Kristian | Green |
+| 34 | Roman | Edwards |
+
+<br/>
 
 ---
 

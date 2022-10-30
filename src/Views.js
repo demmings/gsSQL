@@ -675,7 +675,7 @@ class SelectTables {
 
     /**
      * 
-     * @param {String} leftValue 
+     * @param {any} leftValue 
      * @param {String} rightValue 
      * @returns 
      */
@@ -684,7 +684,10 @@ class SelectTables {
         for (let i = 0; i < items.length; i++)
             items[i] = items[i].trimStart().trimEnd();
 
-        const index = items.indexOf(leftValue);
+        let index = items.indexOf(leftValue);
+        if (index === -1 && typeof leftValue === 'number') {
+          index = items.indexOf(leftValue.toString());  
+        }
 
         return index !== -1;
     }

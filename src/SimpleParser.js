@@ -34,8 +34,8 @@ class SqlParse {
      */
     static sql2ast(query) {
         // Define which words can act as separator
-        let myKeyWords = SqlParse.generateUsedKeywordList(query);
-        let [parts_name, parts_name_escaped] = SqlParse.generateSqlSeparatorWords(myKeyWords);
+        const myKeyWords = SqlParse.generateUsedKeywordList(query);
+        const [parts_name, parts_name_escaped] = SqlParse.generateSqlSeparatorWords(myKeyWords);
 
         //  Include brackets around separate selects used in things like UNION, INTERSECT...
         let modifiedQuery = SqlParse.sqlStatementSplitter(query);
@@ -130,9 +130,9 @@ class SqlParse {
         // Define which words can act as separator
         const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
 
-        let modifiedQuery = query.toUpperCase();
+        const modifiedQuery = query.toUpperCase();
 
-        for (let word of keywords) {
+        for (const word of keywords) {
             let pos = 0;
             while (pos !== -1) {
                 pos = modifiedQuery.indexOf(word, pos);
