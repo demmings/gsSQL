@@ -686,7 +686,7 @@ class SelectTables {
 
         let index = items.indexOf(leftValue);
         if (index === -1 && typeof leftValue === 'number') {
-          index = items.indexOf(leftValue.toString());  
+            index = items.indexOf(leftValue.toString());
         }
 
         return index !== -1;
@@ -821,7 +821,7 @@ class CalculatedField {
             return this.sqlServerFunctionCache.get(calculatedFormula);
 
         const func = new SqlServerFunctions();
-        const functionString = func.convertToJs(calculatedFormula);
+        const functionString = func.convertToJs(calculatedFormula, this.masterFields);
 
         //  No need to recalculate for each row.
         this.sqlServerFunctionCache.set(calculatedFormula, functionString);
@@ -1179,10 +1179,11 @@ class SqlServerFunctions {
     /**
      * 
      * @param {String} calculatedFormula 
+     * @param {TableField[]} masterFields;
      * @returns {String}
      */
-    convertToJs(calculatedFormula) {
-        const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+    convertToJs(calculatedFormula, masterFields) {
+        const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT_WS", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER"];
         this.matchCaseWhenThenStr = /WHEN(.*?)THEN(.*?)(?=WHEN|ELSE|$)|ELSE(.*?)(?=$)/;
@@ -1214,6 +1215,12 @@ class SqlServerFunctions {
                         break;
                     case "CHARINDEX":
                         replacement = SqlServerFunctions.charIndex(parms);
+                        break;
+                    case "COALESCE":
+                        replacement = SqlServerFunctions.coalesce(parms);
+                        break;
+                    case "CONCAT_WS":
+                        replacement = SqlServerFunctions.concat_ws(parms, masterFields);
                         break;
                     case "FLOOR":
                         replacement = `Math.floor(${parms[0]})`;
@@ -1327,6 +1334,63 @@ class SqlServerFunctions {
             replacement = `${parms[1]}.indexOf(${parms[0]}) + 1`;
         else
             replacement = `${parms[1]}.indexOf(${parms[0]},${parms[2]} -1) + 1`;
+
+        return replacement;
+    }
+
+    /**
+     * 
+     * @param {any[]} parms 
+     * @returns {String}
+     */
+    static coalesce(parms) {
+        let replacement = "";
+        for (const parm of parms) {
+            replacement += `${parm} !== '' ? ${parm} : `;
+        }
+
+        replacement += `''`;
+
+        return replacement;
+    }
+
+    /**
+     * 
+     * @param {any[]} parms 
+     * @param {TableField[]} masterFields
+     * @returns {String}
+     */
+    static concat_ws(parms, masterFields) {
+        if (parms.length === 0) {
+            return "";
+        }
+
+        let replacement = "";
+        const separator = parms[0];
+        const concatFields = [];
+
+        for (let i = 1; i < parms.length; i++) {
+            if (parms[i].trim() === "*") {
+                for (const vField of masterFields) {
+                    for (const aliasName of vField.aliasNames) {
+                        if (aliasName.indexOf(".") !== -1) {
+                            concatFields.push(aliasName);
+                        }
+                    }
+                }
+            }
+            else {
+                concatFields.push(parms[i]);
+            }
+        }
+
+        for (const field of concatFields) {
+            if (replacement !== "") {
+                replacement += ` + ${separator} + `;
+            }
+
+            replacement += `${field}`;
+        }
 
         return replacement;
     }

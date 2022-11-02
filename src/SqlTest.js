@@ -481,6 +481,18 @@ class SqlTester {
         ];
     }
 
+    yearlySalesTable() {
+        return [
+            ["Name", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+            ["Chris", 50, "", "", "", 60, "", "", "", "", "", "", ""],
+            ["Fred", "", "", "", "", "", "", 20, 30, "", "", "", ""],
+            ["Dan", "", "", "", "", "", 10, 20, 31, "", "", "", ""],
+            ["Kev", "", 10, 20, "", 60, "", "", "", "", "", "", ""],
+            ["Dori", "", "", "", "", "", "", "", "", "", "", "", 50],
+            ["Gab", 50, "", "", "", 60, "", "", 10, "20", "", "", ""]
+        ]
+    }
+
     selectAll1() {
         return this.selectAllAuthors("selectAll1", "select * from authors");
     }
@@ -2287,6 +2299,60 @@ class SqlTester {
         return this.isEqual("selectInGroupByPivot3", data, expected);
     }
 
+    selectCoalesce() {
+        let stmt = "select name, coalesce(dec, nov, oct, sep, aug, jul, jun, may, apr, mar, feb, jan) from yearlysales";
+
+        let data = new Sql()
+            .addTableData("yearlysales", this.yearlySalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["name", "coalesce(dec, nov, oct, sep, aug, jul, jun, may, apr, mar, feb, jan)"],
+        ["Chris", 60],
+        ["Fred", 30],
+        ["Dan", 31],
+        ["Kev", 60],
+        ["Dori", 50],
+        ["Gab", "20"]];
+
+        return this.isEqual("selectCoalesce", data, expected);
+    }
+
+    selectConcat_Ws() {
+        let stmt = "select concat_ws('-', *) as concatenated from customer " +
+            "where concat_ws('-', *) like '%Way%'";
+
+        let data = new Sql()
+            .addTableData("customer", this.customerTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["concatenated"],
+        ["C1-Numereo Uno-101 One Way-One Point City-9051112111-bigOne@gmail.com"],
+        ["C3-Tres Buon Goods-3 Way St-Tres City-5193133303-thrice@hotmail.com"]];
+
+        return this.isEqual("selectConcat_Ws", data, expected);
+    }
+
+    selectConcat_Ws2() {
+        let stmt = "select concat_ws('-', *) as concatenated from booksales " +
+            "left join customer on booksales.customer_id = customer.id " +
+            "where concat_ws('-', *) like '%Way%'";
+
+        let data = new Sql()
+            .addTableData("customer", this.customerTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["concatenated"],
+        ["I7200-9-C1-10-34.95-05/01/2022-C1-Numereo Uno-101 One Way-One Point City-9051112111-bigOne@gmail.com"],
+        ["I7202-9-C3-1-59.99-05/02/2022-C3-Tres Buon Goods-3 Way St-Tres City-5193133303-thrice@hotmail.com"],
+        ["I7205-7-C1-1-33.97-05/04/2022-C1-Numereo Uno-101 One Way-One Point City-9051112111-bigOne@gmail.com"]];
+
+        return this.isEqual("selectConcat_Ws2", data, expected);
+    }
+
     parseTableSettings1() {
         let data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
         let expected = [["authors", "authorsNamedRange", 60],
@@ -2983,6 +3049,9 @@ function testerSql() {
     result = result && tester.selectInGroupByPivot1();
     result = result && tester.selectInGroupByPivot2();
     result = result && tester.selectInGroupByPivot3();
+    result = result && tester.selectCoalesce();
+    result = result && tester.selectConcat_Ws();
+    result = result && tester.selectConcat_Ws2();
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();
     result = result && tester.selectBadField1();

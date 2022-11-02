@@ -284,15 +284,16 @@ class Sql {
      * @returns {String}
      */
     getTableAliasWhereIn(tableAlias, tableName, ast) {
+        let extractedAlias = tableAlias;
         if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
-            tableAlias = this.getTableAlias(tableName, ast.WHERE.right);
+            extractedAlias = this.getTableAlias(tableName, ast.WHERE.right);
         }
 
-        if (tableAlias === "" && ast.operator === "IN") {
-            tableAlias = this.getTableAlias(tableName, ast.right);
+        if (extractedAlias === "" && ast.operator === "IN") {
+            extractedAlias = this.getTableAlias(tableName, ast.right);
         }
 
-        return tableAlias;
+        return extractedAlias;
     }
 
     /**
