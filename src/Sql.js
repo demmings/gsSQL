@@ -262,7 +262,7 @@ class Sql {
         let extractedAlias = tableAlias;
 
         let i = 0;
-        while (tableAlias === "" && i < astRecursiveTableBlocks.length) {
+        while (extractedAlias === "" && i < astRecursiveTableBlocks.length) {
             if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
                 for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
                     extractedAlias = this.getTableAlias(tableName, unionAst);
