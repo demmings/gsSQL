@@ -259,21 +259,22 @@ class Sql {
      */
     getTableAliasUnion(tableAlias, tableName, ast) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+        let extractedAlias = tableAlias;
 
         let i = 0;
         while (tableAlias === "" && i < astRecursiveTableBlocks.length) {
             if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
                 for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
-                    tableAlias = this.getTableAlias(tableName, unionAst);
+                    extractedAlias = this.getTableAlias(tableName, unionAst);
 
-                    if (tableAlias !== "")
+                    if (extractedAlias !== "")
                         break;
                 }
             }
             i++;
         }
 
-        return tableAlias;
+        return extractedAlias;
     }
 
     /**

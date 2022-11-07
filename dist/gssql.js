@@ -1356,6 +1356,9 @@ class JoinTables {
             /** @type {TableField} */
             let rightFieldInfo = null;
             if (tableFields !== null) {
+                if (typeof joinTable.cond.left === 'undefined' || typeof joinTable.cond.right === 'undefined') {
+                    throw new Error("Invalid JOIN TABLE ON syntax");
+                }
                 leftFieldInfo = tableFields.getFieldInfo(joinTable.cond.left);
                 rightFieldInfo = tableFields.getFieldInfo(joinTable.cond.right);
             }
@@ -1805,17 +1808,12 @@ class SqlServerFunctions {
 
         let replacement = "";
         const separator = parms[0];
-        const concatFields = [];
+        let concatFields = [];
 
         for (let i = 1; i < parms.length; i++) {
             if (parms[i].trim() === "*") {
-                for (const vField of masterFields) {
-                    for (const aliasName of vField.aliasNames) {
-                        if (aliasName.indexOf(".") !== -1) {
-                            concatFields.push(aliasName);
-                        }
-                    }
-                }
+                const allTableFields = TableField.getAllExtendedAliasNames(masterFields);
+                concatFields = concatFields.concat(allTableFields);
             }
             else {
                 concatFields.push(parms[i]);
@@ -1842,6 +1840,8 @@ class SqlServerFunctions {
      */
     caseStart(func, args, functionString) {
         let caseArguments = args;
+        let caseString = functionString;
+        
         if (func === "CASE") {
             caseArguments = functionString.match(/CASE(.*?)END/i);
 
@@ -1849,13 +1849,13 @@ class SqlServerFunctions {
                 this.firstCase = true;
                 this.originalFunctionString = functionString;
                 this.originalCaseStatement = caseArguments[0];
-                functionString = caseArguments[1];
+                caseString = caseArguments[1];
 
                 caseArguments = caseArguments[1].match(this.matchCaseWhenThenStr);
             }
         }
 
-        return [caseArguments, functionString];
+        return [caseArguments, caseString];
     }
 
     /**
@@ -2481,6 +2481,24 @@ class TableField {
 
         return this.tableInfo.tableData[tableRow][columnNumber];
     }
+
+    /**
+     * 
+     * @param {TableField[]} masterFields 
+     * @returns {String[]}
+     */
+    static getAllExtendedAliasNames(masterFields) {
+        const concatFields = [];
+        for (const vField of masterFields) {
+            for (const aliasName of vField.aliasNames) {
+                if (aliasName.indexOf(".") !== -1) {
+                    concatFields.push(aliasName);
+                }
+            }
+        }
+
+        return concatFields;
+    }
 }
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
@@ -2743,21 +2761,22 @@ class Sql {
      */
     getTableAliasUnion(tableAlias, tableName, ast) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+        let extractedAlias = tableAlias;
 
         let i = 0;
         while (tableAlias === "" && i < astRecursiveTableBlocks.length) {
             if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
                 for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
-                    tableAlias = this.getTableAlias(tableName, unionAst);
+                    extractedAlias = this.getTableAlias(tableName, unionAst);
 
-                    if (tableAlias !== "")
+                    if (extractedAlias !== "")
                         break;
                 }
             }
             i++;
         }
 
-        return tableAlias;
+        return extractedAlias;
     }
 
     /**

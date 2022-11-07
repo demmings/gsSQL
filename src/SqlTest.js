@@ -2753,6 +2753,29 @@ class SqlTester {
         return this.isFail("badJoin2", ex);
     }
 
+    badJoin3() {
+        let stmt = "SELECT books.id, books.title, authors.first_name, authors.last_name " +
+            "FROM books " +
+            "INNER JOIN on authors " +
+            "books.author_id = authors.id " +
+            "ORDER BY books.id";
+
+        let testSQL = new Sql()
+            .addTableData("books", this.bookTable())
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badJoin3", ex);
+    }
+
     badOrderBy1() {
         let stmt = "select * from bookSales order by DATE DSC, customer_id asc";
 
@@ -3065,6 +3088,7 @@ function testerSql() {
     result = result && tester.nonSelect1();
     result = result && tester.badJoin1();
     result = result && tester.badJoin2();
+    result = result && tester.badJoin3();
     result = result && tester.badOrderBy1();
     result = result && tester.badOrderBy2();
     result = result && tester.bindVariableMissing();
