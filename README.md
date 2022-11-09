@@ -301,7 +301,8 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
    * The table definition is an Array of arrays.  Each inner array defines ONE table.
      * a) Table name - this is the table name referenced in the select. This is a logical table name which will associated with the data range.  It does not have to be the sheet name (string).
      * b) Range of data - the google range that contains the data with the first row containing titles (used as field names).  This is any valid Google Sheet range name (i.e. Sheet Name, A1 notation or named range), but it must be passed in as a **STRING** (string)
-     * c) Cache seconds - (integer) number of seconds that data loaded from range is held in cache memory before another select of the same range would load again.
+     * c) Cache seconds - (integer) number of seconds that data loaded from range is held in cache memory before another select of the same range would load again. (default=60)
+     * d) Has Column Title - (boolean) set to **false** if no column title in first row of data.  Columns are then referenced as column letter.  The first column of DATA is column **A**.  (default=true)
     * Use the CURLY bracket notations to create the double array of table definitions.  If two separate tables are used within your SELECT, the table specifications would be entered as follows.
         * **{{a, b, c}; {a, b, c}}**
         * e.g. ```gsSQL("select transaction_date, sum(gross), sum(amount) from mastertransactions where transaction_date >= '01/01/2022' and transaction_date <= '05/19/2022' and expense_category in (select income from budgetCategories where income <> '') group by transaction_date pivot account", {{"mastertransactions", "Master Transactions!$A$1:$I", 60};{"budgetCategories","budgetIncomeCategories", 3600}})```
@@ -330,10 +331,11 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
     * Commands can be chained.
 
     * Sql() Methods
-      * addTableData(table, data, cacheSeconds) 
+      * addTableData(table, data, cacheSeconds, hasColumnTitle) 
         *  **table** name referenced in SQL statement.
         *  **data**  either a double array with column title in first row OR a string indicating a sheet range (named range or A1 notation).
         *  **cacheSeconds**  number of seconds that loaded table data will be available from the cache after the initial loading.  default=0.
+        *  **hasColumnTitle** first row of data is a column title (true).  If not available (false), columns are referenced by letter, where the first column is **A**
       * enableColumnTitle(true) 
         *  true or false.  Output a column title (default is none or false)
       * addBindParameter(value)
@@ -507,4 +509,8 @@ Most all SELECT functionality is implemented, however if you want to do anything
 2)  Moderate amount of error checking.  When developing your SQL SELECT statements and something is not correct or not supported, the application may just fail without giving any real indication of the problem.  This needs improvements (although it is much improved since the first version).
 
 3)  Not really an issue, but the use of bind variables does not mean that the SELECT is compiled and reused.  It is only to make your SELECT easier to read.
+
+4)  If no column titles are available and the column is referenced by letter, the first column in the data is column **A**.  So if the table is defined by a range, and the range does not start in column A, **gsSQL()** still references the first column as **A**.  This is different from **QUERY()**, as the absolute column letter is always used.  Also **QUERY()** requires references to the column to be upper case, this is not required by **gsSQL()**.  For example:
+
+```=gsSQL("select a, B, C, D, E, F from invoice where c = 'C4'", {{"invoice", "BookSales", 0, false}}, true )```
 

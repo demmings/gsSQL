@@ -1,6 +1,7 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***  
 import { Sql, parseTableSettings, gsSQL } from './Sql.js';
+import { Table } from './Table.js';
 export { CacheService };
 export { LockService };
 export { SpreadsheetApp };
@@ -2353,20 +2354,52 @@ class SqlTester {
         return this.isEqual("selectConcat_Ws2", data, expected);
     }
 
+    selectNoTitle1() {
+        let stmt = "SELECT booksales.A as 'Invoice', booksales.B as 'Book ID', CUST.A, CUST.B FROM booksales " +
+            "LEFT JOIN customer as CUST on booksales.C = customer.A ";
+
+        let customers = this.customerTable();
+        let bookSales = this.bookSalesTable();
+
+        //  Get rid of current column titles.
+        customers.shift();
+        bookSales.shift();
+
+        let data = new Sql()
+            .addTableData("customer", customers, 0, false)
+            .addTableData("booksales", bookSales, 0, false)
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["Invoice", "Book ID", "CUST.A", "CUST.B"],
+        ["I7200", "9", "C1", "Numereo Uno"],
+        ["I7201", "8", "C2", "Dewy Tuesdays"],
+        ["I7201", "7", "C2", "Dewy Tuesdays"],
+        ["I7202", "9", "C3", "Tres Buon Goods"],
+        ["I7203", "1", "", ""],
+        ["I7204", "2", "C4", "ForMe Resellers"],
+        ["I7204", "3", "C4", "ForMe Resellers"],
+        ["I7204", "4", "C4", "ForMe Resellers"],
+        ["I7205", "7", "C1", "Numereo Uno"],
+        ["I7206", "7", "C2", "Dewy Tuesdays"]];
+
+        return this.isEqual("selectNoTitle1", data, expected);
+    }
+
     parseTableSettings1() {
-        let data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
-        let expected = [["authors", "authorsNamedRange", 60],
-        ["editors", "editorsRange", 30],
-        ["people", "peopleRange", 60]];
+        let data = parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
+        let expected = [["authors", "authorsNamedRange", 60, false],
+        ["editors", "editorsRange", 30, true],
+        ["people", "peopleRange", 60, true]];
 
         return this.isEqual("parseTableSettings1", data, expected);
     }
 
     parseTableSettings2() {
         let data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people']], "", false);
-        let expected = [["authors", "authorsNamedRange", 60],
-        ["editors", "editorsRange", 30],
-        ["people", "people", 60]];
+        let expected = [["authors", "authorsNamedRange", 60, true],
+        ["editors", "editorsRange", 30, true],
+        ["people", "people", 60, true]];
         return this.isEqual("parseTableSettings2", data, expected);
     }
 
@@ -2380,12 +2413,12 @@ class SqlTester {
             "UNION select * from bookSales2";
 
         let data = parseTableSettings([], stmt, false);
-        let expected = [["BOOKSALES", "BOOKSALES", 60],
-        ["BOOKS", "BOOKS", 60],
-        ["AUTHORS", "AUTHORS", 60],
-        ["EDITORS", "EDITORS", 60],
-        ["CUSTOMER", "CUSTOMER", 60],
-        ["BOOKSALES2", "BOOKSALES2", 60]];
+        let expected = [["BOOKSALES", "BOOKSALES", 60, true],
+        ["BOOKS", "BOOKS", 60, true],
+        ["AUTHORS", "AUTHORS", 60, true],
+        ["EDITORS", "EDITORS", 60, true],
+        ["CUSTOMER", "CUSTOMER", 60, true],
+        ["BOOKSALES2", "BOOKSALES2", 60, true]];
         return this.isEqual("parseTableSettings3", data, expected);
     }
 
@@ -2393,8 +2426,8 @@ class SqlTester {
         let stmt = "select * from 'master transactions' where account in (select account_name from accounts) ";
 
         let data = parseTableSettings([], stmt, false);
-        let expected = [["'MASTER TRANSACTIONS'", "'MASTER TRANSACTIONS'", 60],
-        ["ACCOUNTS", "ACCOUNTS", 60]];
+        let expected = [["'MASTER TRANSACTIONS'", "'MASTER TRANSACTIONS'", 60, true],
+        ["ACCOUNTS", "ACCOUNTS", 60, true]];
         return this.isEqual("parseTableSettings4", data, expected);
     }
 
@@ -2407,9 +2440,9 @@ class SqlTester {
             "ORDER BY title";
 
         let data = parseTableSettings([], stmt, false);
-        let expected = [["BOOKS", "BOOKS", 60],
-        ["AUTHORS", "AUTHORS", 60],
-        ["EDITORS", "EDITORS", 60]];
+        let expected = [["BOOKS", "BOOKS", 60, true],
+        ["AUTHORS", "AUTHORS", 60, true],
+        ["EDITORS", "EDITORS", 60, true]];
         return this.isEqual("parseTableSettings5", data, expected);
     }
 
@@ -2875,7 +2908,7 @@ class SqlTester {
     badParseTableSettings1() {
         let ex = "";
         try {
-            let data = parseTableSettings([['authors', 'authorsNamedRange', true, 60], ['editors', 'editorsRange', 30], ['people']], "", false);
+            let data = parseTableSettings([['authors', 'authorsNamedRange', true, 60, true], ['editors', 'editorsRange', 30], ['people']], "", false);
         }
         catch (exceptionErr) {
             ex = exceptionErr;
@@ -3075,6 +3108,8 @@ function testerSql() {
     result = result && tester.selectCoalesce();
     result = result && tester.selectConcat_Ws();
     result = result && tester.selectConcat_Ws2();
+    result = result && tester.selectNoTitle1();
+
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();
     result = result && tester.selectBadField1();

@@ -21,6 +21,7 @@ class Table {
         this.tableName = tableName.toUpperCase();
         this.tableData = [];
         this.indexes = new Map();
+        this.hasColumnTitle = true;
         /** @type {Schema} */
         this.schema = new Schema()
             .setTableName(tableName)
@@ -38,6 +39,17 @@ class Table {
     }
 
     /**
+     * 
+     * @param {Boolean} hasTitle 
+     * @returns {Table}
+     */
+    setHasColumnTitle(hasTitle) {
+        this.hasColumnTitle = hasTitle;
+
+        return this;
+    }
+
+    /**
      * Load sheets named range of data into table.
      * @param {String} namedRange 
      * @param {Number} cacheSeconds
@@ -45,6 +57,10 @@ class Table {
      */
     loadNamedRangeData(namedRange, cacheSeconds = 0) {
         this.tableData = TableData.loadTableData(namedRange, cacheSeconds);
+
+        if (!this.hasColumnTitle) {
+            this.addColumnLetters(this.tableData);
+        }
 
         Logger.log(`Load Data: Range=${namedRange}. Items=${this.tableData.length}`);
         this.loadSchema();
@@ -61,10 +77,56 @@ class Table {
         if (typeof tableData === 'undefined' || tableData.length === 0)
             return this;
 
+        if (!this.hasColumnTitle) {
+            this.addColumnLetters(tableData);
+        }
+
         this.tableData = tableData;
         this.loadSchema();
 
         return this;
+    }
+
+    /**
+     * 
+     * @param {any[][]} tableData 
+     * @returns {any[][]}
+     */
+    addColumnLetters(tableData) {
+        if (tableData.length === 0)
+            return;
+
+        const newTitleRow = [];
+
+        for (let i = 1; i <= tableData[0].length; i++) {
+            newTitleRow.push(this.numberToSheetColumnLetter(i));
+        }
+        tableData.unshift(newTitleRow);
+
+        return tableData;
+    }
+
+    /**
+     * 
+     * @param {Number} number 
+     * @returns {String}
+     */
+    numberToSheetColumnLetter(number) {
+        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        let result = ""
+
+        let charIndex = number % alphabet.length
+        let quotient = number / alphabet.length
+        if (charIndex - 1 == -1) {
+            charIndex = alphabet.length
+            quotient--;
+        }
+        result = alphabet.charAt(charIndex - 1) + result;
+        if (quotient >= 1) {
+            result = this.numberToSheetColumnLetter(quotient) + result;
+        }
+
+        return result;
     }
 
     /**

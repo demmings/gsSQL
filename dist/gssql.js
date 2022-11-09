@@ -21,6 +21,7 @@ class Table {
         this.tableName = tableName.toUpperCase();
         this.tableData = [];
         this.indexes = new Map();
+        this.hasColumnTitle = true;
         /** @type {Schema} */
         this.schema = new Schema()
             .setTableName(tableName)
@@ -38,6 +39,17 @@ class Table {
     }
 
     /**
+     * 
+     * @param {Boolean} hasTitle 
+     * @returns {Table}
+     */
+    setHasColumnTitle(hasTitle) {
+        this.hasColumnTitle = hasTitle;
+
+        return this;
+    }
+
+    /**
      * Load sheets named range of data into table.
      * @param {String} namedRange 
      * @param {Number} cacheSeconds
@@ -45,6 +57,10 @@ class Table {
      */
     loadNamedRangeData(namedRange, cacheSeconds = 0) {
         this.tableData = TableData.loadTableData(namedRange, cacheSeconds);
+
+        if (!this.hasColumnTitle) {
+            this.addColumnLetters(this.tableData);
+        }
 
         Logger.log(`Load Data: Range=${namedRange}. Items=${this.tableData.length}`);
         this.loadSchema();
@@ -61,10 +77,56 @@ class Table {
         if (typeof tableData === 'undefined' || tableData.length === 0)
             return this;
 
+        if (!this.hasColumnTitle) {
+            this.addColumnLetters(tableData);
+        }
+
         this.tableData = tableData;
         this.loadSchema();
 
         return this;
+    }
+
+    /**
+     * 
+     * @param {any[][]} tableData 
+     * @returns {any[][]}
+     */
+    addColumnLetters(tableData) {
+        if (tableData.length === 0)
+            return;
+
+        const newTitleRow = [];
+
+        for (let i = 1; i <= tableData[0].length; i++) {
+            newTitleRow.push(this.numberToSheetColumnLetter(i));
+        }
+        tableData.unshift(newTitleRow);
+
+        return tableData;
+    }
+
+    /**
+     * 
+     * @param {Number} number 
+     * @returns {String}
+     */
+    numberToSheetColumnLetter(number) {
+        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        let result = ""
+
+        let charIndex = number % alphabet.length
+        let quotient = number / alphabet.length
+        if (charIndex - 1 == -1) {
+            charIndex = alphabet.length
+            quotient--;
+        }
+        result = alphabet.charAt(charIndex - 1) + result;
+        if (quotient >= 1) {
+            result = this.numberToSheetColumnLetter(quotient) + result;
+        }
+
+        return result;
     }
 
     /**
@@ -2526,10 +2588,11 @@ class Logger {
  *   a)  table name - the table name referenced in SELECT for indicated range.
  *   b)  sheet range - (optional) either NAMED RANGE, A1 notation range, SHEET NAME or empty (table name used as sheet name).  This input is a string.  The first row of each range MUST be unique column titles.
  *   c)  cache seconds - (optional) time loaded range held in cache.  default=60.   
+ *   d)  has column title - (optional) first row of data is a title (for field name).  default=true 
  * Parameter 3. (optional) Output result column title (true/false). default=true.   
  * Parameter 4... (optional) Bind variables.  List as many as required to match ? in SELECT.
  * @param {String} statement - SQL (e.g.:  'select * from expenses')
- * @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds}; {"name","range",cache};...}"
+ * @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds, hasColumnTitle}; {"name","range",cache,true};...}"
  * @param {Boolean} columnTitle - TRUE will add column title to output (default=TRUE)
  * @param {...any} bindings - Bind variables to match '?' in SQL statement.
  * @returns {any[][]}
@@ -2545,7 +2608,7 @@ function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {
         sqlCmd.addBindParameter(bind);
     }
     for (const tableDef of tableList) {
-        sqlCmd.addTableData(tableDef[0], tableDef[1], tableDef[2]);
+        sqlCmd.addTableData(tableDef[0], tableDef[1], tableDef[2], tableDef[3]);
     }
     return sqlCmd.execute(statement);
 }
@@ -2576,10 +2639,12 @@ function parseTableSettings(tableArr, statement = "", randomOrder = true) {
             table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
         if (table.length === 2)
             table.push(60);      //  default 0 second cache.
+        if (table.length === 3)  
+            table.push(true);    //  default HAS column title row.
         if (table[1] === "")
             table[1] = table[0];    //  If empty range, assumes TABLE NAME is the SHEET NAME and loads entire sheet.
-        if (table.length !== 3)
-            throw new Error("Invalid table definition [name,range,cache]");
+        if (table.length !== 4)
+            throw new Error("Invalid table definition [name,range,cache,hasTitle]");
 
         tableList.push(table);
     }
@@ -2608,15 +2673,17 @@ class Sql {
      * @param {Number} cacheSeconds - How long should loaded data be cached (default=0)
      * @returns {Sql}
      */
-    addTableData(tableName, tableData, cacheSeconds = 0) {
+    addTableData(tableName, tableData, cacheSeconds = 0, hasColumnTitle = true) {
         let tableInfo = null;
 
         if (Array.isArray(tableData)) {
             tableInfo = new Table(tableName)
+                .setHasColumnTitle(hasColumnTitle)
                 .loadArrayData(tableData);
         }
         else {
             tableInfo = new Table(tableName)
+                .setHasColumnTitle(hasColumnTitle)
                 .loadNamedRangeData(tableData, cacheSeconds);
         }
 
