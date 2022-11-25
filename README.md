@@ -371,12 +371,13 @@ let data = new Sql()
       * gssql.js  
       * If you never plan to run the test suite, just use this ONE file in your app script.
       * None of the files in ./src are required if you use **gssql.js**
-    * **OR** in the ./src folder there are **FIVE** required files:
+    * **OR** in the ./src folder there are **SIX** required files:
       * SimpleParser.js
       * Sql.js
       * Table.js
       * TableData.js
       * Views.js
+      * ScriptSettings.js
     * And the optional file
       * SqlTest.js
     * The simple approach is to copy and paste each file.
