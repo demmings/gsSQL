@@ -28,6 +28,9 @@
 
 Easy to learn and understand: the **SQL query** consists mainly of English statements, making it easy to write - rather than the cryptic syntax of the **Google Sheet QUERY** function.
 
+* Make a copy of my test sheet and try out the custom function yourself:
+  * https://docs.google.com/spreadsheets/d/1Zmyk7a7u0xvICrxen-c0CdpssrLTkHwYx6XL00Tb1ws/edit?usp=sharing
+
 </td>
 </tr>
 </table>
