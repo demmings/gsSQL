@@ -262,6 +262,11 @@ function SqlLiveDataTest() {
  * statement for every test SQL in TestSQL().
  */
 function onOpen() {
+    if (SpreadsheetApp.getActiveSpreadsheet().getSheetByName("gsSqlTest") === null) {
+        //  Only create menu option on test sheet.
+        return true;
+    }
+
     // This line calls the SpreadsheetApp and gets its UI   
     // Or DocumentApp or FormApp.
     var ui = SpreadsheetApp.getUi();
