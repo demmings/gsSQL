@@ -239,8 +239,14 @@ class Logger {
 }
 //  *** DEBUG END  ***/
 
+/**
+ * Runs all tests and reports back the result of the tests.
+ * @customfunction
+ */
 function SQLselfTest() {
-    testerSql();
+    const success = testerSql() ? "Success" : "Failed";
+
+    return [[success]];
 }
 
 function SqlLiveDataTest() {
@@ -249,6 +255,178 @@ function SqlLiveDataTest() {
     tester.liveTest1();
     tester.liveTest2();
 }
+
+/**
+ * Function should be commented out when NOT running in a TEST SHEET.
+ * It will create a menu option that allows you to create a gsSQL() 
+ * statement for every test SQL in TestSQL().
+ */
+function onOpen() {
+    // This line calls the SpreadsheetApp and gets its UI   
+    // Or DocumentApp or FormApp.
+    var ui = SpreadsheetApp.getUi();
+
+    //These lines create the menu items and 
+    // tie them to functions we will write in Apps Script
+
+    ui.createMenu('gsSQL Options')
+        .addItem('Generate Tests on Current SHEET !!!', 'customMenuGenerateTests')
+        .addToUi();
+}
+
+/**
+ * @type {TestedStatements[]}
+ */
+let sqlTestCases = [];
+
+/**
+ * Expected to be run as a menu item.
+ * Runs all internal tests, collects the SQL from each test and generates
+ * a =gsSQL() string and writes it to the current active screen.
+ * Each customfunction is written in column A, starting two rows below the
+ * last row in the current sheet.  Room is left after the expected results
+ * and the subsequent gsSQL() will be updated 3 rows after.
+ */
+function customMenuGenerateTests() {
+    sqlTestCases = [];      //  Reset collected test case array.
+    testerSql();
+    TestSql.generateTestCustomFunctions();
+}
+
+
+class TestedStatements {
+    /**
+     * 
+     * @param {String} statement 
+     * @param {any[]} bindVariables 
+     * @param {Number} expectedOutputLines 
+     * @param {Map<String,Table>} tables
+     */
+    constructor(statement, bindVariables, expectedOutputLines, tables) {
+        this.statement = statement;
+        this.bindVariables = bindVariables;
+        this.expectedOutputlines = expectedOutputLines;
+        this.tables = tables;
+        this.hasColumnTitles = true;
+
+        // @ts-ignore
+        for (let tableInfo of this.tables.values()) {
+            if (! tableInfo.hasColumnTitle)
+                this.hasColumnTitles = false;
+        }
+    }
+
+    /**
+     * 
+     * @returns {String}
+     */
+    getTableDefinitionString() {
+        let definition = "{" ;
+        let tabDef = "";
+
+        // @ts-ignore
+        for (let table of this.tables.values()) {
+            let rangeName = table.tableName;
+            if (table.tableData.length > 0) {
+                const tableUtil = new Table("");
+                rangeName += "!A2:" + tableUtil.numberToSheetColumnLetter(table.tableData[0].length)
+            }
+
+            if (tabDef !== "") {
+                tabDef += ";";
+            }
+
+            tabDef += "{";
+
+            tabDef += '"' + table.tableName + '",';
+            tabDef += '"' + rangeName + '",';
+            tabDef += "60, " + table.hasColumnTitle.toString();
+
+            tabDef += "}";
+        }
+
+        definition += tabDef +  "}";
+        return definition;
+    }
+}
+
+class TestSql extends Sql {
+    constructor() {
+        super();
+    }
+
+    /**
+     * 
+     * @param {String} stmt 
+     * @returns {any[][]}
+     */
+    execute(stmt) {
+        let bindings = [...super.getBindData()];
+        let tables = super.getTables();
+        let hasColumnTitles = true;
+        let data;
+             
+        try {
+            data = super.execute(stmt);
+        }
+        catch (ex) {
+            throw ex;
+        }
+
+        let test = new TestedStatements(stmt, bindings, data.length, tables);
+
+        sqlTestCases.push(test);
+
+        return data;
+    }
+
+    static generateTestCustomFunctions() {
+        let sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+        if (sheet === null) {
+            Logger.log("Invalid SHEET");
+            return;
+        }
+
+        let lastRow = sheet.getLastRow() + 2;
+        Logger.log("START ROW for TEST custom functions: " + lastRow);
+
+        for (const testCase of sqlTestCases) {
+            let tableDefinitionString = "";
+            if (! testCase.hasColumnTitles) {
+                tableDefinitionString = testCase.getTableDefinitionString();
+            }
+
+            let formulaRange = sheet.getRange(lastRow, 1);
+            let formula = '=gsSQL("' + testCase.statement + '"';
+
+            if (testCase.bindVariables !== null && typeof testCase.bindVariables !== 'undefined' && testCase.bindVariables.length > 0) {
+                formula += "," + tableDefinitionString + ", true";
+                for (const bindData of testCase.bindVariables) {
+                    formula += ", ";
+                    if (typeof bindData === 'string') {
+                        formula += '"' + bindData + '"';
+                    }
+                    else if (bindData instanceof Date) {
+                        formula += '"' + Utilities.formatDate(bindData, "GMT+1", "MM/dd/yyyy") + '"';
+                    }
+                    else {
+                        formula += bindData;
+                    }
+                }
+            }
+            else if (tableDefinitionString !== "") {
+                formula += "," + tableDefinitionString + ", true";    
+            }
+
+            formula += ')';
+            formulaRange.setFormula(formula);
+
+            lastRow = lastRow + testCase.expectedOutputlines + 2;
+        }
+    }
+}
+
 
 
 class SqlTester {
@@ -507,7 +685,7 @@ class SqlTester {
     }
 
     selectAllAuthors(functionName, stmt) {
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -525,7 +703,7 @@ class SqlTester {
     selectIsNull1() {
         let stmt = "select * from authors where id is null";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -557,7 +735,7 @@ class SqlTester {
     }
 
     innerJoin1(stmt, funcName) {
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
@@ -586,7 +764,7 @@ class SqlTester {
             "ON books.translator_id = translators.id " +
             "ORDER BY books.id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("translators", this.translatorsTable())
             .addTableData("authors", this.authorsTable())
@@ -609,7 +787,7 @@ class SqlTester {
             "ON b.author_id = a.id " +
             "ORDER BY books.id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
@@ -635,7 +813,7 @@ class SqlTester {
             "ON b.author_id = a.id " +
             "ORDER BY books.id";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true);
@@ -695,7 +873,7 @@ class SqlTester {
 
     join2(stmt, funcName) {
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("translators", this.translatorsTable())
             .enableColumnTitle(true)
@@ -718,7 +896,7 @@ class SqlTester {
             "ON books.editor_id = editors.id " +
             "ORDER BY books.id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
@@ -746,7 +924,7 @@ class SqlTester {
             "ORDER BY books.id " +
             "LIMIT 5";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
@@ -772,7 +950,7 @@ class SqlTester {
             "ON books.translator_id = translators.id " +
             "ORDER BY books.id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("translators", this.translatorsTable())
             .addTableData("authors", this.authorsTable())
@@ -800,7 +978,7 @@ class SqlTester {
             "ON books.editor_id = editors.id " +
             "ORDER BY books.id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
@@ -835,7 +1013,7 @@ class SqlTester {
             "ON books.translator_id = translators.id " +
             "ORDER BY books.id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("translators", this.translatorsTable())
             .addTableData("editors", this.editorsTable())
@@ -858,7 +1036,7 @@ class SqlTester {
             "FULL JOIN editors " +
             "ON authors.id = editors.id ";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
@@ -889,7 +1067,7 @@ class SqlTester {
             "FULL JOIN customers " +
             "ON booksales.customer_id = customers.id ";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
@@ -921,7 +1099,7 @@ class SqlTester {
             "FULL JOIN books " +
             "ON booksales.Book_Id = books.id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .addTableData("customers", this.customerTable())
             .addTableData("books", this.bookTable())
@@ -954,7 +1132,7 @@ class SqlTester {
             "WHERE books.author_id IN (SELECT id from authors)" +
             "ORDER BY books.title";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
@@ -979,7 +1157,7 @@ class SqlTester {
             "WHERE books.author_id IN ('11','12') " +
             "ORDER BY books.title";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
@@ -1000,7 +1178,7 @@ class SqlTester {
             "WHERE author_id IN (select id from authors where first_name like '%ald') " +
             "ORDER BY title";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
@@ -1020,7 +1198,7 @@ class SqlTester {
             "or title = ? " +
             "ORDER BY title";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
@@ -1046,7 +1224,7 @@ class SqlTester {
             "or title = ? " +
             "ORDER BY title";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
@@ -1070,7 +1248,7 @@ class SqlTester {
             "WHERE books.author_id NOT IN (SELECT id from authors)" +
             "ORDER BY books.title";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
@@ -1085,7 +1263,7 @@ class SqlTester {
     whereAndOr1() {
         let stmt = "select * from bookSales where date > '05/01/2022' AND date < '05/04/2022' OR book_id = '9'";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1104,7 +1282,7 @@ class SqlTester {
     whereAndOr2() {
         let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .addBindParameter('05/01/2022')
@@ -1131,7 +1309,7 @@ class SqlTester {
         startDate.setMonth(4);
         startDate.setFullYear(2022);
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .addBindParameter(startDate)
@@ -1163,7 +1341,7 @@ class SqlTester {
     }
     whereAndNotEqual2base(stmt, func) {
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .addBindParameter('05/01/2022')
@@ -1187,7 +1365,7 @@ class SqlTester {
     selectAgainNewBinds1() {
         let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
 
-        let sqlObj = new Sql()
+        let sqlObj = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .addBindParameter('05/01/2022')
@@ -1225,7 +1403,7 @@ class SqlTester {
     groupBy1() {
         let stmt = "select bookSales.book_id, SUM(bookSales.Quantity) from bookSales group by book_id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1247,7 +1425,7 @@ class SqlTester {
             "select bookSales.customer_id, SUM(bookSales.quantity) FROM booksales " +
             "GROUP BY booksales.customer_id HAVING SUM(bookSales.quantity) > 11";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1264,7 +1442,7 @@ class SqlTester {
             "select bookSales.customer_id, date, SUM(bookSales.quantity) FROM booksales " +
             "GROUP BY customer_id, date";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1286,7 +1464,7 @@ class SqlTester {
             "select bookSales.customer_id, date, count(customer_id), count(date) FROM booksales " +
             "GROUP BY customer_id, date";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1307,7 +1485,7 @@ class SqlTester {
     avgSelect1() {
         let stmt = "select AVG(quantity) from booksales";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1320,7 +1498,7 @@ class SqlTester {
     funcsSelect2() {
         let stmt = "select AVG(quantity), MIN(quantity), MAX(quantity), SUM(quantity), COUNT(quantity) from booksales";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1332,17 +1510,17 @@ class SqlTester {
     }
 
     innerSelect1() {
-        let stmt = "SELECT *, customer.name FROM bookSales " +
-            "LEFT JOIN customer ON bookSales.customer_ID = customer.ID " +
+        let stmt = "SELECT *, customers.name FROM bookSales " +
+            "LEFT JOIN customers ON bookSales.customer_ID = customers.ID " +
             "WHERE bookSales.quantity > (select AVG(quantity) from booksales)";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
-            .addTableData("customer", this.customerTable())
+            .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "customer.name"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "customers.name"],
         ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "ForMe Resellers"],
         ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "ForMe Resellers"],
         ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "ForMe Resellers"],
@@ -1352,23 +1530,23 @@ class SqlTester {
     }
 
     whereLike1() {
-        let stmt = "select *, books.title, authors.first_name, editors.first_name, customer.name, customer.email, booksales.quantity from bookSales " +
+        let stmt = "select *, books.title, authors.first_name, editors.first_name, customers.name, customers.email, booksales.quantity from bookSales " +
             "LEFT JOIN books ON booksales.book_id = books.id " +
             "LEFT JOIN authors on books.author_id = authors.id " +
             "LEFT JOIN editors on books.editor_id = editors.id " +
-            "LEFT JOIN customer on bookSales.customer_id = customer.id " +
-            "WHERE customer.email LIKE '%gmail.com'";
+            "LEFT JOIN customers on bookSales.customer_id = customers.id " +
+            "WHERE customers.email LIKE '%gmail.com'";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
-            .addTableData("customer", this.customerTable())
+            .addTableData("customers", this.customerTable())
             .addTableData("books", this.bookTable())
             .addTableData("editors", this.editorsTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "books.title", "authors.first_name", "editors.first_name", "customer.name", "customer.email", "booksales.quantity"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "books.title", "authors.first_name", "editors.first_name", "customers.name", "customers.email", "booksales.quantity"],
         ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "Book with Mysterious Author", "", "Maria", "Numereo Uno", "bigOne@gmail.com", 10],
         ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "My Last Book", "Ellen", "", "Dewy Tuesdays", "twoguys@gmail.com", 3],
         ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 5],
@@ -1379,23 +1557,23 @@ class SqlTester {
     }
 
     whereLike2() {
-        let stmt = "select *, books.title as Title, auth.first_name as [First Name], editors.first_name, customer.name, customer.email, booksales.quantity from bookSales as sale" +
+        let stmt = "select *, books.title as Title, auth.first_name as [First Name], editors.first_name, customers.name, customers.email, booksales.quantity from bookSales as sale" +
             "LEFT JOIN books as bk ON sale.book_id = bk.id " +
             "LEFT JOIN authors as auth on books.author_id = authors.id " +
             "LEFT JOIN editors as ed on books.editor_id = ed.id " +
-            "LEFT JOIN customer on bookSales.customer_id = customer.id " +
-            "WHERE customer.email LIKE '%gmail.com'";
+            "LEFT JOIN customers on bookSales.customer_id = customers.id " +
+            "WHERE customers.email LIKE '%gmail.com'";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
-            .addTableData("customer", this.customerTable())
+            .addTableData("customers", this.customerTable())
             .addTableData("books", this.bookTable())
             .addTableData("editors", this.editorsTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "Title", "First Name", "editors.first_name", "customer.name", "customer.email", "booksales.quantity"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "Title", "First Name", "editors.first_name", "customers.name", "customers.email", "booksales.quantity"],
         ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "Book with Mysterious Author", "", "Maria", "Numereo Uno", "bigOne@gmail.com", 10],
         ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "My Last Book", "Ellen", "", "Dewy Tuesdays", "twoguys@gmail.com", 3],
         ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 5],
@@ -1406,23 +1584,23 @@ class SqlTester {
     }
 
     whereNotLike1() {
-        let stmt = "select *, books.title, authors.first_name, editors.first_name, customer.name, customer.email, booksales.quantity from bookSales " +
+        let stmt = "select *, books.title, authors.first_name, editors.first_name, customers.name, customers.email, booksales.quantity from bookSales " +
             "LEFT JOIN books ON booksales.book_id = books.id " +
             "LEFT JOIN authors on books.author_id = authors.id " +
             "LEFT JOIN editors on books.editor_id = editors.id " +
-            "LEFT JOIN customer on bookSales.customer_id = customer.id " +
-            "WHERE customer.email NOT LIKE '%gmail.com'";
+            "LEFT JOIN customers on bookSales.customer_id = customers.id " +
+            "WHERE customers.email NOT LIKE '%gmail.com'";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
-            .addTableData("customer", this.customerTable())
+            .addTableData("customers", this.customerTable())
             .addTableData("books", this.bookTable())
             .addTableData("editors", this.editorsTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "books.title", "authors.first_name", "editors.first_name", "customer.name", "customer.email", "booksales.quantity"],
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "books.title", "authors.first_name", "editors.first_name", "customers.name", "customers.email", "booksales.quantity"],
         ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "Book with Mysterious Author", "", "Maria", "Tres Buon Goods", "thrice@hotmail.com", 1],
         ["I7203", "1", "", 1, 90, "05/02/2022", "Time to Grow Up!", "Ellen", "Daniel", "", "", 1],
         ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "Your Trip", "Yao", "Mark", "ForMe Resellers", "fourtimes@hotmail.com", 100],
@@ -1435,7 +1613,7 @@ class SqlTester {
     union1() {
         let stmt = "select * from authors UNION select * from editors";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
@@ -1463,7 +1641,7 @@ class SqlTester {
     unionAlias1() {
         let stmt = "select a.id, a.first_name, a.last_name from authors as a UNION select e.id, e.first_name, e.last_name from editors as e";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
@@ -1491,7 +1669,7 @@ class SqlTester {
     unionBind1() {
         let stmt = "select * from authors where id = ? UNION select * from editors where id = ? UNION select * from translators where id = ?";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
             .addTableData("translators", this.translatorsTable())
@@ -1512,7 +1690,7 @@ class SqlTester {
     unionAll1() {
         let stmt = "select * from authors UNION ALL select * from editors";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
@@ -1541,7 +1719,7 @@ class SqlTester {
     unionAll2() {
         let stmt = "select * from authors UNION ALL select * from editors UNION ALL select * from translators";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
             .addTableData("translators", this.translatorsTable())
@@ -1573,24 +1751,24 @@ class SqlTester {
     }
 
     unionJoin1() {
-        let stmt = "select booksales.invoice as 'Invoice', booksales.quantity as 'Quantity', booksales.price as 'Price', booksales.quantity * booksales.price as 'Sales', booksales.date, booktable.title, customer.name, authors.first_name + ' ' + authors.last_name as 'Author', translators.first_name + ' ' + translators.last_name as 'Translator', editors.first_name + ' ' + editors.last_name as 'Editor' " +
-            "from booksales left join booktable on booksales.book_id = booktable.id " +
-            "left join customer on booksales.customer_id = customer.id " +
-            "left join authors on booktable.author_id = authors.id " +
-            "left join translators on booktable.translator_id = translators.id " +
-            "left join editors on booktable.editor_id = editors.id " +
+        let stmt = "select booksales.invoice as 'Invoice', booksales.quantity as 'Quantity', booksales.price as 'Price', booksales.quantity * booksales.price as 'Sales', booksales.date, books.title, customers.name, authors.first_name + ' ' + authors.last_name as 'Author', translators.first_name + ' ' + translators.last_name as 'Translator', editors.first_name + ' ' + editors.last_name as 'Editor' " +
+            "from booksales left join books on booksales.book_id = books.id " +
+            "left join customers on booksales.customer_id = customers.id " +
+            "left join authors on books.author_id = authors.id " +
+            "left join translators on books.translator_id = translators.id " +
+            "left join editors on books.editor_id = editors.id " +
             "where booksales.date >= ? and booksales.date <= ? " +
             "union all select 'Total', SUM(booksales.quantity), avg(booksales.price), SUM(booksales.price * booksales.quantity), '' ,'', '', '', '', '' from booksales " +
             "where booksales.date >= ? and booksales.date <= ? ";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
             .addTableData("translators", this.translatorsTable())
             .addTableData("booksales", this.bookSalesTable())
-            .addTableData("customer", this.customerTable())
+            .addTableData("customers", this.customerTable())
             .addTableData("editors", this.editorsTable())
-            .addTableData("booktable", this.bookTable())
+            .addTableData("books", this.bookTable())
             .addBindParameter("05/01/2022")
             .addBindParameter("05/02/2022")
             .addBindParameter("05/01/2022")
@@ -1598,7 +1776,7 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["Invoice", "Quantity", "Price", "Sales", "booksales.date", "booktable.title", "customer.name", "Author", "Translator", "Editor"],
+        let expected = [["Invoice", "Quantity", "Price", "Sales", "booksales.date", "books.title", "customers.name", "Author", "Translator", "Editor"],
         ["I7200", 10, 34.95, 349.5, "05/01/2022", "Book with Mysterious Author", "Numereo Uno", " ", "Roman Edwards", "Maria Evans"],
         ["I7201", 3, 29.95, 89.85, "05/01/2022", "My Last Book", "Dewy Tuesdays", "Ellen Writer", " ", " "],
         ["I7201", 5, 18.99, 94.94999999999999, "05/01/2022", "Applied AI", "Dewy Tuesdays", "Jack Smart", "Roman Edwards", "Maria Evans"],
@@ -1613,7 +1791,7 @@ class SqlTester {
     except1() {
         let stmt = "select * from authors EXCEPT select * from authors where last_name like 'S%'";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
@@ -1630,7 +1808,7 @@ class SqlTester {
     intersect1() {
         let stmt = "select * from editors INTERSECT select * from authors";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
@@ -1645,7 +1823,7 @@ class SqlTester {
     orderByDesc1() {
         let stmt = "select * from bookSales order by DATE DESC";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1668,7 +1846,7 @@ class SqlTester {
     orderByDesc2() {
         let stmt = "select * from bookSales order by DATE DESC, PRICE ASC";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1691,7 +1869,7 @@ class SqlTester {
     distinct1() {
         let stmt = "select distinct last_name from editors";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1713,7 +1891,7 @@ class SqlTester {
     selectMath1() {
         let stmt = "select book_id, -(quantity), price, Quantity * Price, booksales.quantity * booksales.price * 0.13, quantity % 2, ((quantity + 1) * price)/100  from bookSales";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1736,7 +1914,7 @@ class SqlTester {
     selectMathFunc1() {
         let stmt = "select book_id, quantity, price, round(((quantity + 1) * price)/100), LEFT(invoice,3), RIGHT(invoice,4)  from bookSales";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1759,7 +1937,7 @@ class SqlTester {
     selectMathFunc2() {
         let stmt = "select book_id, quantity, price, ABS(quantity-10), CEILING(price), floor(price), log(quantity), log10(quantity), power(quantity, 2), sqrt(quantity)  from bookSales";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1779,10 +1957,10 @@ class SqlTester {
     }
 
     selectFuncs2() {
-        let stmt = "select name, address, LEN(name), LENGTH(address), lower(name), upper(address), trim(email), ltrim(email), rtrim(email) from customer";
+        let stmt = "select name, address, LEN(name), LENGTH(address), lower(name), upper(address), trim(email), ltrim(email), rtrim(email) from customers";
 
-        let data = new Sql()
-            .addTableData("customer", this.customerTable())
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
@@ -1799,10 +1977,10 @@ class SqlTester {
     }
 
     selectFuncs3() {
-        let stmt = "select name + ' = ' + upper(email), reverse(name), replicate(name,2) from customer";
+        let stmt = "select name + ' = ' + upper(email), reverse(name), replicate(name,2) from customers";
 
-        let data = new Sql()
-            .addTableData("customer", this.customerTable())
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
@@ -1819,10 +1997,10 @@ class SqlTester {
     }
 
     selectFuncs4() {
-        let stmt = "select space(5), email, stuff(email, 2, 3, 'CJD'), substring(email, 5, 5) from customer";
+        let stmt = "select space(5), email, stuff(email, 2, 3, 'CJD'), substring(email, 5, 5) from customers";
 
-        let data = new Sql()
-            .addTableData("customer", this.customerTable())
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
@@ -1839,10 +2017,10 @@ class SqlTester {
     }
 
     selectFuncs5() {
-        let stmt = "select now(), email, stuff(email, 2, 3, 'CJD'), substring(email, 5, 5) from customer limit 1";
+        let stmt = "select now(), email, stuff(email, 2, 3, 'CJD'), substring(email, 5, 5) from customers limit 1";
 
-        let testSQL = new Sql()
-            .addTableData("customer", this.customerTable())
+        let testSQL = new TestSql()
+            .addTableData("customers", this.customerTable())
             .enableColumnTitle(true);
 
         Logger.log("NOTE:  selectFuncs5(), Test is attempted multiple times on failure (matching current time).")
@@ -1869,10 +2047,10 @@ class SqlTester {
     }
 
     selectFuncInFunc1() {
-        let stmt = "select email, upper(substring(email, 5, 5)), trim(upper(email)) from customer";
+        let stmt = "select email, upper(substring(email, 5, 5)), trim(upper(email)) from customers";
 
-        let data = new Sql()
-            .addTableData("customer", this.customerTable())
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
@@ -1889,10 +2067,10 @@ class SqlTester {
     }
 
     selectFuncInFunc2() {
-        let stmt = "select email,charindex('@', email), if(charindex('@', email) > 0, trim(substring(email, 1, charindex('@', email) - 1)), email) from customer";
+        let stmt = "select email,charindex('@', email), if(charindex('@', email) > 0, trim(substring(email, 1, charindex('@', email) - 1)), email) from customers";
 
-        let data = new Sql()
-            .addTableData("customer", this.customerTable())
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
@@ -1914,7 +2092,7 @@ class SqlTester {
             "FULL JOIN editors " +
             "ON authors.id = editors.id ";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true)
@@ -1943,7 +2121,7 @@ class SqlTester {
         let stmt = "SELECT quantity, price, if(price > 25, 'OVER $25', 'UNDER $25') " +
             "FROM booksales ";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1967,7 +2145,7 @@ class SqlTester {
         let stmt = "SELECT quantity, price, if(quantity + price > 100, 'OVER $100', 'UNDER $100') " +
             "FROM booksales ";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -1991,7 +2169,7 @@ class SqlTester {
         let stmt = "SELECT quantity, price, if(quantity * price > 100, 'OVER $100', 'UNDER $100') " +
             "FROM booksales ";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2014,7 +2192,7 @@ class SqlTester {
     selectWhereCalc1() {
         let stmt = "SELECT quantity, price, price + quantity from booksales where (price + quantity > 100)";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2030,7 +2208,7 @@ class SqlTester {
     selectWhereCalc2() {
         let stmt = "SELECT quantity, price, quantity * price from booksales where price * quantity > 100";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2056,7 +2234,7 @@ class SqlTester {
             "END " +
             "from booksales";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2088,7 +2266,7 @@ class SqlTester {
             "END as summary" +
             "from booksales";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2111,7 +2289,7 @@ class SqlTester {
     selectAlias1() {
         let stmt = "SELECT quantity as QTY, price as Pricing,  round(quantity * price) as Money from booksales where price * quantity > 100";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2129,7 +2307,7 @@ class SqlTester {
     liveTest1() {
         let stmt = "select mastertransactions.transaction_date, sum(mastertransactions.gross), sum(mastertransactions.amount) from mastertransactions inner join budgetCategories on mastertransactions.Expense_Category = budgetCategories.Income where mastertransactions.transaction_date >=  '01/01/2022' and mastertransactions.transaction_date <= '05/19/2022' group by mastertransactions.transaction_date pivot mastertransactions.account";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData('mastertransactions', 'Master Transactions!$A$1:$I')
             .addTableData('budgetCategories', 'budgetIncomeCategories')
             .enableColumnTitle(true)
@@ -2165,7 +2343,7 @@ class SqlTester {
     groupPivot1() {
         let stmt = "select bookSales.date, SUM(bookSales.Quantity) from bookSales where customer_id != '' group by date pivot customer_id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2182,7 +2360,7 @@ class SqlTester {
     groupPivot2() {
         let stmt = "select date, sum(quantity) from bookReturns group by date pivot customer_id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookReturns", this.bookReturnsTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2199,7 +2377,7 @@ class SqlTester {
     groupPivot3() {
         let stmt = "select date, sum(quantity) from bookReturns where date >= ? and date <= ? group by date pivot customer_id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookReturns", this.bookReturnsTable())
             .enableColumnTitle(true)
             .addBindParameter("05/01/2022")
@@ -2219,7 +2397,7 @@ class SqlTester {
     groupFunc1() {
         let stmt = "select bookSales.date, SUM(if(customer_id = 'C1', bookSales.Quantity,0)), SUM(if(customer_id = 'C2', bookSales.Quantity,0)) from bookSales where customer_id != '' group by date";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2236,7 +2414,7 @@ class SqlTester {
     groupFunc2() {
         let stmt = "select bookSales.date, SUM(if(customer_id = 'C1', bookSales.Quantity,0)), SUM(if(customer_id = 'C2', bookSales.Quantity,0)) from bookSales where customer_id = '1010' group by date";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(false)
             .execute(stmt);
@@ -2249,7 +2427,7 @@ class SqlTester {
     selectInGroupByPivot1() {
         let stmt = "select bookSales.date, SUM(bookSales.Quantity) from bookSales where customer_id in (select id from customers)  group by date pivot customer_id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
@@ -2267,7 +2445,7 @@ class SqlTester {
     selectInGroupByPivot2() {
         let stmt = "select bookSales.date as 'Transaction Date', SUM(bookSales.Quantity) as [ as Much Quantity], Max(price) as Maximum from bookSales where customer_id in (select id from customers)  group by date pivot customer_id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
@@ -2285,7 +2463,7 @@ class SqlTester {
     selectInGroupByPivot3() {
         let stmt = "select bookSales.date as 'Date', SUM(bookSales.Quantity) as [Quantity], Max(price) as Maximum, min(price) as Min, avg(price) as avg, count(date) from bookSales where customer_id in (select id from customers)  group by date pivot customer_id";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
@@ -2303,7 +2481,7 @@ class SqlTester {
     selectCoalesce() {
         let stmt = "select name, coalesce(dec, nov, oct, sep, aug, jul, jun, may, apr, mar, feb, jan) from yearlysales";
 
-        let data = new Sql()
+        let data = new TestSql()
             .addTableData("yearlysales", this.yearlySalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2320,11 +2498,11 @@ class SqlTester {
     }
 
     selectConcat_Ws() {
-        let stmt = "select concat_ws('-', *) as concatenated from customer " +
+        let stmt = "select concat_ws('-', *) as concatenated from customers " +
             "where concat_ws('-', *) like '%Way%'";
 
-        let data = new Sql()
-            .addTableData("customer", this.customerTable())
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
@@ -2337,11 +2515,11 @@ class SqlTester {
 
     selectConcat_Ws2() {
         let stmt = "select concat_ws('-', *) as concatenated from booksales " +
-            "left join customer on booksales.customer_id = customer.id " +
+            "left join customers on booksales.customer_id = customers.id " +
             "where concat_ws('-', *) like '%Way%'";
 
-        let data = new Sql()
-            .addTableData("customer", this.customerTable())
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2356,7 +2534,7 @@ class SqlTester {
 
     selectNoTitle1() {
         let stmt = "SELECT booksales.A as 'Invoice', booksales.B as 'Book ID', CUST.A, CUST.B FROM booksales " +
-            "LEFT JOIN customer as CUST on booksales.C = customer.A ";
+            "LEFT JOIN customers as CUST on booksales.C = customers.A ";
 
         let customers = this.customerTable();
         let bookSales = this.bookSalesTable();
@@ -2365,8 +2543,8 @@ class SqlTester {
         customers.shift();
         bookSales.shift();
 
-        let data = new Sql()
-            .addTableData("customer", customers, 0, false)
+        let data = new TestSql()
+            .addTableData("customers", customers, 0, false)
             .addTableData("booksales", bookSales, 0, false)
             .enableColumnTitle(true)
             .execute(stmt);
@@ -2404,12 +2582,12 @@ class SqlTester {
     }
 
     parseTableSettings3() {
-        let stmt = "select *, books.title, authors.first_name, editors.first_name, customer.name, customer.email, booksales.quantity from bookSales " +
+        let stmt = "select *, books.title, authors.first_name, editors.first_name, customers.name, customers.email, booksales.quantity from bookSales " +
             "LEFT JOIN books ON booksales.book_id = books.id " +
             "LEFT JOIN authors on books.author_id = authors.id " +
             "LEFT JOIN editors on books.editor_id = editors.id " +
-            "LEFT JOIN customer on bookSales.customer_id = customer.id " +
-            "WHERE customer.email NOT LIKE '%gmail.com' " +
+            "LEFT JOIN customers on bookSales.customer_id = customers.id " +
+            "WHERE customers.email NOT LIKE '%gmail.com' " +
             "UNION select * from bookSales2";
 
         let data = parseTableSettings([], stmt, false);
@@ -2417,7 +2595,7 @@ class SqlTester {
         ["BOOKS", "BOOKS", 60, true],
         ["AUTHORS", "AUTHORS", 60, true],
         ["EDITORS", "EDITORS", 60, true],
-        ["CUSTOMER", "CUSTOMER", 60, true],
+        ["CUSTOMERS", "CUSTOMERS", 60, true],
         ["BOOKSALES2", "BOOKSALES2", 60, true]];
         return this.isEqual("parseTableSettings3", data, expected);
     }
@@ -2444,6 +2622,29 @@ class SqlTester {
         ["AUTHORS", "AUTHORS", 60, true],
         ["EDITORS", "EDITORS", 60, true]];
         return this.isEqual("parseTableSettings5", data, expected);
+    }
+
+    parseTableSettings6() {
+        let stmt = "SELECT books.id, books.title, books.author_id " +
+            "FROM books " +
+            "WHERE books.author_id NOT IN (SELECT id from authors)" +
+            "ORDER BY books.title";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKS", "BOOKS", 60, true],
+        ["AUTHORS", "AUTHORS", 60, true]];
+        return this.isEqual("parseTableSettings6", data, expected);
+    }
+
+    parseTableSettings7() {
+        let stmt = "SELECT booksales.A as 'Invoice', booksales.B as 'Book ID', CUST.A, CUST.B FROM booksales " +
+            "LEFT JOIN customers as CUST on booksales.C = customers.A ";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKSALES", "BOOKSALES", 60, true],
+        ["CUSTOMERS", "CUSTOMERS", 60, true]];
+
+        return this.isEqual("parseTableSettings7", data, expected);
     }
 
     //  Mock the GAS sheets functions required to load.
@@ -2486,7 +2687,7 @@ class SqlTester {
 
     testTableData() {
         //  Hey CJD, remember to set the startIncomeDate and endIncomeDate - June 7 to June 20 2019
-        const itemData = new Sql()
+        const itemData = new TestSql()
             .addTableData('mastertransactions', 'Master Transactions!$A$1:$I', 60)
             .enableColumnTitle(true)
             .addBindNamedRangeParameter('startIncomeDate')
@@ -2496,7 +2697,7 @@ class SqlTester {
                 "where transaction_date >=  ? and transaction_date <= ? ");
 
         //  Load load from sheet.
-        let trans = new Sql()
+        let trans = new TestSql()
             .addTableData('mastertransactions', 'Master Transactions!$A$1:$I', .1)
             .enableColumnTitle(false)
             .addBindNamedRangeParameter('startIncomeDate')
@@ -2508,7 +2709,7 @@ class SqlTester {
         Utilities.sleep(.12);
 
         //  Should load from sheet.
-        trans = new Sql()
+        trans = new TestSql()
             .addTableData('mastertransactions', 'Master Transactions!$A$1:$I', 0)
             .enableColumnTitle(false)
             .addBindNamedRangeParameter('startIncomeDate')
@@ -2518,7 +2719,7 @@ class SqlTester {
                 "where transaction_date >=  ? and transaction_date <= ? ");
 
         //  Save to long term cache.
-        let trans2 = new Sql()
+        let trans2 = new TestSql()
             .addTableData('mastertransactions', 'Master Transactions!$A$1:$I30', 25000)
             .enableColumnTitle(false)
             .addBindNamedRangeParameter('startIncomeDate')
@@ -2528,7 +2729,7 @@ class SqlTester {
                 "where transaction_date >=  ? and transaction_date <= ? ");
 
         //  Load from long term cache.
-        let trans3 = new Sql()
+        let trans3 = new TestSql()
             .addTableData('mastertransactions', 'Master Transactions!$A$1:$I30', 25000)
             .enableColumnTitle(false)
             .addBindNamedRangeParameter('startIncomeDate')
@@ -2544,7 +2745,7 @@ class SqlTester {
     selectBadTable1() {
         let stmt = "SELECT quantity, price, quantity * price from booksail where price * quantity > 100";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .addTableData("editors", this.editorsTable())
             .enableColumnTitle(true);
@@ -2563,7 +2764,7 @@ class SqlTester {
     selectBadMath1() {
         let stmt = "SELECT quantity, price, quantity # price from booksales where price * quantity > 100";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2581,7 +2782,7 @@ class SqlTester {
     selectBadField1() {
         let stmt = "SELECT quantity, prices from booksales ";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2599,7 +2800,7 @@ class SqlTester {
     selectBadField2() {
         let stmt = "SELECT sum(quantitys) from booksales ";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2617,7 +2818,7 @@ class SqlTester {
     selectBadField3() {
         let stmt = "SELECT  quantity, Sumthing(price) from booksales ";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2635,7 +2836,7 @@ class SqlTester {
     selectBadField4() {
         let stmt = "SELECT invoice, SUMM(quantity) from booksales group by invoice";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2653,7 +2854,7 @@ class SqlTester {
     selectBadOp1() {
         let stmt = "SELECT  quantity, Sum(price) from booksales where price >>! 0 ";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2671,7 +2872,7 @@ class SqlTester {
     selectBadAs1() {
         let stmt = "SELECT  quantity, price ASE PrIcE from booksales ";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2689,7 +2890,7 @@ class SqlTester {
     selectBadConstant1() {
         let stmt = "SELECT  quantity, price AS PrIcE from booksales where invoice = 'I7200 ";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2707,7 +2908,7 @@ class SqlTester {
     selectBadConstant2() {
         let stmt = "SELECT  quantity, price AS PrIcE from booksales where price > 1O0 ";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2725,7 +2926,7 @@ class SqlTester {
     nonSelect1() {
         let stmt = "delete from booksales where price > 1O0 ";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2747,7 +2948,7 @@ class SqlTester {
             "ON books.author_id = authors.di " +
             "ORDER BY books.id";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true);
@@ -2770,7 +2971,7 @@ class SqlTester {
             "ON books.author_di = authors.id " +
             "ORDER BY books.id";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true);
@@ -2793,7 +2994,7 @@ class SqlTester {
             "books.author_id = authors.id " +
             "ORDER BY books.id";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true);
@@ -2812,7 +3013,7 @@ class SqlTester {
     badOrderBy1() {
         let stmt = "select * from bookSales order by DATE DSC, customer_id asc";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2831,7 +3032,7 @@ class SqlTester {
     badOrderBy2() {
         let stmt = "select * from bookSales order by ORDER_DATE";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2850,7 +3051,7 @@ class SqlTester {
     bindVariableMissing() {
         let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .addBindParameter('05/01/2022')
@@ -2870,7 +3071,7 @@ class SqlTester {
     selectNoFrom() {
         let stmt = "SELECT quantity, prices for booksales ";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true);
 
@@ -2892,7 +3093,7 @@ class SqlTester {
         let ex = "";
 
         try {
-            let testSQL = new Sql()
+            let testSQL = new TestSql()
                 .addTableData("booksales", dataTable)
                 .enableColumnTitle(true);
 
@@ -2920,7 +3121,7 @@ class SqlTester {
     pivotGroupByMissing() {
         let stmt = "select sum(quantity) from bookSales where date > ? AND date < ? OR book_id = ? pivot customer_id";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
             .enableColumnTitle(true)
             .addBindParameter('05/01/2022')
@@ -2940,7 +3141,7 @@ class SqlTester {
     badUnion1() {
         let stmt = "select * from authors UNION select * from customers";
 
-        let testSQL = new Sql()
+        let testSQL = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("customers", this.customerTable())
             .enableColumnTitle(true);
@@ -2965,7 +3166,7 @@ class SqlTester {
 
         let ex = "";
         try {
-            let testSQL = new Sql()
+            let testSQL = new TestSql()
                 .addTableData("books", booksTable)
                 .enableColumnTitle(true);
 
@@ -3139,6 +3340,8 @@ function testerSql() {
     result = result && tester.parseTableSettings3();
     result = result && tester.parseTableSettings4();
     result = result && tester.parseTableSettings5();
+    result = result && tester.parseTableSettings6();
+    result = result && tester.parseTableSettings7();
     result = result && tester.testTableData1();
     result = result && tester.badParseTableSettings1();
 

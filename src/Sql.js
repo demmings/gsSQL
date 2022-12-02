@@ -99,6 +99,7 @@ class Sql {
         /** @type {Map<String,Table>} */
         this.tables = new Map();
         this.columnTitle = false;
+        /** @type {any[]} */
         this.bindParameters = [];
     }
 
@@ -107,6 +108,7 @@ class Sql {
      * @param {String} tableName - Name of table referenced in SELECT.
      * @param {any} tableData - Either double array or a named range.
      * @param {Number} cacheSeconds - How long should loaded data be cached (default=0)
+     * @param {Boolean} hasColumnTitle - Is first data row the column title?
      * @returns {Sql}
      */
     addTableData(tableName, tableData, cacheSeconds = 0, hasColumnTitle = true) {
@@ -146,6 +148,10 @@ class Sql {
     addBindParameter(value) {
         this.bindParameters.push(value);
         return this;
+    }
+
+    getBindData() {
+        return this.bindParameters;
     }
 
     /**
@@ -217,6 +223,13 @@ class Sql {
         return this;
     }
 
+    /**
+     * 
+     * @returns {Map<String,Table>} 
+     */
+    getTables() {
+        return this.tables;
+    }
 
     /**
     * Find table alias name (if any) for input actual table name.
@@ -327,15 +340,19 @@ class Sql {
      * @returns {String[][]}
      */
     static getReferencedTableNames(statement) {
-        const tableSet = new Set();
+        const DEFAULT_CACHE_SECONDS = 60;
+        const DEFAULT_COLUMNS_OUTPUT = true;
+        const tableSet = new Map();
         const ast = SqlParse.sql2ast(statement);
 
         Sql.extractAstTables(ast, tableSet);
 
         const tableList = [];
         // @ts-ignore
-        for (const table of tableSet) {
-            tableList.push([table]);
+        for (const [key,value] of tableSet) {
+            let tableDef = [key, key, DEFAULT_CACHE_SECONDS, DEFAULT_COLUMNS_OUTPUT];
+
+            tableList.push(tableDef);
         }
 
         return tableList;
@@ -344,7 +361,7 @@ class Sql {
     /**
      * 
      * @param {Object} ast 
-     * @param {Set} tableSet 
+     * @param {Map} tableSet 
      */
     static extractAstTables(ast, tableSet) {
         Sql.getTableNamesFromOrJoin(ast, tableSet);
@@ -356,7 +373,7 @@ class Sql {
     /**
      * 
      * @param {Object} ast 
-     * @param {Set} tableSet 
+     * @param {Map} tableSet 
      */
     static getTableNamesFromOrJoin(ast, tableSet) {
         const astTableBlocks = ['FROM', 'JOIN'];
@@ -367,7 +384,7 @@ class Sql {
 
             const blockData = ast[astBlock];
             for (const astItem of blockData) {
-                tableSet.add(astItem.table.toUpperCase());
+                tableSet.set(astItem.table.toUpperCase(), astItem.as.toUpperCase());
             }
         }
     }
@@ -375,7 +392,7 @@ class Sql {
     /**
      * 
      * @param {Object} ast 
-     * @param {Set} tableSet 
+     * @param {Map} tableSet 
      */
     static getTableNamesUnion(ast, tableSet) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
@@ -392,15 +409,15 @@ class Sql {
     /**
      * 
      * @param {Object} ast 
-     * @param {Set} tableSet 
+     * @param {Map} tableSet 
      */
     static getTableNamesWhereIn(ast, tableSet) {
         //  where IN ().
-        if (typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
+        if (typeof ast.WHERE !== 'undefined' && (ast.WHERE.operator === "IN" || ast.WHERE.operator === "NOT IN")) {
             this.extractAstTables(ast.WHERE.right, tableSet);
         }
 
-        if (ast.operator === "IN") {
+        if (ast.operator === "IN" || ast.operator === "NOT IN") {
             this.extractAstTables(ast.right, tableSet);
         }
     }
@@ -408,7 +425,7 @@ class Sql {
     /**
      * 
      * @param {Object} ast 
-     * @param {Set} tableSet 
+     * @param {Map} tableSet 
      */
     static getTableNamesWhereTerms(ast, tableSet) {
         if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {

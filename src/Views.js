@@ -184,7 +184,7 @@ class SelectTables {
 
         switch (operator.toUpperCase()) {
             case "=":
-                keep = leftValue === rightValue;
+                keep = leftValue == rightValue;
                 break;
 
             case ">":
@@ -204,11 +204,11 @@ class SelectTables {
                 break;
 
             case "<>":
-                keep = leftValue !== rightValue;
+                keep = leftValue != rightValue;
                 break;
 
             case "!=":
-                keep = leftValue !== rightValue;
+                keep = leftValue != rightValue;
                 break;
 
             case "LIKE":
