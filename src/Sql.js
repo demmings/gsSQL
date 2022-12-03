@@ -162,7 +162,7 @@ class Sql {
     addBindNamedRangeParameter(value) {
         const namedValue = TableData.getValueCached(value, 30);
         this.bindParameters.push(namedValue);
-        Logger.log("BIND=" + value + " = " + namedValue);
+        Logger.log(`BIND=${value} = ${namedValue}`);
         return this;
     }
 
@@ -251,21 +251,22 @@ class Sql {
 
     /**
      * 
-     * @param {String} tableAlias 
+     * @param {String} tableAlias - Extracted alias name
      * @param {String} tableName 
      * @param {Object} ast 
      * @returns {String}
      */
     static getTableAliasFromJoin(tableAlias, tableName, ast) {
         const astTableBlocks = ['FROM', 'JOIN'];
+        let aliasNameFound = tableAlias;
 
         let i = 0;
-        while (tableAlias === "" && i < astTableBlocks.length) {
-            tableAlias = Sql.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
+        while (aliasNameFound === "" && i < astTableBlocks.length) {
+            aliasNameFound = Sql.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
             i++;
         }
 
-        return tableAlias;
+        return aliasNameFound;
     }
 
     /**
@@ -349,8 +350,8 @@ class Sql {
 
         const tableList = [];
         // @ts-ignore
-        for (const [key,value] of tableSet) {
-            let tableDef = [key, key, DEFAULT_CACHE_SECONDS, DEFAULT_COLUMNS_OUTPUT];
+        for (const key of tableSet.keys()) {
+            const tableDef = [key, key, DEFAULT_CACHE_SECONDS, DEFAULT_COLUMNS_OUTPUT];
 
             tableList.push(tableDef);
         }
@@ -361,7 +362,7 @@ class Sql {
     /**
      * 
      * @param {Object} ast 
-     * @param {Map} tableSet 
+     * @param {Map<String,String>} tableSet 
      */
     static extractAstTables(ast, tableSet) {
         Sql.getTableNamesFromOrJoin(ast, tableSet);
@@ -373,7 +374,7 @@ class Sql {
     /**
      * 
      * @param {Object} ast 
-     * @param {Map} tableSet 
+     * @param {Map<String,String>} tableSet 
      */
     static getTableNamesFromOrJoin(ast, tableSet) {
         const astTableBlocks = ['FROM', 'JOIN'];
@@ -392,7 +393,7 @@ class Sql {
     /**
      * 
      * @param {Object} ast 
-     * @param {Map} tableSet 
+     * @param {Map<String,String>} tableSet 
      */
     static getTableNamesUnion(ast, tableSet) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
@@ -409,7 +410,7 @@ class Sql {
     /**
      * 
      * @param {Object} ast 
-     * @param {Map} tableSet 
+     * @param {Map<String,String>} tableSet 
      */
     static getTableNamesWhereIn(ast, tableSet) {
         //  where IN ().
@@ -425,7 +426,7 @@ class Sql {
     /**
      * 
      * @param {Object} ast 
-     * @param {Map} tableSet 
+     * @param {Map<String,String>} tableSet 
      */
     static getTableNamesWhereTerms(ast, tableSet) {
         if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {

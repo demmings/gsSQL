@@ -94,7 +94,7 @@ class Table {
      */
     addColumnLetters(tableData) {
         if (tableData.length === 0)
-            return;
+            return [[]];
 
         const newTitleRow = [];
 
@@ -117,7 +117,7 @@ class Table {
 
         let charIndex = number % alphabet.length
         let quotient = number / alphabet.length
-        if (charIndex - 1 == -1) {
+        if (charIndex - 1 === -1) {
             charIndex = alphabet.length
             quotient--;
         }
