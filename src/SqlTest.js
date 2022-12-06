@@ -393,7 +393,8 @@ class TestSql extends Sql {
             return;
         }
 
-        let lastRow = sheet.getLastRow() + 2;
+        let testCount = 1;
+        let lastRow = sheet.getLastRow() + 3;
         Logger.log("START ROW for TEST custom functions: " + lastRow);
 
         for (const testCase of sqlTestCases) {
@@ -401,6 +402,13 @@ class TestSql extends Sql {
             if (! testCase.hasColumnTitles) {
                 tableDefinitionString = testCase.getTableDefinitionString();
             }
+
+            let descriptionRange = sheet.getRange(lastRow-1, 1, 1, 2);
+            let testNumber = "Test  #" + testCount;
+            testCount++;
+            let descriptionRow = [[testNumber, testCase.statement]];
+            descriptionRange.setValues(descriptionRow);
+            descriptionRange.setFontWeight("bold");
 
             let formulaRange = sheet.getRange(lastRow, 1);
             let formula = '=gsSQL("' + testCase.statement + '"';
@@ -427,7 +435,7 @@ class TestSql extends Sql {
             formula += ')';
             formulaRange.setFormula(formula);
 
-            lastRow = lastRow + testCase.expectedOutputlines + 2;
+            lastRow = lastRow + testCase.expectedOutputlines + 3;
         }
     }
 }

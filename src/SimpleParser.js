@@ -494,7 +494,7 @@ CondLexer.prototype = {
             return this.readGroupSymbol();
         if (/[!=<>]/.test(this.currentChar))
             return this.readOperator();
-        if (/[\+\-*\/%]/.test(this.currentChar))
+        if (/[+\-*\/%]/.test(this.currentChar))
             return this.readMathOperator();
         if (this.currentChar === '?')
             return this.readBindVariable();
@@ -913,7 +913,7 @@ class SelectKeywordAnalysis {
         const strParts = str.split(',');
         const orderByResult = [];
         strParts.forEach(function (item, _key) {
-            const order_by = /([\w\.]+)\s*(ASC|DESC)?/gi;
+            const order_by = /([\w.]+)\s*(ASC|DESC)?/gi;
             const orderData = order_by.exec(item);
             if (orderData !== null) {
                 const tmp = {};
@@ -935,7 +935,7 @@ class SelectKeywordAnalysis {
         const strParts = str.split(',');
         const groupByResult = [];
         strParts.forEach(function (item, _key) {
-            const group_by = /([\w\.]+)/gi;
+            const group_by = /([\w.]+)/gi;
             const groupData = group_by.exec(item);
             if (groupData !== null) {
                 const tmp = {};
@@ -950,7 +950,7 @@ class SelectKeywordAnalysis {
         const strParts = str.split(',');
         const pivotResult = [];
         strParts.forEach(function (item, _key) {
-            const pivotOn = /([\w\.]+)/gi;
+            const pivotOn = /([\w.]+)/gi;
             const pivotData = pivotOn.exec(item);
             if (pivotData !== null) {
                 const tmp = {};
