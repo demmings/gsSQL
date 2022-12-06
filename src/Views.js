@@ -1229,9 +1229,11 @@ class SqlServerFunctions {
                         replacement = `Math.floor(${parms[0]})`;
                         break;
                     case "IF":
-                        const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
-                        replacement = `${ifCond} ? ${parms[1]} : ${parms[2]};`;
-                        break;
+                        {
+                            const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
+                            replacement = `${ifCond} ? ${parms[1]} : ${parms[2]};`;
+                            break;
+                        }
                     case "LEFT":
                         replacement = `${parms[0]}.substring(0,${parms[1]})`;
                         break;
@@ -1403,7 +1405,7 @@ class SqlServerFunctions {
     caseStart(func, args, functionString) {
         let caseArguments = args;
         let caseString = functionString;
-        
+
         if (func === "CASE") {
             caseArguments = functionString.match(/CASE(.*?)END/i);
 

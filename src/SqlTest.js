@@ -146,6 +146,8 @@ class SpreadsheetApp {
         return dataRange.getMockData() === null ? null : dataRange;
     }
 
+    // @param {String} sheetTabName 
+    //  @returns {Sheet}
     getSheetByName(sheetTabName) {
         let sheetObj = new Sheet(sheetTabName);
         if (sheetObj.getSheetValues(1, 1, 1, 1) === null)
@@ -304,20 +306,23 @@ class TestedStatements {
      * 
      * @param {String} statement 
      * @param {any[]} bindVariables 
-     * @param {Number} expectedOutputLines 
+     * @param {any[][]} data 
      * @param {Map<String,Table>} tables
+     * @param {Boolean} generateColumnTitles
      */
-    constructor(statement, bindVariables, expectedOutputLines, tables) {
+    constructor(statement, bindVariables, data, tables, generateColumnTitles) {
         this.statement = statement;
         this.bindVariables = bindVariables;
-        this.expectedOutputlines = expectedOutputLines;
+        this.expectedOutputlines = data.length;
+        this.data = data;
         this.tables = tables;
-        this.hasColumnTitles = true;
+        this.generateColumnTitles = generateColumnTitles;
+        this.generateTableDefinition = false;
 
         // @ts-ignore
         for (let tableInfo of this.tables.values()) {
-            if (! tableInfo.hasColumnTitle)
-                this.hasColumnTitles = false;
+            if (!tableInfo.hasColumnTitle)
+                this.generateTableDefinition = true;
         }
     }
 
@@ -326,7 +331,7 @@ class TestedStatements {
      * @returns {String}
      */
     getTableDefinitionString() {
-        let definition = "{" ;
+        let definition = "{";
         let tabDef = "";
 
         // @ts-ignore
@@ -350,7 +355,7 @@ class TestedStatements {
             tabDef += "}";
         }
 
-        definition += tabDef +  "}";
+        definition += tabDef + "}";
         return definition;
     }
 }
@@ -368,9 +373,9 @@ class TestSql extends Sql {
     execute(stmt) {
         let bindings = [...super.getBindData()];
         let tables = super.getTables();
-        let hasColumnTitles = true;
+        let generateColumnTitles = super.areColumnTitlesOutput();
         let data;
-             
+
         try {
             data = super.execute(stmt);
         }
@@ -378,7 +383,7 @@ class TestSql extends Sql {
             throw ex;
         }
 
-        let test = new TestedStatements(stmt, bindings, data.length, tables);
+        let test = new TestedStatements(stmt, bindings, data, tables, generateColumnTitles);
 
         sqlTestCases.push(test);
 
@@ -386,12 +391,15 @@ class TestSql extends Sql {
     }
 
     static generateTestCustomFunctions() {
-        let sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+        let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("TDD");
 
         if (sheet === null) {
-            Logger.log("Invalid SHEET");
+            Logger.log("Invalid SHEET.  'TDD' not found.");
             return;
         }
+
+        //  Clear out old tests.
+        sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent().clearFormat();
 
         let testCount = 1;
         let lastRow = sheet.getLastRow() + 3;
@@ -399,22 +407,21 @@ class TestSql extends Sql {
 
         for (const testCase of sqlTestCases) {
             let tableDefinitionString = "";
-            if (! testCase.hasColumnTitles) {
+            if (testCase.generateTableDefinition) {
                 tableDefinitionString = testCase.getTableDefinitionString();
             }
 
-            let descriptionRange = sheet.getRange(lastRow-1, 1, 1, 2);
+            let descriptionRange = sheet.getRange(lastRow - 1, 1, 1, 2);
             let testNumber = "Test  #" + testCount;
             testCount++;
             let descriptionRow = [[testNumber, testCase.statement]];
             descriptionRange.setValues(descriptionRow);
             descriptionRange.setFontWeight("bold");
 
-            let formulaRange = sheet.getRange(lastRow, 1);
             let formula = '=gsSQL("' + testCase.statement + '"';
 
-            if (testCase.bindVariables !== null && typeof testCase.bindVariables !== 'undefined' && testCase.bindVariables.length > 0) {
-                formula += "," + tableDefinitionString + ", true";
+            if (testCase.bindVariables.length > 0 || !testCase.generateColumnTitles) {
+                formula += "," + tableDefinitionString + ", " + testCase.generateColumnTitles.toString();
                 for (const bindData of testCase.bindVariables) {
                     formula += ", ";
                     if (typeof bindData === 'string') {
@@ -429,18 +436,23 @@ class TestSql extends Sql {
                 }
             }
             else if (tableDefinitionString !== "") {
-                formula += "," + tableDefinitionString + ", true";    
+                formula += "," + tableDefinitionString + ", true";
             }
 
             formula += ')';
+            let formulaRange = sheet.getRange(lastRow, 1);
             formulaRange.setFormula(formula);
+
+            if (testCase.data.length > 0) {
+                let expectedRange = sheet.getRange(lastRow, 3 + testCase.data[0].length, testCase.data.length, testCase.data[0].length);
+                expectedRange.setValues(testCase.data);
+                expectedRange.setFontWeight("bold");
+            }
 
             lastRow = lastRow + testCase.expectedOutputlines + 3;
         }
     }
 }
-
-
 
 class SqlTester {
     /*
@@ -2432,7 +2444,7 @@ class SqlTester {
             .enableColumnTitle(false)
             .execute(stmt);
 
-        let expected = [];
+        let expected = [['']];
 
         return this.isEqual("groupFunc2", data, expected);
     }

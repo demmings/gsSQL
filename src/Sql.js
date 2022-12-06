@@ -142,6 +142,14 @@ class Sql {
 
     /**
      * 
+     * @returns {Boolean}
+     */
+    areColumnTitlesOutput() {
+        return this.columnTitle;
+    }
+
+    /**
+     * 
      * @param {any} value 
      * @returns {Sql}
      */
@@ -501,10 +509,17 @@ class Sql {
         //  Apply SET rules for various union types.
         viewTableData = this.unionSets(ast, viewTableData);
 
-        if (this.columnTitle)
+        if (this.columnTitle) {
             viewTableData.unshift(view.getColumnTitles());
-        else if (viewTableData.length === 1 && viewTableData[0].length === 0)
+        }
+
+        if (viewTableData.length === 0) {
+            viewTableData.push([""]);
+        }
+
+        if (viewTableData.length === 1 && viewTableData[0].length === 0) {
             viewTableData[0] = [""];
+        }
 
         return viewTableData;
     }

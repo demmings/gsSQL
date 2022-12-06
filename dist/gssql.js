@@ -142,6 +142,14 @@ class Sql {
 
     /**
      * 
+     * @returns {Boolean}
+     */
+    areColumnTitlesOutput() {
+        return this.columnTitle;
+    }
+
+    /**
+     * 
      * @param {any} value 
      * @returns {Sql}
      */
@@ -501,10 +509,17 @@ class Sql {
         //  Apply SET rules for various union types.
         viewTableData = this.unionSets(ast, viewTableData);
 
-        if (this.columnTitle)
+        if (this.columnTitle) {
             viewTableData.unshift(view.getColumnTitles());
-        else if (viewTableData.length === 1 && viewTableData[0].length === 0)
+        }
+
+        if (viewTableData.length === 0) {
+            viewTableData.push([""]);
+        }
+
+        if (viewTableData.length === 1 && viewTableData[0].length === 0) {
             viewTableData[0] = [""];
+        }
 
         return viewTableData;
     }
@@ -2472,9 +2487,11 @@ class SqlServerFunctions {
                         replacement = `Math.floor(${parms[0]})`;
                         break;
                     case "IF":
-                        const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
-                        replacement = `${ifCond} ? ${parms[1]} : ${parms[2]};`;
-                        break;
+                        {
+                            const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
+                            replacement = `${ifCond} ? ${parms[1]} : ${parms[2]};`;
+                            break;
+                        }
                     case "LEFT":
                         replacement = `${parms[0]}.substring(0,${parms[1]})`;
                         break;
@@ -2646,7 +2663,7 @@ class SqlServerFunctions {
     caseStart(func, args, functionString) {
         let caseArguments = args;
         let caseString = functionString;
-        
+
         if (func === "CASE") {
             caseArguments = functionString.match(/CASE(.*?)END/i);
 
@@ -3801,7 +3818,7 @@ CondLexer.prototype = {
             return this.readGroupSymbol();
         if (/[!=<>]/.test(this.currentChar))
             return this.readOperator();
-        if (/[+\-*\/%]/.test(this.currentChar))
+        if (/[+\-*/%]/.test(this.currentChar))
             return this.readMathOperator();
         if (this.currentChar === '?')
             return this.readBindVariable();

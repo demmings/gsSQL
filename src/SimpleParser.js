@@ -494,7 +494,7 @@ CondLexer.prototype = {
             return this.readGroupSymbol();
         if (/[!=<>]/.test(this.currentChar))
             return this.readOperator();
-        if (/[+\-*\/%]/.test(this.currentChar))
+        if (/[+\-*/%]/.test(this.currentChar))
             return this.readMathOperator();
         if (this.currentChar === '?')
             return this.readBindVariable();
