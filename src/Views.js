@@ -499,7 +499,7 @@ class SelectTables {
                 throw new Error(`Invalid ORDER BY: ${orderField.column}`);
             }
 
-            if (orderField.order === "DESC") {
+            if (orderField.order.toUpperCase() === "DESC") {
                 SelectTables.sortByColumnDESC(selectedData, selectColumn);
             }
             else {

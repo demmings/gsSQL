@@ -615,8 +615,8 @@ class Sql {
                 const args = SelectTables.parseForFunctions(selectField.name, matches[0].trim());
 
                 for (const fld of pivotFieldData) {
-                    const caseTxt = matches[0] + "(CASE WHEN " + ast.PIVOT[0].name + " = '" + fld + "' THEN " + args[1] + " ELSE 'null' END)";
-                    const asField = fld[0] + " " + (typeof selectField.as !== 'undefined' && selectField.as !== "" ? selectField.as : selectField.name);
+                    const caseTxt = `${matches[0]}(CASE WHEN ${ast.PIVOT[0].name} = '${fld}' THEN ${args[1]} ELSE 'null' END)`;
+                    const asField = `${fld[0]} ${typeof selectField.as !== 'undefined' && selectField.as !== "" ? selectField.as : selectField.name}`;
                     newPivotAstFields.push({ name: caseTxt, as: asField });
                 }
             }

@@ -277,7 +277,7 @@ function onOpen() {
     // tie them to functions we will write in Apps Script
 
     ui.createMenu('gsSQL Options')
-        .addItem('Generate Tests on Current SHEET !!!', 'customMenuGenerateTests')
+        .addItem('Generate Tests on TDD SHEET !!!', 'customMenuGenerateTests')
         .addToUi();
 }
 
@@ -300,6 +300,24 @@ function customMenuGenerateTests() {
     TestSql.generateTestCustomFunctions();
 }
 
+/**
+ * 
+ * @param {String} functionName 
+ * @param {any[][]} array1 
+ * @param {any[][]} array2 
+ * @returns {String[][]}
+ * @customfunction
+ */
+function isEqual(functionName, array1, array2) {
+    const test = new SqlTester();
+    const status = test.isEqual(functionName, array1, array2) ? "Equal" : "Not Equal";
+
+    const results = [];
+    results.push([functionName]);
+    results.push([status]);
+
+    return results;
+}
 
 class TestedStatements {
     /**
@@ -398,59 +416,117 @@ class TestSql extends Sql {
             return;
         }
 
+        const SUMMARY_ITEMS_PER_ROW = 10;
+        const SHEET_HEADER_ROWS = 6;
+
         //  Clear out old tests.
-        sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent().clearFormat();
+        sheet.getRange(SHEET_HEADER_ROWS, 1, sheet.getLastRow(), sheet.getLastColumn()).clearContent().clearFormat().clear();
+
+        const rowsForSummary = Math.ceil(sqlTestCases.length / SUMMARY_ITEMS_PER_ROW) * 3;
+        const summaryTestResults = [];
+        let summaryTestResultRow = [];
+        let blankRow = [];
 
         let testCount = 1;
-        let lastRow = sheet.getLastRow() + 3;
-        Logger.log("START ROW for TEST custom functions: " + lastRow);
+
+        let lastRow = sheet.getLastRow() + 3 + rowsForSummary;
 
         for (const testCase of sqlTestCases) {
-            let tableDefinitionString = "";
-            if (testCase.generateTableDefinition) {
-                tableDefinitionString = testCase.getTableDefinitionString();
-            }
-
             let descriptionRange = sheet.getRange(lastRow - 1, 1, 1, 2);
             let testNumber = "Test  #" + testCount;
-            testCount++;
+
             let descriptionRow = [[testNumber, testCase.statement]];
             descriptionRange.setValues(descriptionRow);
             descriptionRange.setFontWeight("bold");
 
-            let formula = '=gsSQL("' + testCase.statement + '"';
+            let formula = TestSql.makeCustomFormulaString(testCase);
 
-            if (testCase.bindVariables.length > 0 || !testCase.generateColumnTitles) {
-                formula += "," + tableDefinitionString + ", " + testCase.generateColumnTitles.toString();
-                for (const bindData of testCase.bindVariables) {
-                    formula += ", ";
-                    if (typeof bindData === 'string') {
-                        formula += '"' + bindData + '"';
-                    }
-                    else if (bindData instanceof Date) {
-                        formula += '"' + Utilities.formatDate(bindData, "GMT+1", "MM/dd/yyyy") + '"';
-                    }
-                    else {
-                        formula += bindData;
-                    }
-                }
-            }
-            else if (tableDefinitionString !== "") {
-                formula += "," + tableDefinitionString + ", true";
-            }
-
-            formula += ')';
             let formulaRange = sheet.getRange(lastRow, 1);
             formulaRange.setFormula(formula);
 
+            //  Write out expected results.
             if (testCase.data.length > 0) {
                 let expectedRange = sheet.getRange(lastRow, 3 + testCase.data[0].length, testCase.data.length, testCase.data[0].length);
                 expectedRange.setValues(testCase.data);
-                expectedRange.setFontWeight("bold");
+                expectedRange.setFontWeight("bold").setBackground("yellow");
+
+                let resultsRange = sheet.getRange(lastRow, 1, testCase.data.length, testCase.data[0].length);
+                resultsRange.setBackground("cyan");
+                let resultFormula = TestSql.makeTestResultFormulaString(testCount, resultsRange, expectedRange);
+                summaryTestResultRow.push(resultFormula);
+                blankRow.push("");
+                if (summaryTestResultRow.length >= SUMMARY_ITEMS_PER_ROW) {
+                    summaryTestResults.push(summaryTestResultRow);
+                    summaryTestResults.push(blankRow);
+                    summaryTestResults.push(blankRow);
+                    summaryTestResultRow = [];
+                    blankRow = [];
+                }
             }
 
             lastRow = lastRow + testCase.expectedOutputlines + 3;
+            testCount++;
         }
+
+        if (summaryTestResultRow.length > 0) {
+            while (summaryTestResultRow.length < SUMMARY_ITEMS_PER_ROW) {
+                summaryTestResultRow.push("");
+            }
+            summaryTestResults.push(summaryTestResultRow);
+        }
+
+        if (summaryTestResults.length > 0) {
+            Logger.log(`Items=${summaryTestResults.length}. Cols=${summaryTestResults[0].length}`);
+            let summaryRange = sheet.getRange(SHEET_HEADER_ROWS, 1, summaryTestResults.length, summaryTestResults[0].length);
+            summaryRange.setFormulas(summaryTestResults);
+        }
+    }
+
+    /**
+     * 
+     * @param {TestedStatements} testCase 
+     * @returns {String}
+     */
+    static makeCustomFormulaString(testCase) {
+        let tableDefinitionString = "";
+        if (testCase.generateTableDefinition) {
+            tableDefinitionString = testCase.getTableDefinitionString();
+        }
+
+        let formula = '=gsSQL("' + testCase.statement + '"';
+
+        if (testCase.bindVariables.length > 0 || !testCase.generateColumnTitles) {
+            formula += "," + tableDefinitionString + ", " + testCase.generateColumnTitles.toString();
+            for (const bindData of testCase.bindVariables) {
+                formula += ", ";
+                if (typeof bindData === 'string') {
+                    formula += '"' + bindData + '"';
+                }
+                else if (bindData instanceof Date) {
+                    formula += '"' + Utilities.formatDate(bindData, "GMT+1", "MM/dd/yyyy") + '"';
+                }
+                else {
+                    formula += bindData;
+                }
+            }
+        }
+        else if (tableDefinitionString !== "") {
+            formula += "," + tableDefinitionString + ", true";
+        }
+
+        formula += ')';
+
+        return formula;
+    }
+
+    static makeTestResultFormulaString(testNumber, rangeResults, rangeExpected) {
+        let formula = '=isEqual("Test #' + testNumber.toString() + '"';
+
+        formula += "," + rangeResults.getA1Notation();
+        formula += "," + rangeExpected.getA1Notation();
+        formula += ")";
+
+        return formula;
     }
 }
 
@@ -1891,6 +1967,25 @@ class SqlTester {
         return this.isEqual("orderByDesc2", data, expected);
     }
 
+    orderByDesc3() {
+        let stmt = "select * from customers where lower(city) like '%city%' order by email desc";
+
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL"],
+        ["C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"],
+        ["C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"],
+        ["C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "]];
+
+        return this.isEqual("orderByDesc3", data, expected);
+    }
+
     distinct1() {
         let stmt = "select distinct last_name from editors";
 
@@ -2589,6 +2684,7 @@ class SqlTester {
         return this.isEqual("selectNoTitle1", data, expected);
     }
 
+    //  S T A R T   O T H E R   T E S TS
     parseTableSettings1() {
         let data = parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
         let expected = [["authors", "authorsNamedRange", 60, false],
@@ -3222,12 +3318,20 @@ class SqlTester {
         let jsonData = JSON.stringify(sqlDataArray);
         let expectedJSON = JSON.stringify(expectedArry);
 
-        if (jsonData != expectedJSON) {
+        let isEqual = jsonData == expectedJSON;
+
+        if (!isEqual) {
+            //  May have "10" != 10 and fail.  We should not fail in that case.
+            isEqual = sqlDataArray.toString() === expectedArry.toString();
+            Logger.log("JSON comp failed. toString(): " + sqlDataArray.toString() + " === " + expectedArry.toString());
+        }
+
+        if (!isEqual) {
             Logger.log(functionName + "() ----------   F A I L E D   ----------");
             Logger.log(jsonData);
 
             for (let i = 0; i < jsonData.length; i++) {
-                if (i >= jsonData.length || i >= jsonData.length)
+                if (i >= jsonData.length)
                     break;
                 if (jsonData.charAt(i) !== expectedJSON.charAt(i)) {
                     Logger.log("Pos=" + i + ".  DIFF=" + jsonData.substring(i, i + 20) + " != " + expectedJSON.substring(i, i + 20));
@@ -3304,6 +3408,7 @@ function testerSql() {
     result = result && tester.intersect1();
     result = result && tester.orderByDesc1();
     result = result && tester.orderByDesc2();
+    result = result && tester.orderByDesc3();
     result = result && tester.distinct1();
     result = result && tester.selectMath1();
     result = result && tester.selectMathFunc1();
