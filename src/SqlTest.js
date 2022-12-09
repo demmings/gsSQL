@@ -2,6 +2,7 @@
 /*  *** DEBUG START ***  
 import { Sql, parseTableSettings, gsSQL } from './Sql.js';
 import { Table } from './Table.js';
+import { TableData } from './TableData.js';
 export { CacheService };
 export { LockService };
 export { SpreadsheetApp };
@@ -46,6 +47,12 @@ class CacheService {
     putAll(putObject, cacheSeconds) {
         for (let prop in putObject) {
             this.put(prop, putObject[prop], cacheSeconds);
+        }
+    }
+
+    remove(tagName) {
+        if (this.get(tagName) !== null) {
+            this.cacheMap.delete(tagName);
         }
     }
 }
@@ -2782,7 +2789,7 @@ class SqlTester {
             return true;
         }
 
-        let [selectTrans, allTrans, allTrans2, allTrans3] = this.testTableData();
+        let [selectTrans, allTrans, allTrans2, allTrans3, allTrans4] = this.testTableData();
 
         let masterTrans = this.masterTransactionsTable();
         masterTrans.shift();
@@ -2795,6 +2802,7 @@ class SqlTester {
         result = result && this.isEqual("testTableData1.b", allTrans, masterTrans);
         result = result && this.isEqual("testTableData1.c", allTrans2, masterTrans);
         result = result && this.isEqual("testTableData1.d", allTrans3, masterTrans);
+        result = result && this.isEqual("testTableData1.d", allTrans4, masterTrans);
 
         let data = gsSQL("select Name_of_Institution, Transaction_Date, Description_1, Description_2, Amount, Expense_Category, Account, Gross, Balance " +
             "from 'Master Transactions' " +
@@ -2859,7 +2867,23 @@ class SqlTester {
                 "from mastertransactions " +
                 "where transaction_date >=  ? and transaction_date <= ? ");
 
-        return [itemData, trans, trans2, trans3];
+        //  Force the expiry times for all items in long term cache.
+        //  It does not remove items from cache, it just forces that check -
+        //  which would never happen in testing since the check timeout is 21,000 seconds.
+        TableData.forceLongCacheExpiryCheck();
+        let trans4 = new TestSql()
+            .addTableData('mastertransactions', 'Master Transactions!$A$1:$I30', 25000)
+            .enableColumnTitle(false)
+            .addBindNamedRangeParameter('startIncomeDate')
+            .addBindNamedRangeParameter('endIncomeDate')
+            .execute("select * " +
+                "from mastertransactions " +
+                "where transaction_date >=  ? and transaction_date <= ? ");
+
+        //  This test is not going to run long enough for long cache to be forceably 
+        //  expired, so we should make that long cache expire.
+
+        return [itemData, trans, trans2, trans3, trans4];
     }
 
 

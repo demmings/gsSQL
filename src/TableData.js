@@ -48,10 +48,9 @@ class TableData {
         }
         else if (cacheSeconds > 21600) {
             cache = new ScriptSettings();
-            const shortCache = CacheService.getScriptCache();
-            if (shortCache.get("LONG_CACHE_EXPIRY") === null) {
+            if (TableData.isTimeToRunLongCacheExpiry()) {
                 cache.expire(false);
-                shortCache.put("LONG_CACHE_EXPIRY", 'true', 21000);
+                TableData.setLongCacheExpiry();
             }
             cacheSeconds = cacheSeconds / 86400;  //  ScriptSettings put() wants days to hold.
         }
@@ -70,6 +69,35 @@ class TableData {
         arrData = TableData.lockLoadAndCache(cache, namedRange, cacheSeconds);
 
         return arrData;
+    }
+
+    /**
+     * Is it time to run the long term cache expiry check?
+     * @returns {Boolean}
+     */
+    static isTimeToRunLongCacheExpiry() {
+        const shortCache = CacheService.getScriptCache();
+        return shortCache.get("LONG_CACHE_EXPIRY") === null;
+    }
+
+    /**
+     * The long term expiry check is done every 21,000 seconds.  Set the clock now!
+     */
+    static setLongCacheExpiry() {
+        const shortCache = CacheService.getScriptCache();
+        shortCache.put("LONG_CACHE_EXPIRY", 'true', 21000);
+    }
+
+    /**
+     * In the interest of testing, force the expiry check.
+     * It does not mean items in cache will be removed - just 
+     * forces a check.
+     */
+    static forceLongCacheExpiryCheck() {
+        const shortCache = CacheService.getScriptCache();
+        if (shortCache.get("LONG_CACHE_EXPIRY") !== null) {
+            shortCache.remove("LONG_CACHE_EXPIRY");
+        }
     }
 
     /**
