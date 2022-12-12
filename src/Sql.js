@@ -483,7 +483,7 @@ class Sql {
         //  Manipulate AST add pivot fields.
         ast = this.pivotField(ast);
 
-        const view = new SelectTables(ast.FROM, ast.SELECT, this.tables, this.bindParameters);
+        const view = new SelectTables(ast, this.tables, this.bindParameters);
 
         //  JOIN tables to create a derived table.
         view.join(ast);
@@ -499,6 +499,9 @@ class Sql {
 
         //  Sort our selected data.
         view.orderBy(ast, viewTableData);
+
+        //  Fields referenced but not included in SELECT field list.
+        view.removeTempColumns(viewTableData);
 
         if (typeof ast.LIMIT !== 'undefined') {
             const maxItems = ast.LIMIT.nb;

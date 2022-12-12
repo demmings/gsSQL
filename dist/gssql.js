@@ -483,7 +483,7 @@ class Sql {
         //  Manipulate AST add pivot fields.
         ast = this.pivotField(ast);
 
-        const view = new SelectTables(ast.FROM, ast.SELECT, this.tables, this.bindParameters);
+        const view = new SelectTables(ast, this.tables, this.bindParameters);
 
         //  JOIN tables to create a derived table.
         view.join(ast);
@@ -499,6 +499,9 @@ class Sql {
 
         //  Sort our selected data.
         view.orderBy(ast, viewTableData);
+
+        //  Fields referenced but not included in SELECT field list.
+        view.removeTempColumns(viewTableData);
 
         if (typeof ast.LIMIT !== 'undefined') {
             const maxItems = ast.LIMIT.nb;
@@ -1268,14 +1271,13 @@ const DERIVEDTABLE = "::DERIVEDTABLE::";
 
 class SelectTables {
     /**
-     * @param {Object} astTables
-     * @param {Object} astFields
+     * @param {Object} ast
      * @param {Map<String,Table>} tableInfo 
      * @param {any[]} bindVariables
      */
-    constructor(astTables, astFields, tableInfo, bindVariables) {
-        this.primaryTable = astTables[0].table;
-        this.astFields = astFields;
+    constructor(ast, tableInfo, bindVariables) {
+        this.primaryTable = ast.FROM[0].table;
+        this.astFields = ast.SELECT;
         this.tableInfo = tableInfo;
         this.bindVariables = bindVariables;
         this.joinedTablesMap = new Map();
@@ -1292,7 +1294,13 @@ class SelectTables {
         //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
         this.astFields = VirtualFields.expandWildcardFields(this.primaryTableInfo, this.astFields);
 
+        //  Define the data source of each field in SELECT field list.
         this.tableFields.updateSelectFieldList(this.astFields);
+
+        //  These are fields REFERENCED, but not actually in the SELECT FIELDS.
+        //  So columns referenced by GROUP BY, ORDER BY and not in SELECT.
+        //  These temp columns need to be removed after processing.
+        this.tableFields.addReferencedColumnstoSelectFieldList(ast);
     }
 
     /**
@@ -1442,7 +1450,7 @@ class SelectTables {
 
         switch (operator.toUpperCase()) {
             case "=":
-                keep = leftValue == rightValue;
+                keep = leftValue == rightValue;         // skipcq: JS-0050
                 break;
 
             case ">":
@@ -1462,11 +1470,11 @@ class SelectTables {
                 break;
 
             case "<>":
-                keep = leftValue != rightValue;
+                keep = leftValue != rightValue;         // skipcq: JS-0050
                 break;
 
             case "!=":
-                keep = leftValue != rightValue;
+                keep = leftValue != rightValue;         // skipcq: JS-0050
                 break;
 
             case "LIKE":
@@ -1768,6 +1776,26 @@ class SelectTables {
 
     /**
      * 
+     * @param {any[][]} viewTableData 
+     * @returns {any[][]}
+     */
+    removeTempColumns(viewTableData) {
+        let tempColumns = this.tableFields.getTempSelectedColumnNumbers();
+
+        if (tempColumns.length === 0)
+            return viewTableData;
+
+        for (let row of viewTableData) {
+            for (let col of tempColumns) {
+                row.splice(col, 1);
+            }
+        }
+
+        return viewTableData;    
+    }
+
+    /**
+     * 
      * @param {any[][]} tableData 
      * @param {Number} colIndex 
      * @returns {any[][]}
@@ -1991,6 +2019,12 @@ class CalculatedField {
      */
     evaluateCalculatedField(calculatedFormula, masterRecordID) {
         let result = "";
+
+        // e.g.  special case.  count(*)
+        if (calculatedFormula === "*") {
+            return "*";
+        }
+
         const functionString = this.sqlServerCalcFields(calculatedFormula, masterRecordID);
         try {
             result = new Function(functionString)();
@@ -2766,30 +2800,35 @@ class ConglomerateRecord {
         let groupValue = 0;
         let avgCounter = 0;
         let first = true;
+        let distinctSet = new Set();
 
         for (const groupRow of groupRecords) {
             if (groupRow[columnIndex] === 'null')
                 continue;
 
-            let data = parseFloat(groupRow[columnIndex]);
-            data = (isNaN(data)) ? 0 : data;
+            let numericData = parseFloat(groupRow[columnIndex]);
+            numericData = (isNaN(numericData)) ? 0 : numericData;
 
             switch (field.aggregateFunction) {
                 case "SUM":
-                    groupValue += data;
+                    groupValue += numericData;
                     break;
                 case "COUNT":
                     groupValue++;
+                    if (field.distinctSetting === "DISTINCT") {
+                        distinctSet.add(groupRow[columnIndex]);
+                        groupValue = distinctSet.size;
+                    } 
                     break;
                 case "MIN":
-                    groupValue = ConglomerateRecord.minCase(first, groupValue, data);
+                    groupValue = ConglomerateRecord.minCase(first, groupValue, numericData);
                     break;
                 case "MAX":
-                    groupValue = ConglomerateRecord.maxCase(first, groupValue, data);
+                    groupValue = ConglomerateRecord.maxCase(first, groupValue, numericData);
                     break;
                 case "AVG":
                     avgCounter++;
-                    groupValue += data;
+                    groupValue += numericData;
                     break;
                 default:
                     throw new Error(`Invalid aggregate function: ${field.aggregateFunction}`);
@@ -2991,8 +3030,13 @@ class TableFields {
      */
     getSelectFieldColumn(field) {
         const fld = this.getFieldInfo(field);
-        if (fld !== null) {
+        if (fld !== null && fld.selectColumn !== -1) {
             return fld.selectColumn;
+        }
+        for (const fld of this.getSelectFields()) {
+            if (fld.aliasNames.indexOf(field.toUpperCase()) !== -1) {
+                return fld.selectColumn;
+            }
         }
 
         return -1;
@@ -3000,17 +3044,18 @@ class TableFields {
 
     /**
      * Updates internal SELECTED field list.
-     * @param {*} astFields 
+     * @param {Object} astFields 
      */
     updateSelectFieldList(astFields) {
         let i = 0;
         for (const selField of astFields) {
-            const [columnName, aggregateFunctionName, calculatedField] = this.getSelectFieldNames(selField);
+            const [columnName, aggregateFunctionName, calculatedField, fieldDistinct] = this.getSelectFieldNames(selField);
             const columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
             if (calculatedField === null && this.hasField(columnName)) {
                 let fieldInfo = this.getFieldInfo(columnName);
                 if (aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
+                    //  A new SELECT field, not from existing.
                     const newFieldInfo = new TableField();
                     Object.assign(newFieldInfo, fieldInfo);
                     fieldInfo = newFieldInfo;
@@ -3022,6 +3067,7 @@ class TableFields {
                     .setAggregateFunction(aggregateFunctionName)
                     .setColumnTitle(columnTitle)
                     .setColumnName(selField.name)
+                    .setDistinctSetting(fieldDistinct)
                     .setSelectColumn(i);
 
                 this.indexTableField(fieldInfo);
@@ -3056,6 +3102,68 @@ class TableFields {
     }
 
     /**
+     * 
+     * @param {Object} ast 
+     */
+    addReferencedColumnstoSelectFieldList(ast) {
+        this.addTempMissingSelectedField(ast['GROUP BY']);
+        this.addTempMissingSelectedField(ast['ORDER BY']);
+    }
+
+    /**
+     * 
+     * @param {Object} astColumns 
+     */
+    addTempMissingSelectedField(astColumns) {
+        if (typeof astColumns !== 'undefined') {
+            for (let order of astColumns) {
+                if (this.getSelectFieldColumn(order.column) === -1) {
+                    let fieldInfo = this.getFieldInfo(order.column);
+
+                    //  A new SELECT field, not from existing.
+                    const newFieldInfo = new TableField();
+                    Object.assign(newFieldInfo, fieldInfo);
+                    newFieldInfo
+                        .setSelectColumn(this.getNextSelectColumnNumber())
+                        .setIsTempField(true);
+
+                    this.allFields.push(newFieldInfo);
+                }
+            }
+        }
+    }
+
+    /**
+     * 
+     * @returns {Number}
+     */
+    getNextSelectColumnNumber() {
+        let next = -1;
+        for (const fld of this.getSelectFields()) {
+            next = fld.selectColumn > next ? fld.selectColumn : next;
+        }
+
+        return next === -1 ? next : ++next;
+    }
+
+    /**
+     * 
+     * @returns {Number[]}
+     */
+    getTempSelectedColumnNumbers() {
+        let tempCols = [];
+        for (const fld of this.getSelectFields()) {
+            if (fld.tempField) {
+                tempCols.push(fld.selectColumn);
+            }
+        }
+        tempCols.sort();
+        tempCols.reverse();
+
+        return tempCols;
+    }
+
+    /**
      * @returns {TableField[]}
      */
     getSelectFields() {
@@ -3087,7 +3195,9 @@ class TableFields {
         const columnTitles = [];
 
         for (const fld of this.getSelectFields()) {
-            columnTitles.push(fld.columnTitle);
+            if (! fld.tempField) {
+                columnTitles.push(fld.columnTitle);
+            }
         }
 
         return columnTitles;
@@ -3120,6 +3230,7 @@ class TableFields {
     getSelectFieldNames(selField) {
         let columnName = selField.name;
         let aggregateFunctionName = "";
+        let fieldDistinct = "";
         const calculatedField = (typeof selField.terms === 'undefined') ? null : selField.terms;
 
         if (calculatedField === null && !this.hasField(columnName)) {
@@ -3129,11 +3240,23 @@ class TableFields {
                 aggregateFunctionName = matches[0].trim();
 
             matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName);
-            if (matches !== null && matches.length > 1)
+            if (matches !== null && matches.length > 1) {
                 columnName = matches[1];
+
+                //  e.g.  count(distinct field)
+                let distinctParts = columnName.split(" ");
+                if (distinctParts.length > 1) {
+                    const distinctModifiers = ["DISTINCT", "ALL"];
+                    if (distinctModifiers.includes(distinctParts[0].toUpperCase())) {
+                        fieldDistinct = distinctParts[0].toUpperCase();
+                        columnName = distinctParts[1];
+                    }
+                }
+
+            }
         }
 
-        return [columnName, aggregateFunctionName, calculatedField];
+        return [columnName, aggregateFunctionName, calculatedField, fieldDistinct];
     }
 
     /**
@@ -3159,10 +3282,12 @@ class TableField {
         this.fieldName = "";
         this.derivedTableColumn = -1;
         this.selectColumn = -1;
+        this.tempField = false;
         this.calculatedFormula = "";
         this.aggregateFunction = "";
         this.columnTitle = "";
         this.columnName = "";
+        this.distinctSetting = "";
         this._isPrimaryTable = false;
         /** @type {Table} */
         this.tableInfo = null;
@@ -3225,6 +3350,16 @@ class TableField {
     }
 
     /**
+     * Fields referenced BUT not in final output.
+     * @param {Boolean} value 
+     * @returns {TableField}
+     */
+    setIsTempField(value) {
+        this.tempField = value;
+        return this;
+    }
+
+    /**
      * 
      * @param {String} value 
      * @returns {TableField}
@@ -3262,6 +3397,11 @@ class TableField {
     setColumnName(columnName) {
         this.columnName = columnName;
         return this;
+    }
+
+    setDistinctSetting(distinctSetting) {
+        this.distinctSetting = distinctSetting;
+        return this
     }
 
     /**

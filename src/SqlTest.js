@@ -2605,6 +2605,137 @@ class SqlTester {
         return this.isEqual("selectInGroupByPivot3", data, expected);
     }
 
+    selectCount1() {
+        let stmt = "select count(*) from booksales";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["count(*)"],
+        [10]];
+
+        return this.isEqual("selectCount1", data, expected);
+    }
+
+    selectCount2() {
+        let stmt = "select customer_id, count(*) from booksales group by customer_id having count(*) > 1";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["customer_id", "count(*)"],
+        ["C1", 2],
+        ["C2", 3],
+        ["C4", 3]];
+
+        return this.isEqual("selectCount2", data, expected);
+    }
+
+    selectCount3() {
+        let stmt = "select count(distinct customer_id), count(distinct invoice) from booksales where customer_id <> ''";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["count(distinct customer_id)", "count(distinct invoice)"],
+        [4, 6]];
+
+        return this.isEqual("selectCount3", data, expected);
+    }
+
+    selectCount4() {
+        let stmt = "select count(distinct customer_id), count(distinct invoice) from booksales";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["count(distinct customer_id)", "count(distinct invoice)"],
+        [5, 7]];
+
+        return this.isEqual("selectCount4", data, expected);
+    }
+
+    selectCount5() {
+        let stmt = "select count(all customer_id), count(all invoice) from booksales";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["count(all customer_id)", "count(all invoice)"],
+        [10, 10]];
+
+        return this.isEqual("selectCount5", data, expected);
+    }
+
+    selectCount6() {
+        let stmt = "select avg(price), max(quantity), count(customer_id) from booksales group by customer_id";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["avg(price)", "max(quantity)", "count(customer_id)"],
+        [90, 1, 1],
+        [34.46, 10, 2],
+        [22.31, 100, 3],
+        [59.99, 1, 1],
+        [36.809999999999995, 150, 3]];
+
+        return this.isEqual("selectCount6", data, expected);
+    }
+
+    selectGroupByNotInSelect() {
+        let stmt = "select avg(price), max(quantity)  from booksales group by customer_id";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["avg(price)", "max(quantity)"],
+        [90, 1],
+        [34.46, 10],
+        [22.31, 100],
+        [59.99, 1],
+        [36.809999999999995, 150]];
+
+        return this.isEqual("selectGroupByNotInSelect", data, expected);
+    }
+
+    selectOrderByNotInSelect() {
+        let stmt = "select price, quantity from booksales order by customer_id";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["price", "quantity"],
+        [90, 1],
+        [34.95, 10],
+        [33.97, 1],
+        [29.95, 3],
+        [18.99, 5],
+        [17.99, 100],
+        [59.99, 1],
+        [65.49, 100],
+        [24.95, 150],
+        [19.99, 50]];
+
+        return this.isEqual("selectOrderByNotInSelect", data, expected);
+    }
+
     selectCoalesce() {
         let stmt = "select name, coalesce(dec, nov, oct, sep, aug, jul, jun, may, apr, mar, feb, jan) from yearlysales";
 
@@ -3460,6 +3591,14 @@ function testerSql() {
     result = result && tester.selectInGroupByPivot1();
     result = result && tester.selectInGroupByPivot2();
     result = result && tester.selectInGroupByPivot3();
+    result = result && tester.selectCount1();
+    result = result && tester.selectCount2();
+    result = result && tester.selectCount3();
+    result = result && tester.selectCount4();
+    result = result && tester.selectCount5();
+    result = result && tester.selectCount6();
+    result = result && tester.selectGroupByNotInSelect();
+    result = result && tester.selectOrderByNotInSelect();
     result = result && tester.selectCoalesce();
     result = result && tester.selectConcat_Ws();
     result = result && tester.selectConcat_Ws2();
