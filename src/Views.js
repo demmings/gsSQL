@@ -1897,8 +1897,7 @@ class TableFields {
                 tempCols.push(fld.selectColumn);
             }
         }
-        tempCols.sort();
-        tempCols.reverse();
+        tempCols.sort((a, b) => (b - a));
 
         return tempCols;
     }

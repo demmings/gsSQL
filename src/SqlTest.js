@@ -2713,6 +2713,26 @@ class SqlTester {
         return this.isEqual("selectGroupByNotInSelect", data, expected);
     }
 
+    selectGroupByNotInSelect2() {
+        let stmt = "select avg(price), max(quantity)  from booksales group by customer_id, date";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["avg(price)", "max(quantity)"],
+        [90, 1],
+        [34.95, 10],
+        [33.97, 1],
+        [24.47, 5],
+        [17.99, 100],
+        [59.99, 1],
+        [36.809999999999995, 150]];
+
+        return this.isEqual("selectGroupByNotInSelect2", data, expected);
+    }
+
     selectOrderByNotInSelect() {
         let stmt = "select price, quantity from booksales order by customer_id";
 
@@ -3598,6 +3618,7 @@ function testerSql() {
     result = result && tester.selectCount5();
     result = result && tester.selectCount6();
     result = result && tester.selectGroupByNotInSelect();
+    result = result && tester.selectGroupByNotInSelect2();
     result = result && tester.selectOrderByNotInSelect();
     result = result && tester.selectCoalesce();
     result = result && tester.selectConcat_Ws();
