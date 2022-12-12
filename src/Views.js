@@ -530,7 +530,7 @@ class SelectTables {
             }
         }
 
-        return viewTableData;    
+        return viewTableData;
     }
 
     /**
@@ -1557,7 +1557,7 @@ class ConglomerateRecord {
                     if (field.distinctSetting === "DISTINCT") {
                         distinctSet.add(groupRow[columnIndex]);
                         groupValue = distinctSet.size;
-                    } 
+                    }
                     break;
                 case "MIN":
                     groupValue = ConglomerateRecord.minCase(first, groupValue, numericData);
@@ -1890,6 +1890,7 @@ class TableFields {
      * @returns {Number[]}
      */
     getTempSelectedColumnNumbers() {
+        /** @type {Number[]} */
         let tempCols = [];
         for (const fld of this.getSelectFields()) {
             if (fld.tempField) {
@@ -1934,7 +1935,7 @@ class TableFields {
         const columnTitles = [];
 
         for (const fld of this.getSelectFields()) {
-            if (! fld.tempField) {
+            if (!fld.tempField) {
                 columnTitles.push(fld.columnTitle);
             }
         }
