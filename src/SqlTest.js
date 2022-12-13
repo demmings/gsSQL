@@ -2173,6 +2173,29 @@ class SqlTester {
         return success;
     }
 
+    selectFuncs6() {
+        let stmt = "select date, year(date), month(date), day(date) from booksales";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["date", "year(date)", "month(date)", "day(date)"],
+        ["05/01/2022", 2022, 5, 1],
+        ["05/01/2022", 2022, 5, 1],
+        ["05/01/2022", 2022, 5, 1],
+        ["05/02/2022", 2022, 5, 2],
+        ["05/02/2022", 2022, 5, 2],
+        ["05/03/2022", 2022, 5, 3],
+        ["05/03/2022", 2022, 5, 3],
+        ["05/03/2022", 2022, 5, 3],
+        ["05/04/2022", 2022, 5, 4],
+        ["05/04/2022", 2022, 5, 4]];
+
+        return this.isEqual("selectFuncs6", data, expected);
+    }
+
     selectFuncInFunc1() {
         let stmt = "select email, upper(substring(email, 5, 5)), trim(upper(email)) from customers";
 
@@ -3592,6 +3615,7 @@ function testerSql() {
     result = result && tester.selectFuncs3();
     result = result && tester.selectFuncs4();
     result = result && tester.selectFuncs5();
+    result = result && tester.selectFuncs6();
     result = result && tester.selectFuncInFunc1();
     result = result && tester.selectFuncInFunc2();
     result = result && tester.selectIF1();

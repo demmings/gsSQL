@@ -1780,13 +1780,13 @@ class SelectTables {
      * @returns {any[][]}
      */
     removeTempColumns(viewTableData) {
-        let tempColumns = this.tableFields.getTempSelectedColumnNumbers();
+        const tempColumns = this.tableFields.getTempSelectedColumnNumbers();
 
         if (tempColumns.length === 0)
             return viewTableData;
 
-        for (let row of viewTableData) {
-            for (let col of tempColumns) {
+        for (const row of viewTableData) {
+            for (const col of tempColumns) {
                 row.splice(col, 1);
             }
         }
@@ -2478,9 +2478,9 @@ class SqlServerFunctions {
      * @returns {String}
      */
     convertToJs(calculatedFormula, masterFields) {
-        const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT_WS", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
-            "LTRIM", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
-            "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER"];
+        const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT_WS", "DAY", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+            "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
+            "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
         this.matchCaseWhenThenStr = /WHEN(.*?)THEN(.*?)(?=WHEN|ELSE|$)|ELSE(.*?)(?=$)/;
         this.originalCaseStatement = "";
         this.originalFunctionString = "";
@@ -2517,6 +2517,9 @@ class SqlServerFunctions {
                     case "CONCAT_WS":
                         replacement = SqlServerFunctions.concat_ws(parms, masterFields);
                         break;
+                    case "DAY":
+                        replacement = `new Date(${parms[0]}).getDate()`;
+                        break;                        
                     case "FLOOR":
                         replacement = `Math.floor(${parms[0]})`;
                         break;
@@ -2544,6 +2547,9 @@ class SqlServerFunctions {
                         break;
                     case "LTRIM":
                         replacement = `${parms[0]}.trimStart()`;
+                        break;
+                    case "MONTH":
+                        replacement = `new Date(${parms[0]}).getMonth() + 1`;
                         break;
                     case "NOW":
                         replacement = "new Date().toLocaleString()";
@@ -2586,6 +2592,9 @@ class SqlServerFunctions {
                         break;
                     case "UPPER":
                         replacement = `${parms[0]}.toUpperCase()`;
+                        break;
+                    case "YEAR":
+                        replacement = `new Date(${parms[0]}).getFullYear()`;
                         break;
                     default:
                         throw new Error(`Internal Error. Function is missing. ${func}`);
@@ -2800,7 +2809,7 @@ class ConglomerateRecord {
         let groupValue = 0;
         let avgCounter = 0;
         let first = true;
-        let distinctSet = new Set();
+        const distinctSet = new Set();
 
         for (const groupRow of groupRecords) {
             if (groupRow[columnIndex] === 'null')
@@ -3029,11 +3038,12 @@ class TableFields {
      * @returns {Number}
      */
     getSelectFieldColumn(field) {
-        const fld = this.getFieldInfo(field);
+        let fld = this.getFieldInfo(field);
         if (fld !== null && fld.selectColumn !== -1) {
             return fld.selectColumn;
         }
-        for (const fld of this.getSelectFields()) {
+
+        for (fld of this.getSelectFields()) {
             if (fld.aliasNames.indexOf(field.toUpperCase()) !== -1) {
                 return fld.selectColumn;
             }
@@ -3116,9 +3126,9 @@ class TableFields {
      */
     addTempMissingSelectedField(astColumns) {
         if (typeof astColumns !== 'undefined') {
-            for (let order of astColumns) {
+            for (const order of astColumns) {
                 if (this.getSelectFieldColumn(order.column) === -1) {
-                    let fieldInfo = this.getFieldInfo(order.column);
+                    const fieldInfo = this.getFieldInfo(order.column);
 
                     //  A new SELECT field, not from existing.
                     const newFieldInfo = new TableField();
@@ -3152,7 +3162,7 @@ class TableFields {
      */
     getTempSelectedColumnNumbers() {
         /** @type {Number[]} */
-        let tempCols = [];
+        const tempCols = [];
         for (const fld of this.getSelectFields()) {
             if (fld.tempField) {
                 tempCols.push(fld.selectColumn);
@@ -3244,7 +3254,7 @@ class TableFields {
                 columnName = matches[1];
 
                 //  e.g.  count(distinct field)
-                let distinctParts = columnName.split(" ");
+                const distinctParts = columnName.split(" ");
                 if (distinctParts.length > 1) {
                     const distinctModifiers = ["DISTINCT", "ALL"];
                     if (distinctModifiers.includes(distinctParts[0].toUpperCase())) {
