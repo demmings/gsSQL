@@ -452,6 +452,7 @@ let data = new Sql()
   * "CHARINDEX",
   * "COALESCE",
   * "CONCAT_WS", 
+  * "DAY",
   * "FLOOR", 
   * "IF", 
   * "LEFT", 
@@ -461,6 +462,7 @@ let data = new Sql()
   * "LOG10", 
   * "LOWER",
   * "LTRIM", 
+  * "MONTH",
   * "NOW", 
   * "POWER", 
   * "RAND", 
@@ -474,7 +476,8 @@ let data = new Sql()
   * "SUBSTRING", 
   * "SQRT", 
   * "TRIM", 
-  * "UPPER"
+  * "UPPER",
+  * "YEAR"
 * Logical Operators.
   *  '='
   *  '>'

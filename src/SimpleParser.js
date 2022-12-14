@@ -801,16 +801,18 @@ CondParser.prototype = {
     parseSelectIn: function (startAstNode, isSelectStatement) {
         let astNode = startAstNode;
         let inCurrentToken = this.currentToken;
-        while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
+        let bracketCount = 1;
+        while (bracketCount !== 0 && inCurrentToken.type !== 'eot') {
             this.readNextToken();
-            if (inCurrentToken.type !== 'group') {
-                if (isSelectStatement)
-                    astNode += ` ${inCurrentToken.value}`;
-                else
-                    astNode += `, ${inCurrentToken.value}`;
+            if (isSelectStatement) {
+                astNode += ` ${inCurrentToken.value}`;
+            }
+            else {
+                astNode += `, ${inCurrentToken.value}`;
             }
 
             inCurrentToken = this.currentToken;
+            bracketCount += this.groupBracketIncrementer(inCurrentToken);
         }
 
         if (isSelectStatement) {
@@ -818,8 +820,21 @@ CondParser.prototype = {
         }
 
         return astNode;
-    }
+    },
 
+    groupBracketIncrementer: function (inCurrentToken) {
+        let diff = 0;
+        if (inCurrentToken.type === 'group') {
+            if (inCurrentToken.value === '(') {
+                diff = 1;
+            }
+            else if (inCurrentToken.value === ')') {
+                diff = -1;
+            }
+        }
+
+        return diff
+    }
 };
 
 // Parse a string

@@ -454,6 +454,7 @@ class TestSql extends Sql {
             //  Write out expected results.
             if (testCase.data.length > 0) {
                 let expectedRange = sheet.getRange(lastRow, 3 + testCase.data[0].length, testCase.data.length, testCase.data[0].length);
+                // expectedRange.setNumberFormat("@");
                 expectedRange.setValues(testCase.data);
                 expectedRange.setFontWeight("bold").setBackground("yellow");
 
@@ -2865,6 +2866,41 @@ class SqlTester {
         return this.isEqual("selectNoTitle1", data, expected);
     }
 
+
+    selectNested() {
+        let stmt = "select * from books where id in (select book_id from booksales where price > (select avg(price) from booksales))";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID"],
+        ["1", "Time to Grow Up!", "original", "11", "21", ""],
+        ["2", "Your Trip", "translated", "15", "22", "32"],
+        ["9", "Book with Mysterious Author", "translated", "1", "23", "34"]];
+
+        return this.isEqual("selectNested", data, expected);
+    }
+
+    selectNested2() {
+        let stmt = "select last_name from authors where id in (select author_id from books where id in (select book_id from booksales where price > (select avg(price) from booksales)))";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["last_name"],
+        ["Writer"],
+        ["Dou"]];
+
+        return this.isEqual("selectNested2", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S TS
     parseTableSettings1() {
         let data = parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
@@ -3648,6 +3684,8 @@ function testerSql() {
     result = result && tester.selectConcat_Ws();
     result = result && tester.selectConcat_Ws2();
     result = result && tester.selectNoTitle1();
+    result = result && tester.selectNested();
+    result = result && tester.selectNested2();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();
