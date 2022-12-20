@@ -869,16 +869,35 @@ class SelectKeywordAnalysis {
                 terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
             }
             if (field !== "*" && terms !== null && terms.length > 1) {
+                const astSelect = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
                 return {
                     name: field,
                     terms: terms,
-                    as: alias
+                    as: alias,
+                    subQuery: astSelect
                 };
             }
             return { name: field, as: alias };
         });
 
         return selectResult;
+    }
+
+    /**
+     * 
+     * @param {String} selectField 
+     */
+    static parseForCorrelatedSubQuery(selectField) {
+        let subQueryAst = null;
+
+        var regExp = /\(\s*(SELECT[\s\S]+)\)/;
+        var matches = regExp.exec(selectField.toUpperCase());
+
+        if (matches !== null && matches.length > 1) {
+            subQueryAst = SqlParse.sql2ast(matches[1]);
+        }
+
+        return subQueryAst;
     }
 
     static FROM(str) {

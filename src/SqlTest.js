@@ -2901,6 +2901,53 @@ class SqlTester {
         return this.isEqual("selectNested2", data, expected);
     }
 
+    selectCorrelatedSubQuery1() {
+        let stmt = "select id, title, (select count(*) from booksales where books.id = booksales.book_id) from books";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["id", "title", "(select count(*) from booksales where books.id = booksales.book_id)"],
+        ["1", "Time to Grow Up!", 1],
+        ["2", "Your Trip", 1],
+        ["3", "Lovely Love", 1],
+        ["4", "Dream Your Life", 1],
+        ["5", "Oranges", ""],
+        ["6", "Your Happy Life", ""],
+        ["7", "Applied AI", 3],
+        ["9", "Book with Mysterious Author", 2],
+        ["8", "My Last Book", 1]];
+
+        return this.isEqual("selectCorrelatedSubQuery1", data, expected);
+    }
+
+    selectCorrelatedSubQuery2() {
+        let stmt =  "select id, title from books where (select count(*)  from booksales where books.id = booksales.book_id) > 1";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["id", "title", "(select count(*) from booksales where books.id = booksales.book_id)"],
+        ["1", "Time to Grow Up!", 1],
+        ["2", "Your Trip", 1],
+        ["3", "Lovely Love", 1],
+        ["4", "Dream Your Life", 1],
+        ["5", "Oranges", ""],
+        ["6", "Your Happy Life", ""],
+        ["7", "Applied AI", 3],
+        ["9", "Book with Mysterious Author", 2],
+        ["8", "My Last Book", 1]];
+
+        return this.isEqual("selectCorrelatedSubQuery2", data, expected);
+    }
+
+   
     //  S T A R T   O T H E R   T E S TS
     parseTableSettings1() {
         let data = parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
@@ -3686,6 +3733,8 @@ function testerSql() {
     result = result && tester.selectNoTitle1();
     result = result && tester.selectNested();
     result = result && tester.selectNested2();
+    result = result && tester.selectCorrelatedSubQuery1();
+    // result = result && tester.selectCorrelatedSubQuery2();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();

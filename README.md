@@ -31,6 +31,9 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
 * Make a copy of my test sheet and try out the custom function yourself:
   * https://docs.google.com/spreadsheets/d/1Zmyk7a7u0xvICrxen-c0CdpssrLTkHwYx6XL00Tb1ws/edit?usp=sharing
 
+* For ongoing detailed posts regarding any of my custom functions, see my website:
+  * https://demmings.github.io/
+
 </td>
 </tr>
 </table>

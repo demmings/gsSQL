@@ -137,7 +137,6 @@ class SelectTables {
 
             if (SelectTables.isConditionTrue(leftValue, condition.operator, rightValue))
                 recordIDs.push(masterRecordID);
-
         }
 
         return recordIDs;
@@ -255,6 +254,7 @@ class SelectTables {
     getViewData(recordIDs) {
         const virtualData = [];
         const calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
+        const subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields);
 
         for (const masterRecordID of recordIDs) {
             const newRow = [];
@@ -262,6 +262,10 @@ class SelectTables {
             for (const field of this.tableFields.getSelectFields()) {
                 if (field.tableInfo !== null)
                     newRow.push(field.getData(masterRecordID));
+                else if (field.subQueryAst !== null) {
+                    const result = subQuery.select(field, masterRecordID, calcSqlField);
+                    newRow.push(result[0][0]);
+                }
                 else if (field.calculatedFormula !== "") {
                     const result = calcSqlField.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
                     newRow.push(result);
@@ -859,7 +863,100 @@ class CalculatedField {
 
         return functionString;
     }
+}
 
+class CorrelatedSubQuery {
+    /**
+     * 
+     * @param {Map<String, Table>} tableInfo 
+     * @param {TableFields} tableFields 
+     */
+    constructor(tableInfo, tableFields) {
+        this.tableInfo = tableInfo;
+        this.tableFields = tableFields;
+    }
+    /**
+     * 
+     * @param {TableField} field 
+     * @param {Number} masterRecordID
+     * @param {CalculatedField} calcSqlField
+     * @returns {any}
+     */
+
+
+    select(field, masterRecordID, calcSqlField) {
+        const inSQL = new Sql().setTables(this.tableInfo);
+
+        let innerTableInfo = this.tableInfo.get(field.subQueryAst.FROM[0].table);
+        if (typeof innerTableInfo === 'undefined')
+            throw new Error(`No table data found: ${field.subQueryAst.FROM[0].table}`);
+
+        //  Add BIND variable for all matching fields in WHERE.
+        let tempAst = JSON.parse(JSON.stringify(field.subQueryAst));
+
+        const bindVariables = this.replaceOuterFieldValueInCorrelatedWhere(calcSqlField.masterFields, masterRecordID, tempAst);
+
+        inSQL.setBindValues(bindVariables);
+        const inData = inSQL.select(tempAst);
+
+        return inData;
+    }
+
+    /**
+     * If we find the field name in the AST, just replace with '?' and return true.
+     * @param {TableField[]} fieldNames 
+     * @param {Number} masterRecordID
+     * @param {Object} tempAst 
+     * @returns {any[]}
+     */
+    replaceOuterFieldValueInCorrelatedWhere(fieldNames, masterRecordID, tempAst) {
+        let where = tempAst.WHERE;
+
+        if (typeof where === 'undefined')
+            return [];
+
+        let bindData = [];
+        if (typeof where.logic === 'undefined')
+            bindData = this.traverseWhere(fieldNames, [where]);
+        else
+            bindData = this.traverseWhere(fieldNames, where.terms);
+
+        for (let i = 0; i < bindData.length; i++) {
+            let fldName = bindData[i];
+            for (let vField of fieldNames) {
+                if (fldName === vField.fieldName) {
+                    bindData[i] = vField.getData(masterRecordID);
+                    break;
+                }
+            }
+        }
+
+        return bindData;
+    }
+
+    traverseWhere(fieldNames, terms) {
+        const recordIDs = [];
+
+        for (const cond of terms) {
+            if (typeof cond.logic === 'undefined') {
+                let result = fieldNames.find(item => item.fieldName === cond.left);
+                if (typeof result !== 'undefined') {
+                    recordIDs.push(cond.left);
+                    cond.left = '?';
+                }
+                result = fieldNames.find(item => item.fieldName === cond.right);
+                if (typeof result !== 'undefined') {
+                    recordIDs.push(cond.right);
+                    cond.right = '?';
+                }
+            }
+            else {
+                recordIDs.push(fieldNames, this.traverseWhere(cond.terms));
+            }
+        }
+
+        return recordIDs;
+    }
 }
 
 class VirtualFields {
@@ -1258,7 +1355,7 @@ class SqlServerFunctions {
                         break;
                     case "DAY":
                         replacement = `new Date(${parms[0]}).getDate()`;
-                        break;                        
+                        break;
                     case "FLOOR":
                         replacement = `Math.floor(${parms[0]})`;
                         break;
@@ -1829,7 +1926,8 @@ class TableFields {
                     .setColumnTitle(columnTitle)
                     .setColumnName(selField.name)
                     .setSelectColumn(i)
-                    .setCalculatedFormula(selField.name);
+                    .setCalculatedFormula(selField.name)
+                    .setSubQueryAst(selField.subQuery);
 
                 this.indexTableField(fieldInfo);
             }
@@ -2037,6 +2135,7 @@ class TableField {
         this.columnTitle = "";
         this.columnName = "";
         this.distinctSetting = "";
+        this.subQueryAst = null;
         this._isPrimaryTable = false;
         /** @type {Table} */
         this.tableInfo = null;
@@ -2125,6 +2224,16 @@ class TableField {
      */
     setCalculatedFormula(value) {
         this.calculatedFormula = value;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Object} ast 
+     * @returns {TableField}
+     */
+    setSubQueryAst(ast) {
+        this.subQueryAst = ast;
         return this;
     }
 
