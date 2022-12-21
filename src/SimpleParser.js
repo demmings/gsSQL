@@ -886,12 +886,13 @@ class SelectKeywordAnalysis {
     /**
      * 
      * @param {String} selectField 
+     * @returns {Object}
      */
     static parseForCorrelatedSubQuery(selectField) {
         let subQueryAst = null;
 
-        var regExp = /\(\s*(SELECT[\s\S]+)\)/;
-        var matches = regExp.exec(selectField.toUpperCase());
+        const regExp = /\(\s*(SELECT[\s\S]+)\)/;
+        const matches = regExp.exec(selectField.toUpperCase());
 
         if (matches !== null && matches.length > 1) {
             subQueryAst = SqlParse.sql2ast(matches[1]);

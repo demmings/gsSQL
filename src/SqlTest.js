@@ -2925,7 +2925,7 @@ class SqlTester {
     }
 
     selectCorrelatedSubQuery2() {
-        let stmt =  "select id, title from books where (select count(*)  from booksales where books.id = booksales.book_id) > 1";
+        let stmt = "select id, title from books where (select count(*)  from booksales where books.id = booksales.book_id) > 1";
 
         let data = new TestSql()
             .addTableData("books", this.bookTable())
@@ -2947,7 +2947,7 @@ class SqlTester {
         return this.isEqual("selectCorrelatedSubQuery2", data, expected);
     }
 
-   
+
     //  S T A R T   O T H E R   T E S TS
     parseTableSettings1() {
         let data = parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
@@ -3030,6 +3030,26 @@ class SqlTester {
         ["CUSTOMERS", "CUSTOMERS", 60, true]];
 
         return this.isEqual("parseTableSettings7", data, expected);
+    }
+
+    parseTableSettings8() {
+        let stmt = "select id, title, (select count(*) from booksales where books.id = booksales.book_id) from books";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKS", "BOOKS", 60, true],
+        ["BOOKSALES", "BOOKSALES", 60, true]];
+
+        return this.isEqual("parseTableSettings8", data, expected);
+    }
+
+    parseTableSettings9() {
+        let stmt = "select concat_ws('-', *) as Concatenated from booksales left join customers on booksales.customer_id = customers.id where concat_ws('-', *) like '%Way%'";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKSALES", "BOOKSALES", 60, true],
+        ["CUSTOMERS", "CUSTOMERS", 60, true]];
+
+        return this.isEqual("parseTableSettings9", data, expected);
     }
 
     //  Mock the GAS sheets functions required to load.
@@ -3767,6 +3787,8 @@ function testerSql() {
     result = result && tester.parseTableSettings5();
     result = result && tester.parseTableSettings6();
     result = result && tester.parseTableSettings7();
+    result = result && tester.parseTableSettings8();
+    result = result && tester.parseTableSettings9();
     result = result && tester.testTableData1();
     result = result && tester.badParseTableSettings1();
 

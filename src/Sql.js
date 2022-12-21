@@ -377,6 +377,7 @@ class Sql {
         Sql.getTableNamesUnion(ast, tableSet);
         Sql.getTableNamesWhereIn(ast, tableSet);
         Sql.getTableNamesWhereTerms(ast, tableSet);
+        Sql.getTableNamesCorrelatedSelect(ast, tableSet);
     }
 
     /**
@@ -441,6 +442,16 @@ class Sql {
             for (const term of ast.WHERE.terms) {
                 this.extractAstTables(term, tableSet);
             }
+        }
+    }
+
+    static getTableNamesCorrelatedSelect(ast, tableSet) {
+        if (typeof ast.SELECT !== 'undefined') {
+            for (const term of ast.SELECT) {
+                if (typeof term.subQuery !== 'undefined' && term.subQuery !== null) {
+                    this.extractAstTables(term.subQuery, tableSet);  
+                }
+            }    
         }
     }
 

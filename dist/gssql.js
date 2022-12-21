@@ -377,6 +377,7 @@ class Sql {
         Sql.getTableNamesUnion(ast, tableSet);
         Sql.getTableNamesWhereIn(ast, tableSet);
         Sql.getTableNamesWhereTerms(ast, tableSet);
+        Sql.getTableNamesCorrelatedSelect(ast, tableSet);
     }
 
     /**
@@ -441,6 +442,16 @@ class Sql {
             for (const term of ast.WHERE.terms) {
                 this.extractAstTables(term, tableSet);
             }
+        }
+    }
+
+    static getTableNamesCorrelatedSelect(ast, tableSet) {
+        if (typeof ast.SELECT !== 'undefined') {
+            for (const term of ast.SELECT) {
+                if (typeof term.subQuery !== 'undefined' && term.subQuery !== null) {
+                    this.extractAstTables(term.subQuery, tableSet);  
+                }
+            }    
         }
     }
 
@@ -2148,12 +2159,12 @@ class CorrelatedSubQuery {
     select(field, masterRecordID, calcSqlField) {
         const inSQL = new Sql().setTables(this.tableInfo);
 
-        let innerTableInfo = this.tableInfo.get(field.subQueryAst.FROM[0].table);
+        const innerTableInfo = this.tableInfo.get(field.subQueryAst.FROM[0].table);
         if (typeof innerTableInfo === 'undefined')
             throw new Error(`No table data found: ${field.subQueryAst.FROM[0].table}`);
 
         //  Add BIND variable for all matching fields in WHERE.
-        let tempAst = JSON.parse(JSON.stringify(field.subQueryAst));
+        const tempAst = JSON.parse(JSON.stringify(field.subQueryAst));
 
         const bindVariables = this.replaceOuterFieldValueInCorrelatedWhere(calcSqlField.masterFields, masterRecordID, tempAst);
 
@@ -2171,7 +2182,7 @@ class CorrelatedSubQuery {
      * @returns {any[]}
      */
     replaceOuterFieldValueInCorrelatedWhere(fieldNames, masterRecordID, tempAst) {
-        let where = tempAst.WHERE;
+        const where = tempAst.WHERE;
 
         if (typeof where === 'undefined')
             return [];
@@ -2183,8 +2194,8 @@ class CorrelatedSubQuery {
             bindData = this.traverseWhere(fieldNames, where.terms);
 
         for (let i = 0; i < bindData.length; i++) {
-            let fldName = bindData[i];
-            for (let vField of fieldNames) {
+            const fldName = bindData[i];
+            for (const vField of fieldNames) {
                 if (fldName === vField.fieldName) {
                     bindData[i] = vField.getData(masterRecordID);
                     break;
@@ -4469,12 +4480,13 @@ class SelectKeywordAnalysis {
     /**
      * 
      * @param {String} selectField 
+     * @returns {Object}
      */
     static parseForCorrelatedSubQuery(selectField) {
         let subQueryAst = null;
 
-        var regExp = /\(\s*(SELECT[\s\S]+)\)/;
-        var matches = regExp.exec(selectField.toUpperCase());
+        const regExp = /\(\s*(SELECT[\s\S]+)\)/;
+        const matches = regExp.exec(selectField.toUpperCase());
 
         if (matches !== null && matches.length > 1) {
             subQueryAst = SqlParse.sql2ast(matches[1]);
