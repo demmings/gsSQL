@@ -349,10 +349,14 @@ class Sql {
      * @returns {String[][]}
      */
     static getReferencedTableNames(statement) {
+        const ast = SqlParse.sql2ast(statement);
+        return this.getReferencedTableNamesFromAst(ast);
+    }
+
+    static getReferencedTableNamesFromAst(ast) {
         const DEFAULT_CACHE_SECONDS = 60;
         const DEFAULT_COLUMNS_OUTPUT = true;
         const tableSet = new Map();
-        const ast = SqlParse.sql2ast(statement);
 
         Sql.extractAstTables(ast, tableSet);
 

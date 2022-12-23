@@ -2925,7 +2925,7 @@ class SqlTester {
     }
 
     selectCorrelatedSubQuery2() {
-        let stmt = "select id, title from books where (select count(*)  from booksales where books.id = booksales.book_id) > 1";
+        let stmt = "select id, title, (select count(*) from booksales where books.id = booksales.book_id) as 'Sold' from books where (select count(*)  from booksales where books.id = booksales.book_id) > 1";
 
         let data = new TestSql()
             .addTableData("books", this.bookTable())
@@ -2933,16 +2933,9 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["id", "title", "(select count(*) from booksales where books.id = booksales.book_id)"],
-        ["1", "Time to Grow Up!", 1],
-        ["2", "Your Trip", 1],
-        ["3", "Lovely Love", 1],
-        ["4", "Dream Your Life", 1],
-        ["5", "Oranges", ""],
-        ["6", "Your Happy Life", ""],
+        let expected = [["id", "title", "Sold"],
         ["7", "Applied AI", 3],
-        ["9", "Book with Mysterious Author", 2],
-        ["8", "My Last Book", 1]];
+        ["9", "Book with Mysterious Author", 2]];
 
         return this.isEqual("selectCorrelatedSubQuery2", data, expected);
     }
@@ -3217,6 +3210,25 @@ class SqlTester {
         }
 
         return this.isFail("selectBadField1", ex);
+    }
+
+    selectBadField1a() {
+        //  A SELECT you would encounter in the sub-query of a correlated lookup.
+        let stmt = "select count(*) from booksales where books.id = booksales.book_id";
+
+        let testSQL = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadField1a", ex);
     }
 
     selectBadField2() {
@@ -3754,11 +3766,12 @@ function testerSql() {
     result = result && tester.selectNested();
     result = result && tester.selectNested2();
     result = result && tester.selectCorrelatedSubQuery1();
-    // result = result && tester.selectCorrelatedSubQuery2();
+    result = result && tester.selectCorrelatedSubQuery2();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();
     result = result && tester.selectBadField1();
+    result = result && tester.selectBadField1a();
     result = result && tester.selectBadField2();
     result = result && tester.selectBadField3();
     result = result && tester.selectBadField4();

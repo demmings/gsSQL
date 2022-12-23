@@ -157,8 +157,9 @@ class SelectTables {
         let fieldTable = null;
         /** @type {String} */
         let fieldCalculatedField = "";
+        let fieldCorrelatedSubQuery = null;
 
-        [fieldTable, fieldCol, fieldConstant, fieldCalculatedField] = fieldConditions;
+        [fieldTable, fieldCol, fieldConstant, fieldCalculatedField, fieldCorrelatedSubQuery] = fieldConditions;
 
         let leftValue = fieldConstant;
         if (fieldCol >= 0) {
@@ -171,6 +172,11 @@ class SelectTables {
             else {
                 leftValue = calcSqlField.evaluateCalculatedField(fieldCalculatedField, masterRecordID);
             }
+        }
+        else if (fieldCorrelatedSubQuery !== null) {
+            let arrayResult = fieldCorrelatedSubQuery.select(null, masterRecordID, calcSqlField);
+            if (typeof arrayResult !== 'undefined' && arrayResult !== null && arrayResult.length > 0)
+                leftValue = arrayResult[0][0];
         }
 
         return leftValue;
@@ -602,13 +608,24 @@ class SelectTables {
         let fieldConditionTableInfo = null;
         /** @type {String} */
         let calculatedField = "";
+        let subQuery = null;
 
         //  Maybe a SELECT within...
         if (typeof fieldCondition.SELECT !== 'undefined') {
-            const inSQL = new Sql().setTables(this.tableInfo);
+            const subQueryTableInfo = this.getSubQueryTableSet(fieldCondition, this.tableInfo);
+
+            const inSQL = new Sql().setTables(subQueryTableInfo);
             inSQL.setBindValues(this.bindVariables);
-            const inData = inSQL.select(fieldCondition);
-            constantData = inData.join(",");
+            let inData = null;
+            try {
+                inData = inSQL.select(fieldCondition);
+                constantData = inData.join(",");
+            }
+            catch (ex) {
+                // IF (big if) a correlated sub-query, it will fail trying to reference a field
+                // from the outer query.
+                subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields, fieldCondition);
+            }
         }
         else if (SelectTables.isStringConstant(fieldCondition))
             constantData = SelectTables.extractStringConstant(fieldCondition);
@@ -633,7 +650,29 @@ class SelectTables {
                 constantData = fieldCondition;
         }
 
-        return [fieldConditionTableInfo, columnNumber, constantData, calculatedField];
+        return [fieldConditionTableInfo, columnNumber, constantData, calculatedField, subQuery];
+    }
+
+    /**
+     * 
+     * @param {Object} ast 
+     * @param {Map<String,Table>} tableInfo 
+     * @returns {Map<String,Table>}
+     */
+    getSubQueryTableSet(ast, tableInfo) {
+        let tableSubSet = new Map();
+        const selectTables = Sql.getReferencedTableNamesFromAst(ast);
+
+        for (const found of selectTables) {
+            if (found[0] !== ""  && ! tableSubSet.has(found[0])) {
+                tableSubSet.set(found[0], tableInfo.get(found[0]));
+            }
+            if (found[1] !== ""  && ! tableSubSet.has(found[1])) {
+                tableSubSet.set(found[1], tableInfo.get(found[1]));
+            }
+        }
+
+        return tableSubSet;
     }
 
     /**
@@ -871,10 +910,12 @@ class CorrelatedSubQuery {
      * @param {Map<String, Table>} tableInfo 
      * @param {TableFields} tableFields 
      */
-    constructor(tableInfo, tableFields) {
+    constructor(tableInfo, tableFields, defaultSubQuery = null) {
         this.tableInfo = tableInfo;
         this.tableFields = tableFields;
+        this.defaultSubQuery = defaultSubQuery;
     }
+
     /**
      * 
      * @param {TableField} field 
@@ -882,17 +923,16 @@ class CorrelatedSubQuery {
      * @param {CalculatedField} calcSqlField
      * @returns {any}
      */
-
-
     select(field, masterRecordID, calcSqlField) {
         const inSQL = new Sql().setTables(this.tableInfo);
+        const subQueryAst = field !== null ? field.subQueryAst : this.defaultSubQuery;
 
-        const innerTableInfo = this.tableInfo.get(field.subQueryAst.FROM[0].table);
+        const innerTableInfo = this.tableInfo.get(subQueryAst.FROM[0].table.toUpperCase());
         if (typeof innerTableInfo === 'undefined')
-            throw new Error(`No table data found: ${field.subQueryAst.FROM[0].table}`);
+            throw new Error(`No table data found: ${subQueryAst.FROM[0].table}`);
 
         //  Add BIND variable for all matching fields in WHERE.
-        const tempAst = JSON.parse(JSON.stringify(field.subQueryAst));
+        const tempAst = JSON.parse(JSON.stringify(subQueryAst));
 
         const bindVariables = this.replaceOuterFieldValueInCorrelatedWhere(calcSqlField.masterFields, masterRecordID, tempAst);
 
@@ -939,14 +979,14 @@ class CorrelatedSubQuery {
 
         for (const cond of terms) {
             if (typeof cond.logic === 'undefined') {
-                let result = fieldNames.find(item => item.fieldName === cond.left);
+                let result = fieldNames.find(item => item.fieldName === cond.left.toUpperCase());
                 if (typeof result !== 'undefined') {
-                    recordIDs.push(cond.left);
+                    recordIDs.push(cond.left.toUpperCase());
                     cond.left = '?';
                 }
-                result = fieldNames.find(item => item.fieldName === cond.right);
+                result = fieldNames.find(item => item.fieldName === cond.right.toUpperCase());
                 if (typeof result !== 'undefined') {
-                    recordIDs.push(cond.right);
+                    recordIDs.push(cond.right.toUpperCase());
                     cond.right = '?';
                 }
             }
