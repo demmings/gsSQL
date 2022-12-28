@@ -2941,6 +2941,39 @@ class SqlTester {
     }
 
 
+    selectCorrelatedSubQuery3() {
+        let stmt = "select * from customers where exists (SELECT * FROM booksales WHERE booksales.customer_id = customers.id) and email like '%gmail.com' ";
+
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL"],
+        ["C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"]];
+
+        return this.isEqual("selectCorrelatedSubQuery3", data, expected);
+    }
+
+    selectCorrelatedSubQuery4() {
+        let stmt = "select * from customers where not exists (SELECT * FROM booksales WHERE booksales.customer_id = customers.id)";
+
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL"],
+        ["C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "]];
+
+        return this.isEqual("selectCorrelatedSubQuery4", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S TS
     parseTableSettings1() {
         let data = parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
@@ -3044,6 +3077,17 @@ class SqlTester {
 
         return this.isEqual("parseTableSettings9", data, expected);
     }
+
+    parseTableSettings10() {
+        let stmt = "select * from customers where exists (SELECT * FROM booksales WHERE booksales.customer_id = customers.id) and email like '%gmail.com' ";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["CUSTOMERS", "CUSTOMERS", 60, true],
+        ["BOOKSALES", "BOOKSALES", 60, true]];
+
+        return this.isEqual("parseTableSettings10", data, expected);
+    }
+
 
     //  Mock the GAS sheets functions required to load.
     testTableData1() {
@@ -3767,6 +3811,8 @@ function testerSql() {
     result = result && tester.selectNested2();
     result = result && tester.selectCorrelatedSubQuery1();
     result = result && tester.selectCorrelatedSubQuery2();
+    result = result && tester.selectCorrelatedSubQuery3();
+    result = result && tester.selectCorrelatedSubQuery4();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();
@@ -3802,6 +3848,7 @@ function testerSql() {
     result = result && tester.parseTableSettings7();
     result = result && tester.parseTableSettings8();
     result = result && tester.parseTableSettings9();
+    result = result && tester.parseTableSettings10();
     result = result && tester.testTableData1();
     result = result && tester.badParseTableSettings1();
 

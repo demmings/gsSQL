@@ -66,24 +66,6 @@ class SqlParse {
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
 
-        // Reorganize joins
-        SqlParse.reorganizeJoins(result);
-
-        // Parse conditions
-        if (typeof result.WHERE === 'string') {
-            result.WHERE = CondParser.parse(result.WHERE);
-        }
-        if (typeof result.HAVING === 'string') {
-            result.HAVING = CondParser.parse(result.HAVING);
-        }
-        if (typeof result.JOIN !== 'undefined') {
-            result.JOIN.forEach(function (item, key) {
-                result.JOIN[key].cond = CondParser.parse(item.cond);
-            });
-        }
-
-        SqlParse.reorganizeUnions(result);
-
         return result;
     }
 
@@ -159,9 +141,6 @@ class SqlParse {
         });
         parts_name = parts_name.concat(keywords.map(function (item) {
             return `${item}(`;
-        }));
-        parts_name = parts_name.concat(parts_name.map(function (item) {
-            return item.toLowerCase();
         }));
         const parts_name_escaped = parts_name.map(function (item) {
             return item.replace('(', '[\\(]');
@@ -382,6 +361,17 @@ class SqlParse {
 
         });
 
+        // Reorganize joins
+        SqlParse.reorganizeJoins(result);
+
+        if (typeof result.JOIN !== 'undefined') {
+            result.JOIN.forEach(function (item, key) {
+                result.JOIN[key].cond = CondParser.parse(item.cond);
+            });
+        }
+
+        SqlParse.reorganizeUnions(result);
+
         return result;
     }
 
@@ -528,7 +518,7 @@ CondLexer.prototype = {
             return { type: 'logic', value: tokenValue.toUpperCase() };
         }
 
-        if (/^(IN|IS|NOT|LIKE)$/i.test(tokenValue)) {
+        if (/^(IN|IS|NOT|LIKE|NOT EXISTS|EXISTS)$/i.test(tokenValue)) {
             return { type: 'operator', value: tokenValue.toUpperCase() };
         }
 
@@ -705,7 +695,19 @@ CondParser.prototype = {
                 this.readNextToken();
             }
 
-            const rightNode = this.parseBaseExpression(operator);
+            let rightNode = null;
+            if (this.currentToken.type === 'group' && (operator === 'EXISTS' || operator === 'NOT EXISTS')) {
+                this.readNextToken();
+                if (this.currentToken.type === 'word' && this.currentToken.value === 'SELECT') {
+                    rightNode = this.parseSelectIn("", true);
+                    leftNode = '""';
+                    if (this.currentToken.type === 'group') {
+                        this.readNextToken();    
+                    }
+                }
+            } else {
+                rightNode = this.parseBaseExpression(operator);
+            }
 
             leftNode = { 'operator': operator, 'left': leftNode, 'right': rightNode };
         }
@@ -773,7 +775,7 @@ CondParser.prototype = {
             astNode = this.parseSelectIn(astNode, isSelectStatement);
         }
         else {
-            //  Are we within brackets of mathematicl expression ?
+            //  Are we within brackets of mathmatical expression ?
             let inCurrentToken = this.currentToken;
 
             while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
@@ -883,24 +885,6 @@ class SelectKeywordAnalysis {
         return selectResult;
     }
 
-    /**
-     * 
-     * @param {String} selectField 
-     * @returns {Object}
-     */
-    static parseForCorrelatedSubQuery(selectField) {
-        let subQueryAst = null;
-
-        const regExp = /\(\s*(SELECT[\s\S]+)\)/;
-        const matches = regExp.exec(selectField.toUpperCase());
-
-        if (matches !== null && matches.length > 1) {
-            subQueryAst = SqlParse.sql2ast(matches[1]);
-        }
-
-        return subQueryAst;
-    }
-
     static FROM(str) {
         let fromResult = str.split(',');
         fromResult = fromResult.map(function (item) {
@@ -941,7 +925,7 @@ class SelectKeywordAnalysis {
     }
 
     static WHERE(str) {
-        return SelectKeywordAnalysis.trim(str);
+        return CondParser.parse(str);
     }
 
     static ORDER_BY(str) {
@@ -1005,7 +989,7 @@ class SelectKeywordAnalysis {
     }
 
     static HAVING(str) {
-        return SelectKeywordAnalysis.trim(str);
+        return CondParser.parse(str);
     }
 
     static UNION(str) {
@@ -1022,6 +1006,24 @@ class SelectKeywordAnalysis {
 
     static EXCEPT(str) {
         return SelectKeywordAnalysis.trim(str);
+    }
+
+    /**
+     * 
+     * @param {String} selectField 
+     * @returns {Object}
+     */
+    static parseForCorrelatedSubQuery(selectField) {
+        let subQueryAst = null;
+
+        const regExp = /\(\s*(SELECT[\s\S]+)\)/;
+        const matches = regExp.exec(selectField.toUpperCase());
+
+        if (matches !== null && matches.length > 1) {
+            subQueryAst = SqlParse.sql2ast(matches[1]);
+        }
+
+        return subQueryAst;
     }
 
     // Split a string using a separator, only if this separator isn't beetween brackets

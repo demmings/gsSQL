@@ -427,11 +427,12 @@ class Sql {
      */
     static getTableNamesWhereIn(ast, tableSet) {
         //  where IN ().
-        if (typeof ast.WHERE !== 'undefined' && (ast.WHERE.operator === "IN" || ast.WHERE.operator === "NOT IN")) {
+        const subQueryTerms = ["IN", "NOT IN", "EXISTS", "NOT EXISTS"]
+        if (typeof ast.WHERE !== 'undefined' && (subQueryTerms.indexOf(ast.WHERE.operator) !== -1)) {
             this.extractAstTables(ast.WHERE.right, tableSet);
         }
 
-        if (ast.operator === "IN" || ast.operator === "NOT IN") {
+        if (subQueryTerms.indexOf(ast.operator) !== -1) {
             this.extractAstTables(ast.right, tableSet);
         }
     }
@@ -1433,9 +1434,10 @@ class SelectTables {
         let fieldTable = null;
         /** @type {String} */
         let fieldCalculatedField = "";
-        let fieldCorrelatedSubQuery = null;
+        /** @type {CorrelatedSubQuery}  */
+        let subQueryObject = null;
 
-        [fieldTable, fieldCol, fieldConstant, fieldCalculatedField, fieldCorrelatedSubQuery] = fieldConditions;
+        [fieldTable, fieldCol, fieldConstant, fieldCalculatedField, subQueryObject] = fieldConditions;
 
         let leftValue = fieldConstant;
         if (fieldCol >= 0) {
@@ -1449,8 +1451,8 @@ class SelectTables {
                 leftValue = calcSqlField.evaluateCalculatedField(fieldCalculatedField, masterRecordID);
             }
         }
-        else if (fieldCorrelatedSubQuery !== null) {
-            let arrayResult = fieldCorrelatedSubQuery.select(null, masterRecordID, calcSqlField);
+        else if (subQueryObject !== null) {
+            const arrayResult = subQueryObject.select(masterRecordID, calcSqlField);
             if (typeof arrayResult !== 'undefined' && arrayResult !== null && arrayResult.length > 0)
                 leftValue = arrayResult[0][0];
         }
@@ -1521,6 +1523,14 @@ class SelectTables {
                 keep = SelectTables.isCondition(leftValue, rightValue);
                 break;
 
+            case "EXISTS":
+                keep = SelectTables.existsCondition(rightValue);
+                break;
+
+            case "NOT EXISTS":
+                keep = !(SelectTables.existsCondition(rightValue));
+                break;
+
             default:
                 throw new Error(`Invalid Operator: ${operator}`);
         }
@@ -1545,7 +1555,7 @@ class SelectTables {
                 if (field.tableInfo !== null)
                     newRow.push(field.getData(masterRecordID));
                 else if (field.subQueryAst !== null) {
-                    const result = subQuery.select(field, masterRecordID, calcSqlField);
+                    const result = subQuery.select(masterRecordID, calcSqlField, field.subQueryAst);
                     newRow.push(result[0][0]);
                 }
                 else if (field.calculatedFormula !== "") {
@@ -1884,11 +1894,12 @@ class SelectTables {
         let fieldConditionTableInfo = null;
         /** @type {String} */
         let calculatedField = "";
+        /** @type {CorrelatedSubQuery} */
         let subQuery = null;
 
         //  Maybe a SELECT within...
         if (typeof fieldCondition.SELECT !== 'undefined') {
-            const subQueryTableInfo = this.getSubQueryTableSet(fieldCondition, this.tableInfo);
+            const subQueryTableInfo = SelectTables.getSubQueryTableSet(fieldCondition, this.tableInfo);
 
             const inSQL = new Sql().setTables(subQueryTableInfo);
             inSQL.setBindValues(this.bindVariables);
@@ -1935,15 +1946,15 @@ class SelectTables {
      * @param {Map<String,Table>} tableInfo 
      * @returns {Map<String,Table>}
      */
-    getSubQueryTableSet(ast, tableInfo) {
-        let tableSubSet = new Map();
+    static getSubQueryTableSet(ast, tableInfo) {
+        const tableSubSet = new Map();
         const selectTables = Sql.getReferencedTableNamesFromAst(ast);
 
         for (const found of selectTables) {
-            if (found[0] !== ""  && ! tableSubSet.has(found[0])) {
+            if (found[0] !== "" && !tableSubSet.has(found[0])) {
                 tableSubSet.set(found[0], tableInfo.get(found[0]));
             }
-            if (found[1] !== ""  && ! tableSubSet.has(found[1])) {
+            if (found[1] !== "" && !tableSubSet.has(found[1])) {
                 tableSubSet.set(found[1], tableInfo.get(found[1]));
             }
         }
@@ -2044,6 +2055,10 @@ class SelectTables {
      */
     static isCondition(leftValue, rightValue) {
         return (leftValue === "" && rightValue === "NULL");
+    }
+
+    static existsCondition(rightValue) {
+        return rightValue !== '';
     }
 
     /**
@@ -2194,21 +2209,20 @@ class CorrelatedSubQuery {
 
     /**
      * 
-     * @param {TableField} field 
+     * @param {Object} ast 
      * @param {Number} masterRecordID
      * @param {CalculatedField} calcSqlField
      * @returns {any}
      */
-    select(field, masterRecordID, calcSqlField) {
+    select(masterRecordID, calcSqlField, ast = this.defaultSubQuery) {
         const inSQL = new Sql().setTables(this.tableInfo);
-        const subQueryAst = field !== null ? field.subQueryAst : this.defaultSubQuery;
 
-        const innerTableInfo = this.tableInfo.get(subQueryAst.FROM[0].table.toUpperCase());
+        const innerTableInfo = this.tableInfo.get(ast.FROM[0].table.toUpperCase());
         if (typeof innerTableInfo === 'undefined')
-            throw new Error(`No table data found: ${subQueryAst.FROM[0].table}`);
+            throw new Error(`No table data found: ${ast.FROM[0].table}`);
 
         //  Add BIND variable for all matching fields in WHERE.
-        const tempAst = JSON.parse(JSON.stringify(subQueryAst));
+        const tempAst = JSON.parse(JSON.stringify(ast));
 
         const bindVariables = this.replaceOuterFieldValueInCorrelatedWhere(calcSqlField.masterFields, masterRecordID, tempAst);
 
@@ -3704,24 +3718,6 @@ class SqlParse {
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
 
-        // Reorganize joins
-        SqlParse.reorganizeJoins(result);
-
-        // Parse conditions
-        if (typeof result.WHERE === 'string') {
-            result.WHERE = CondParser.parse(result.WHERE);
-        }
-        if (typeof result.HAVING === 'string') {
-            result.HAVING = CondParser.parse(result.HAVING);
-        }
-        if (typeof result.JOIN !== 'undefined') {
-            result.JOIN.forEach(function (item, key) {
-                result.JOIN[key].cond = CondParser.parse(item.cond);
-            });
-        }
-
-        SqlParse.reorganizeUnions(result);
-
         return result;
     }
 
@@ -3797,9 +3793,6 @@ class SqlParse {
         });
         parts_name = parts_name.concat(keywords.map(function (item) {
             return `${item}(`;
-        }));
-        parts_name = parts_name.concat(parts_name.map(function (item) {
-            return item.toLowerCase();
         }));
         const parts_name_escaped = parts_name.map(function (item) {
             return item.replace('(', '[\\(]');
@@ -4020,6 +4013,17 @@ class SqlParse {
 
         });
 
+        // Reorganize joins
+        SqlParse.reorganizeJoins(result);
+
+        if (typeof result.JOIN !== 'undefined') {
+            result.JOIN.forEach(function (item, key) {
+                result.JOIN[key].cond = CondParser.parse(item.cond);
+            });
+        }
+
+        SqlParse.reorganizeUnions(result);
+
         return result;
     }
 
@@ -4166,7 +4170,7 @@ CondLexer.prototype = {
             return { type: 'logic', value: tokenValue.toUpperCase() };
         }
 
-        if (/^(IN|IS|NOT|LIKE)$/i.test(tokenValue)) {
+        if (/^(IN|IS|NOT|LIKE|NOT EXISTS|EXISTS)$/i.test(tokenValue)) {
             return { type: 'operator', value: tokenValue.toUpperCase() };
         }
 
@@ -4343,7 +4347,19 @@ CondParser.prototype = {
                 this.readNextToken();
             }
 
-            const rightNode = this.parseBaseExpression(operator);
+            let rightNode = null;
+            if (this.currentToken.type === 'group' && (operator === 'EXISTS' || operator === 'NOT EXISTS')) {
+                this.readNextToken();
+                if (this.currentToken.type === 'word' && this.currentToken.value === 'SELECT') {
+                    rightNode = this.parseSelectIn("", true);
+                    leftNode = '""';
+                    if (this.currentToken.type === 'group') {
+                        this.readNextToken();    
+                    }
+                }
+            } else {
+                rightNode = this.parseBaseExpression(operator);
+            }
 
             leftNode = { 'operator': operator, 'left': leftNode, 'right': rightNode };
         }
@@ -4411,7 +4427,7 @@ CondParser.prototype = {
             astNode = this.parseSelectIn(astNode, isSelectStatement);
         }
         else {
-            //  Are we within brackets of mathematicl expression ?
+            //  Are we within brackets of mathmatical expression ?
             let inCurrentToken = this.currentToken;
 
             while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
@@ -4521,24 +4537,6 @@ class SelectKeywordAnalysis {
         return selectResult;
     }
 
-    /**
-     * 
-     * @param {String} selectField 
-     * @returns {Object}
-     */
-    static parseForCorrelatedSubQuery(selectField) {
-        let subQueryAst = null;
-
-        const regExp = /\(\s*(SELECT[\s\S]+)\)/;
-        const matches = regExp.exec(selectField.toUpperCase());
-
-        if (matches !== null && matches.length > 1) {
-            subQueryAst = SqlParse.sql2ast(matches[1]);
-        }
-
-        return subQueryAst;
-    }
-
     static FROM(str) {
         let fromResult = str.split(',');
         fromResult = fromResult.map(function (item) {
@@ -4579,7 +4577,7 @@ class SelectKeywordAnalysis {
     }
 
     static WHERE(str) {
-        return SelectKeywordAnalysis.trim(str);
+        return CondParser.parse(str);
     }
 
     static ORDER_BY(str) {
@@ -4643,7 +4641,7 @@ class SelectKeywordAnalysis {
     }
 
     static HAVING(str) {
-        return SelectKeywordAnalysis.trim(str);
+        return CondParser.parse(str);
     }
 
     static UNION(str) {
@@ -4660,6 +4658,24 @@ class SelectKeywordAnalysis {
 
     static EXCEPT(str) {
         return SelectKeywordAnalysis.trim(str);
+    }
+
+    /**
+     * 
+     * @param {String} selectField 
+     * @returns {Object}
+     */
+    static parseForCorrelatedSubQuery(selectField) {
+        let subQueryAst = null;
+
+        const regExp = /\(\s*(SELECT[\s\S]+)\)/;
+        const matches = regExp.exec(selectField.toUpperCase());
+
+        if (matches !== null && matches.length > 1) {
+            subQueryAst = SqlParse.sql2ast(matches[1]);
+        }
+
+        return subQueryAst;
     }
 
     // Split a string using a separator, only if this separator isn't beetween brackets

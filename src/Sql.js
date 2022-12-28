@@ -427,11 +427,12 @@ class Sql {
      */
     static getTableNamesWhereIn(ast, tableSet) {
         //  where IN ().
-        if (typeof ast.WHERE !== 'undefined' && (ast.WHERE.operator === "IN" || ast.WHERE.operator === "NOT IN")) {
+        const subQueryTerms = ["IN", "NOT IN", "EXISTS", "NOT EXISTS"]
+        if (typeof ast.WHERE !== 'undefined' && (subQueryTerms.indexOf(ast.WHERE.operator) !== -1)) {
             this.extractAstTables(ast.WHERE.right, tableSet);
         }
 
-        if (ast.operator === "IN" || ast.operator === "NOT IN") {
+        if (subQueryTerms.indexOf(ast.operator) !== -1) {
             this.extractAstTables(ast.right, tableSet);
         }
     }
