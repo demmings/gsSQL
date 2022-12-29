@@ -685,34 +685,46 @@ CondParser.prototype = {
     parseConditionExpression: function () {
         let leftNode = this.parseBaseExpression();
 
-        if (this.currentToken.type === 'operator') {
-            let operator = this.currentToken.value;
-            this.readNextToken();
-
-            // If there are 2 adjacent operators, join them with a space (exemple: IS NOT)
-            if (this.currentToken.type === 'operator') {
-                operator += ` ${this.currentToken.value}`;
-                this.readNextToken();
-            }
-
-            let rightNode = null;
-            if (this.currentToken.type === 'group' && (operator === 'EXISTS' || operator === 'NOT EXISTS')) {
-                this.readNextToken();
-                if (this.currentToken.type === 'word' && this.currentToken.value === 'SELECT') {
-                    rightNode = this.parseSelectIn("", true);
-                    leftNode = '""';
-                    if (this.currentToken.type === 'group') {
-                        this.readNextToken();    
-                    }
-                }
-            } else {
-                rightNode = this.parseBaseExpression(operator);
-            }
-
-            leftNode = { 'operator': operator, 'left': leftNode, 'right': rightNode };
+        if (this.currentToken.type !== 'operator') {
+            return leftNode;
         }
 
-        return leftNode;
+        let operator = this.currentToken.value;
+        this.readNextToken();
+
+        // If there are 2 adjacent operators, join them with a space (exemple: IS NOT)
+        if (this.currentToken.type === 'operator') {
+            operator += ` ${this.currentToken.value}`;
+            this.readNextToken();
+        }
+
+        let rightNode = null;
+        if (this.currentToken.type === 'group' && (operator === 'EXISTS' || operator === 'NOT EXISTS')) {
+            [leftNode, rightNode] = this.parseSelectExistsSubQuery();
+        } else {
+            rightNode = this.parseBaseExpression(operator);
+        }
+
+        return { 'operator': operator, 'left': leftNode, 'right': rightNode };
+    },
+
+    /**
+     * 
+     * @returns {Object[]}
+     */
+    parseSelectExistsSubQuery: function () {
+        let rightNode = null;
+        let leftNode = '""';
+
+        this.readNextToken();
+        if (this.currentToken.type === 'word' && this.currentToken.value === 'SELECT') {
+            rightNode = this.parseSelectIn("", true);
+            if (this.currentToken.type === 'group') {
+                this.readNextToken();
+            }
+        }
+
+        return [leftNode, rightNode];
     },
 
     // Parse base items

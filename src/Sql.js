@@ -34,7 +34,7 @@ class Logger {
  * @returns {any[][]}
  * @customfunction
  */
-function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {
+function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {     //  skipcq: JS-0128
     const tableList = parseTableSettings(tableArr, statement);
 
     Logger.log(`gsSQL: tableList=${tableList}.  Statement=${statement}. List Len=${tableList.length}`);

@@ -34,7 +34,7 @@ class Logger {
  * @returns {any[][]}
  * @customfunction
  */
-function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {
+function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {     //  skipcq: JS-0128
     const tableList = parseTableSettings(tableArr, statement);
 
     Logger.log(`gsSQL: tableList=${tableList}.  Statement=${statement}. List Len=${tableList.length}`);
@@ -2345,7 +2345,7 @@ class VirtualFields {
 }
 
 /**  Defines all possible table fields including '*' and long/short form (i.e. table.column). */
-class VirtualField {
+class VirtualField {                        //  skipcq: JS-0128
     /**
      * 
      * @param {String} fieldName 
@@ -3420,20 +3420,34 @@ class TableFields {
             if (matches !== null && matches.length > 1) {
                 columnName = matches[1];
 
-                //  e.g.  count(distinct field)
-                const distinctParts = columnName.split(" ");
-                if (distinctParts.length > 1) {
-                    const distinctModifiers = ["DISTINCT", "ALL"];
-                    if (distinctModifiers.includes(distinctParts[0].toUpperCase())) {
-                        fieldDistinct = distinctParts[0].toUpperCase();
-                        columnName = distinctParts[1];
-                    }
-                }
-
+                // e.g.  select count(distinct field)    OR   select count(all field)
+                [columnName, fieldDistinct] = this.getSelectCountModifiers(columnName);
             }
         }
 
         return [columnName, aggregateFunctionName, calculatedField, fieldDistinct];
+    }
+
+    /**
+     * 
+     * @param {String} originalColumnName 
+     * @returns {String[]}
+     */
+    getSelectCountModifiers(originalColumnName) {
+        let fieldDistinct = "";
+        let columnName = originalColumnName;
+
+        //  e.g.  count(distinct field)
+        const distinctParts = columnName.split(" ");
+        if (distinctParts.length > 1) {
+            const distinctModifiers = ["DISTINCT", "ALL"];
+            if (distinctModifiers.includes(distinctParts[0].toUpperCase())) {
+                fieldDistinct = distinctParts[0].toUpperCase();
+                columnName = distinctParts[1];
+            }
+        }
+
+        return [columnName, fieldDistinct];
     }
 
     /**
@@ -4337,34 +4351,46 @@ CondParser.prototype = {
     parseConditionExpression: function () {
         let leftNode = this.parseBaseExpression();
 
-        if (this.currentToken.type === 'operator') {
-            let operator = this.currentToken.value;
-            this.readNextToken();
-
-            // If there are 2 adjacent operators, join them with a space (exemple: IS NOT)
-            if (this.currentToken.type === 'operator') {
-                operator += ` ${this.currentToken.value}`;
-                this.readNextToken();
-            }
-
-            let rightNode = null;
-            if (this.currentToken.type === 'group' && (operator === 'EXISTS' || operator === 'NOT EXISTS')) {
-                this.readNextToken();
-                if (this.currentToken.type === 'word' && this.currentToken.value === 'SELECT') {
-                    rightNode = this.parseSelectIn("", true);
-                    leftNode = '""';
-                    if (this.currentToken.type === 'group') {
-                        this.readNextToken();    
-                    }
-                }
-            } else {
-                rightNode = this.parseBaseExpression(operator);
-            }
-
-            leftNode = { 'operator': operator, 'left': leftNode, 'right': rightNode };
+        if (this.currentToken.type !== 'operator') {
+            return leftNode;
         }
 
-        return leftNode;
+        let operator = this.currentToken.value;
+        this.readNextToken();
+
+        // If there are 2 adjacent operators, join them with a space (exemple: IS NOT)
+        if (this.currentToken.type === 'operator') {
+            operator += ` ${this.currentToken.value}`;
+            this.readNextToken();
+        }
+
+        let rightNode = null;
+        if (this.currentToken.type === 'group' && (operator === 'EXISTS' || operator === 'NOT EXISTS')) {
+            [leftNode, rightNode] = this.parseSelectExistsSubQuery();
+        } else {
+            rightNode = this.parseBaseExpression(operator);
+        }
+
+        return { 'operator': operator, 'left': leftNode, 'right': rightNode };
+    },
+
+    /**
+     * 
+     * @returns {Object[]}
+     */
+    parseSelectExistsSubQuery: function () {
+        let rightNode = null;
+        let leftNode = '""';
+
+        this.readNextToken();
+        if (this.currentToken.type === 'word' && this.currentToken.value === 'SELECT') {
+            rightNode = this.parseSelectIn("", true);
+            if (this.currentToken.type === 'group') {
+                this.readNextToken();
+            }
+        }
+
+        return [leftNode, rightNode];
     },
 
     // Parse base items
@@ -4795,7 +4821,7 @@ class Logger {
 }
 //  *** DEBUG END  ***/
 
-
+//  skipcq: JS-0128
 class TableData {
     /**
     * Retrieve table data from SHEET or CACHE.
@@ -5224,6 +5250,7 @@ export { ScriptSettings };
 import { PropertiesService } from "./SqlTest.js";
 //  *** DEBUG END  ***/
 
+//  skipcq: JS-0128
 class ScriptSettings {
     /**
      * For storing cache data for very long periods of time.

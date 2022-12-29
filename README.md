@@ -488,6 +488,8 @@ let data = new Sql()
   *  '>='
   *  '<>'
   *  '!='
+  *  'EXISTS'
+  *  'NOT EXISTS'
   *  'LIKE'
   *  'NOT LIKE'
   *  'IN'

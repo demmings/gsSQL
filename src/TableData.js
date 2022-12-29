@@ -12,7 +12,7 @@ class Logger {
 }
 //  *** DEBUG END  ***/
 
-
+//  skipcq: JS-0128
 class TableData {
     /**
     * Retrieve table data from SHEET or CACHE.

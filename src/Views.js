@@ -1068,7 +1068,7 @@ class VirtualFields {
 }
 
 /**  Defines all possible table fields including '*' and long/short form (i.e. table.column). */
-class VirtualField {
+class VirtualField {                        //  skipcq: JS-0128
     /**
      * 
      * @param {String} fieldName 
@@ -2143,20 +2143,34 @@ class TableFields {
             if (matches !== null && matches.length > 1) {
                 columnName = matches[1];
 
-                //  e.g.  count(distinct field)
-                const distinctParts = columnName.split(" ");
-                if (distinctParts.length > 1) {
-                    const distinctModifiers = ["DISTINCT", "ALL"];
-                    if (distinctModifiers.includes(distinctParts[0].toUpperCase())) {
-                        fieldDistinct = distinctParts[0].toUpperCase();
-                        columnName = distinctParts[1];
-                    }
-                }
-
+                // e.g.  select count(distinct field)    OR   select count(all field)
+                [columnName, fieldDistinct] = this.getSelectCountModifiers(columnName);
             }
         }
 
         return [columnName, aggregateFunctionName, calculatedField, fieldDistinct];
+    }
+
+    /**
+     * 
+     * @param {String} originalColumnName 
+     * @returns {String[]}
+     */
+    getSelectCountModifiers(originalColumnName) {
+        let fieldDistinct = "";
+        let columnName = originalColumnName;
+
+        //  e.g.  count(distinct field)
+        const distinctParts = columnName.split(" ");
+        if (distinctParts.length > 1) {
+            const distinctModifiers = ["DISTINCT", "ALL"];
+            if (distinctModifiers.includes(distinctParts[0].toUpperCase())) {
+                fieldDistinct = distinctParts[0].toUpperCase();
+                columnName = distinctParts[1];
+            }
+        }
+
+        return [columnName, fieldDistinct];
     }
 
     /**
