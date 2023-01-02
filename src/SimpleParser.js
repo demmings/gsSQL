@@ -451,31 +451,29 @@ class SqlParse {
  */
 
 // Constructor
-function CondLexer(source) {
-    this.source = source;
-    this.cursor = 0;
-    this.currentChar = "";
-    this.startQuote = "";
-    this.bracketCount = 0;
+class CondLexer {
+    constructor(source) {
+        this.source = source;
+        this.cursor = 0;
+        this.currentChar = "";
+        this.startQuote = "";
+        this.bracketCount = 0;
 
-    this.readNextChar();
-}
-
-CondLexer.prototype = {
-    constructor: CondLexer,
+        this.readNextChar();
+    }
 
     // Read the next character (or return an empty string if cursor is at the end of the source)
-    readNextChar: function () {
+    readNextChar() {
         if (typeof this.source !== 'string') {
             this.currentChar = "";
         }
         else {
             this.currentChar = this.source[this.cursor++] || "";
         }
-    },
+    }
 
     // Determine the next token
-    readNextToken: function () {
+    readNextToken() {
         if (/\w/.test(this.currentChar))
             return this.readWord();
         if (/["'`]/.test(this.currentChar))
@@ -495,9 +493,9 @@ CondLexer.prototype = {
 
         this.readNextChar();
         return { type: 'empty', value: '' };
-    },
+    }
 
-    readWord: function () {
+    readWord() {
         let tokenValue = "";
         this.bracketCount = 0;
         let insideQuotedString = false;
@@ -523,14 +521,14 @@ CondLexer.prototype = {
         }
 
         return { type: 'word', value: tokenValue };
-    },
+    }
 
     /**
      * 
      * @param {Boolean} insideQuotedString 
      * @returns {Boolean}
      */
-    isStartOrEndOfString: function (insideQuotedString) {
+    isStartOrEndOfString(insideQuotedString) {
         if (!insideQuotedString && /['"`]/.test(this.currentChar)) {
             this.startQuote = this.currentChar;
 
@@ -542,14 +540,14 @@ CondLexer.prototype = {
         }
 
         return insideQuotedString;
-    },
+    }
 
     /**
      * 
      * @param {Boolean} insideQuotedString 
      * @returns {Boolean}
      */
-    isFinishedWord: function (insideQuotedString) {
+    isFinishedWord(insideQuotedString) {
         if (insideQuotedString)
             return false;
 
@@ -572,9 +570,9 @@ CondLexer.prototype = {
 
         // Token is finished on the first space which is outside a string or a function
         return this.currentChar === ' ' && this.bracketCount <= 0;
-    },
+    }
 
-    readString: function () {
+    readString() {
         let tokenValue = "";
         const quote = this.currentChar;
 
@@ -599,16 +597,16 @@ CondLexer.prototype = {
         }
 
         return { type: 'string', value: tokenValue };
-    },
+    }
 
-    readGroupSymbol: function () {
+    readGroupSymbol() {
         const tokenValue = this.currentChar;
         this.readNextChar();
 
         return { type: 'group', value: tokenValue };
-    },
+    }
 
-    readOperator: function () {
+    readOperator() {
         let tokenValue = this.currentChar;
         this.readNextChar();
 
@@ -618,49 +616,51 @@ CondLexer.prototype = {
         }
 
         return { type: 'operator', value: tokenValue };
-    },
+    }
 
-    readMathOperator: function () {
+    readMathOperator() {
         const tokenValue = this.currentChar;
         this.readNextChar();
 
         return { type: 'mathoperator', value: tokenValue };
-    },
+    }
 
-    readBindVariable: function () {
+    readBindVariable() {
         const tokenValue = this.currentChar;
         this.readNextChar();
 
         return { type: 'bindVariable', value: tokenValue };
-    },
-};
-
-// Constructor
-function CondParser(source) {
-    this.lexer = new CondLexer(source);
-    this.currentToken = {};
-
-    this.readNextToken();
+    }
 }
 
-CondParser.prototype = {
-    constructor: CondParser,
+class CondParser {
+    constructor(source) {
+        this.lexer = new CondLexer(source);
+        this.currentToken = {};
+
+        this.readNextToken();
+    }
+
+    // Parse a string
+    static parse(source) {
+        return new CondParser(source).parseExpressionsRecursively();
+    }
 
     // Read the next token (skip empty tokens)
-    readNextToken: function () {
+    readNextToken() {
         this.currentToken = this.lexer.readNextToken();
         while (this.currentToken.type === 'empty')
             this.currentToken = this.lexer.readNextToken();
         return this.currentToken;
-    },
+    }
 
     // Wrapper function ; parse the source
-    parseExpressionsRecursively: function () {
+    parseExpressionsRecursively() {
         return this.parseLogicalExpression();
-    },
+    }
 
     // Parse logical expressions (AND/OR)
-    parseLogicalExpression: function () {
+    parseLogicalExpression() {
         let leftNode = this.parseConditionExpression();
 
         while (this.currentToken.type === 'logic') {
@@ -679,10 +679,10 @@ CondParser.prototype = {
         }
 
         return leftNode;
-    },
+    }
 
     // Parse conditions ([word/string] [operator] [word/string])
-    parseConditionExpression: function () {
+    parseConditionExpression() {
         let leftNode = this.parseBaseExpression();
 
         if (this.currentToken.type !== 'operator') {
@@ -706,15 +706,15 @@ CondParser.prototype = {
         }
 
         return { 'operator': operator, 'left': leftNode, 'right': rightNode };
-    },
+    }
 
     /**
      * 
      * @returns {Object[]}
      */
-    parseSelectExistsSubQuery: function () {
+    parseSelectExistsSubQuery() {
         let rightNode = null;
-        let leftNode = '""';
+        const leftNode = '""';
 
         this.readNextToken();
         if (this.currentToken.type === 'word' && this.currentToken.value === 'SELECT') {
@@ -725,7 +725,7 @@ CondParser.prototype = {
         }
 
         return [leftNode, rightNode];
-    },
+    }
 
     // Parse base items
     /**
@@ -733,7 +733,7 @@ CondParser.prototype = {
      * @param {String} operator 
      * @returns {Object}
      */
-    parseBaseExpression: function (operator = "") {
+    parseBaseExpression(operator = "") {
         let astNode = {};
 
         // If this is a word/string, return its value
@@ -750,13 +750,13 @@ CondParser.prototype = {
         }
 
         return astNode;
-    },
+    }
 
     /**
      * 
      * @returns {Object}
      */
-    parseWordExpression: function () {
+    parseWordExpression() {
         let astNode = this.currentToken.value;
         this.readNextToken();
 
@@ -770,14 +770,14 @@ CondParser.prototype = {
         }
 
         return astNode;
-    },
+    }
 
     /**
      * 
      * @param {String} operator 
      * @returns {Object}
      */
-    parseGroupExpression: function (operator) {
+    parseGroupExpression(operator) {
         this.readNextToken();
         let astNode = this.parseExpressionsRecursively();
 
@@ -804,7 +804,7 @@ CondParser.prototype = {
         this.readNextToken();
 
         return astNode;
-    },
+    }
 
     /**
      * 
@@ -812,7 +812,7 @@ CondParser.prototype = {
      * @param {Boolean} isSelectStatement 
      * @returns {Object}
      */
-    parseSelectIn: function (startAstNode, isSelectStatement) {
+    parseSelectIn(startAstNode, isSelectStatement) {
         let astNode = startAstNode;
         let inCurrentToken = this.currentToken;
         let bracketCount = 1;
@@ -834,9 +834,9 @@ CondParser.prototype = {
         }
 
         return astNode;
-    },
+    }
 
-    groupBracketIncrementer: function (inCurrentToken) {
+    groupBracketIncrementer(inCurrentToken) {
         let diff = 0;
         if (inCurrentToken.type === 'group') {
             if (inCurrentToken.value === '(') {
@@ -849,12 +849,7 @@ CondParser.prototype = {
 
         return diff
     }
-};
-
-// Parse a string
-CondParser.parse = function (source) {
-    return new CondParser(source).parseExpressionsRecursively();
-};
+}
 
 class SelectKeywordAnalysis {
     static analyze(itemName, part) {
@@ -900,9 +895,9 @@ class SelectKeywordAnalysis {
     static FROM(str) {
         const isSubQuery = this.parseForCorrelatedSubQuery(str);
         if (isSubQuery !== null) {
-            const [table, alias] = SelectKeywordAnalysis.getNameAndAlias(str);
+            const [, alias] = SelectKeywordAnalysis.getNameAndAlias(str);
             if (alias !== "" && typeof isSubQuery.FROM !== 'undefined') {
-                isSubQuery.FROM[0].as = alias.toUpperCase();   
+                isSubQuery.FROM[0].as = alias.toUpperCase();
             }
             return isSubQuery;
         }

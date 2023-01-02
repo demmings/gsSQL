@@ -265,7 +265,7 @@ class Sql {
     selectFromSubQuery() {
         if (typeof this.ast.FROM !== 'undefined' && typeof this.ast.FROM.SELECT !== 'undefined') {
             const inSQL = new Sql().setTables(this.tables).enableColumnTitle(true);
-            let data = inSQL.select(this.ast.FROM);
+            const data = inSQL.select(this.ast.FROM);
             this.addTableData(this.ast.FROM.FROM[0].as, data);
             this.ast.FROM = [{ table: this.ast.FROM.FROM[0].as, as: this.ast.FROM.FROM[0].as }];
         }

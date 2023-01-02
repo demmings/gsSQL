@@ -12,6 +12,7 @@ class Logger {
 
 //  *** DEBUG END  ***/
 
+//  skipcq: JS-0128
 class Table {
     /**
      * 

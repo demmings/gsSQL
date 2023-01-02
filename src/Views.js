@@ -2144,7 +2144,7 @@ class TableFields {
                 columnName = matches[1];
 
                 // e.g.  select count(distinct field)    OR   select count(all field)
-                [columnName, fieldDistinct] = this.getSelectCountModifiers(columnName);
+                [columnName, fieldDistinct] = TableFields.getSelectCountModifiers(columnName);
             }
         }
 
@@ -2156,7 +2156,7 @@ class TableFields {
      * @param {String} originalColumnName 
      * @returns {String[]}
      */
-    getSelectCountModifiers(originalColumnName) {
+    static getSelectCountModifiers(originalColumnName) {
         let fieldDistinct = "";
         let columnName = originalColumnName;
 
