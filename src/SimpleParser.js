@@ -898,6 +898,15 @@ class SelectKeywordAnalysis {
     }
 
     static FROM(str) {
+        const isSubQuery = this.parseForCorrelatedSubQuery(str);
+        if (isSubQuery !== null) {
+            const [table, alias] = SelectKeywordAnalysis.getNameAndAlias(str);
+            if (alias !== "" && typeof isSubQuery.FROM !== 'undefined') {
+                isSubQuery.FROM[0].as = alias.toUpperCase();   
+            }
+            return isSubQuery;
+        }
+
         let fromResult = str.split(',');
         fromResult = fromResult.map(function (item) {
             return SelectKeywordAnalysis.trim(item);
@@ -1116,6 +1125,12 @@ class SelectKeywordAnalysis {
         return [realName, alias];
     }
 
+    /**
+     * 
+     * @param {String} srcString 
+     * @param {String} searchString 
+     * @returns {Number}
+     */
     static lastIndexOfOutsideLiteral(srcString, searchString) {
         let index = -1;
         let inQuote = "";

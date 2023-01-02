@@ -2974,6 +2974,58 @@ class SqlTester {
         return this.isEqual("selectCorrelatedSubQuery4", data, expected);
     }
 
+    selectCorrelatedSubQuery5() {
+        let stmt = "SELECT * FROM booksales as b1 where price = (select max(booksales.price) from booksales where booksales.customer_id = b1.customer_id)";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL"],
+        ["C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "]];
+
+        return this.isEqual("selectCorrelatedSubQuery5", data, expected);
+    }
+
+    selectFromSubQuery1() {
+        let stmt = "select score.customer_id, score.wins, score.loss, (score.wins / (score.wins+score.loss)) as rate from (select customer_id, sum(case when quantity < 100 then 1 else 0 end) as wins, sum(case when quantity >= 100 then 1 else 0 end) as loss from booksales group by customer_id) as score";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["score.customer_id", "score.wins", "score.loss", "rate"],
+        ["", 1, 0, 1],
+        ["C1", 2, 0, 1],
+        ["C2", 2, 1, 0.6666666666666666],
+        ["C3", 1, 0, 1],
+        ["C4", 1, 2, 0.3333333333333333]];
+
+        return this.isEqual("selectFromSubQuery1", data, expected);
+    }
+
+    selectFromSubQuery2() {
+        let stmt = "select customer_id, wins, loss, (wins / (wins+loss)) as rate from (select customer_id, sum(case when quantity < 100 then 1 else 0 end) as wins, sum(case when quantity >= 100 then 1 else 0 end) as loss from booksales group by customer_id) as score";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["customer_id", "wins", "loss", "rate"],
+        ["", 1, 0, 1],
+        ["C1", 2, 0, 1],
+        ["C2", 2, 1, 0.6666666666666666],
+        ["C3", 1, 0, 1],
+        ["C4", 1, 2, 0.3333333333333333]];
+
+        return this.isEqual("selectFromSubQuery2", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S TS
     parseTableSettings1() {
         let data = parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
@@ -3088,6 +3140,14 @@ class SqlTester {
         return this.isEqual("parseTableSettings10", data, expected);
     }
 
+    parseTableSettings11() {
+        let stmt = "select customer_id, wins, loss, (wins / (wins+loss)) as rate from (select customer_id, sum(case when quantity < 100 then 1 else 0 end) as wins, sum(case when quantity >= 100 then 1 else 0 end) as loss from booksales group by customer_id) as score";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKSALES","BOOKSALES",60,true]];
+
+        return this.isEqual("parseTableSettings11", data, expected);
+    }
 
     //  Mock the GAS sheets functions required to load.
     testTableData1() {
@@ -3813,6 +3873,9 @@ function testerSql() {
     result = result && tester.selectCorrelatedSubQuery2();
     result = result && tester.selectCorrelatedSubQuery3();
     result = result && tester.selectCorrelatedSubQuery4();
+    // result = result && tester.selectCorrelatedSubQuery5();
+    result = result && tester.selectFromSubQuery1();
+    result = result && tester.selectFromSubQuery2();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();
@@ -3849,6 +3912,7 @@ function testerSql() {
     result = result && tester.parseTableSettings8();
     result = result && tester.parseTableSettings9();
     result = result && tester.parseTableSettings10();
+    result = result && tester.parseTableSettings11();
     result = result && tester.testTableData1();
     result = result && tester.badParseTableSettings1();
 

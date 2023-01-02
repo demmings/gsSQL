@@ -75,7 +75,7 @@ function parseTableSettings(tableArr, statement = "", randomOrder = true) {
             table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
         if (table.length === 2)
             table.push(60);      //  default 0 second cache.
-        if (table.length === 3)  
+        if (table.length === 3)
             table.push(true);    //  default HAS column title row.
         if (table[1] === "")
             table[1] = table[0];    //  If empty range, assumes TABLE NAME is the SHEET NAME and loads entire sheet.
@@ -205,6 +205,11 @@ class Sql {
 
         this.ast = SqlParse.sql2ast(statement);
 
+        //  SELECT * from (select a,b,c from table) as derivedtable
+        //  Sub query data is loaded and given the name 'derivedtable'
+        //  The AST.FROM is updated from the sub-query to the new derived table name. 
+        this.selectFromSubQuery();
+
         // @ts-ignore
         for (const table of this.tables.keys()) {
             const tableAlias = this.getTableAlias(table, this.ast);
@@ -255,6 +260,15 @@ class Sql {
         tableAlias = this.getTableAliasWhereTerms(tableAlias, ucTableName, ast);
 
         return tableAlias;
+    }
+
+    selectFromSubQuery() {
+        if (typeof this.ast.FROM !== 'undefined' && typeof this.ast.FROM.SELECT !== 'undefined') {
+            const inSQL = new Sql().setTables(this.tables).enableColumnTitle(true);
+            let data = inSQL.select(this.ast.FROM);
+            this.addTableData(this.ast.FROM.FROM[0].as, data);
+            this.ast.FROM = [{ table: this.ast.FROM.FROM[0].as, as: this.ast.FROM.FROM[0].as }];
+        }
     }
 
     /**
@@ -332,11 +346,11 @@ class Sql {
      * @returns {String}
      */
     getTableAliasWhereTerms(tableAlias, tableName, ast) {
-        let extractedTableAlias =  tableAlias;
+        let extractedTableAlias = tableAlias;
         if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
             for (const term of ast.WHERE.terms) {
                 if (extractedTableAlias === "")
-                extractedTableAlias = this.getTableAlias(tableName, term);
+                    extractedTableAlias = this.getTableAlias(tableName, term);
             }
         }
 
@@ -396,12 +410,26 @@ class Sql {
             if (typeof ast[astBlock] === 'undefined')
                 continue;
 
-            const blockData = ast[astBlock];
+            let blockData = ast[astBlock];
+
+            //  In the case where FROM (select sub-query) it will not be iterable.
+            if (! this.isIterable(blockData) && astBlock === 'FROM') {
+                blockData = blockData.FROM;
+            }
+
             for (const astItem of blockData) {
                 tableSet.set(astItem.table.toUpperCase(), astItem.as.toUpperCase());
             }
         }
     }
+
+    static isIterable(input) {  
+        if (input === null || input === undefined) {
+          return false
+        }
+      
+        return typeof input[Symbol.iterator] === 'function'
+      }
 
     /**
      * 
@@ -436,7 +464,7 @@ class Sql {
             this.extractAstTables(ast.right, tableSet);
         }
     }
-    
+
     /**
      * 
      * @param {Object} ast 
@@ -454,9 +482,9 @@ class Sql {
         if (typeof ast.SELECT !== 'undefined') {
             for (const term of ast.SELECT) {
                 if (typeof term.subQuery !== 'undefined' && term.subQuery !== null) {
-                    this.extractAstTables(term.subQuery, tableSet);  
+                    this.extractAstTables(term.subQuery, tableSet);
                 }
-            }    
+            }
         }
     }
 
@@ -4564,6 +4592,15 @@ class SelectKeywordAnalysis {
     }
 
     static FROM(str) {
+        const isSubQuery = this.parseForCorrelatedSubQuery(str);
+        if (isSubQuery !== null) {
+            const [table, alias] = SelectKeywordAnalysis.getNameAndAlias(str);
+            if (alias !== "" && typeof isSubQuery.FROM !== 'undefined') {
+                isSubQuery.FROM[0].as = alias.toUpperCase();   
+            }
+            return isSubQuery;
+        }
+
         let fromResult = str.split(',');
         fromResult = fromResult.map(function (item) {
             return SelectKeywordAnalysis.trim(item);
@@ -4782,6 +4819,12 @@ class SelectKeywordAnalysis {
         return [realName, alias];
     }
 
+    /**
+     * 
+     * @param {String} srcString 
+     * @param {String} searchString 
+     * @returns {Number}
+     */
     static lastIndexOfOutsideLiteral(srcString, searchString) {
         let index = -1;
         let inQuote = "";
