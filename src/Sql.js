@@ -14,24 +14,32 @@ class Logger {
 //  *** DEBUG END  ***/
 
 /**
- * Query any sheet range using standard SQL SELECT syntax.
- * Parameter 1.  SELECT statement.  All regular syntax is supported including JOIN. 
- *   note i)  Bind variables (?) are replaced by bind data specified later.
- *   note ii)  PIVOT field supported.  Similar to QUERY. e.g.  "SELECT date, sum(quantity) from sales group by date pivot customer_id".
- *   note iii) If parm 2 not used and sheet name contains a space, use single quotes around table name.
- * Parameter 2. (optional. referenced tables assumed to be SHEET NAME with column titles)    
- *   Define all tables referenced in SELECT. This is a DOUBLE ARRAY and is done using the curly bracket {{a,b,c}; {a,b,c}} syntax.
- *   a)  table name - the table name referenced in SELECT for indicated range.
- *   b)  sheet range - (optional) either NAMED RANGE, A1 notation range, SHEET NAME or empty (table name used as sheet name).  This input is a string.  The first row of each range MUST be unique column titles.
- *   c)  cache seconds - (optional) time loaded range held in cache.  default=60.   
- *   d)  has column title - (optional) first row of data is a title (for field name).  default=true 
- * Parameter 3. (optional) Output result column title (true/false). default=true.   
- * Parameter 4... (optional) Bind variables.  List as many as required to match ? in SELECT.
+ * @description
+ * **CUSTOM FUNCTION**  
+ * * Available as a custom function within your sheet.
+ * * Query any sheet range using standard SQL SELECT syntax.
+ * ### Parameters.
+ * * Parameter 1.  SELECT statement.  All regular syntax is supported including JOIN. 
+ *   * note i)  Bind variables (?) are replaced by bind data specified later.
+ *   * note ii)  PIVOT field supported.  Similar to QUERY. e.g.  "SELECT date, sum(quantity) from sales group by date pivot customer_id".
+ *   * note iii) If parm 2 not used and sheet name contains a space, use single quotes around table name.
+ * * Parameter 2. (optional. referenced tables assumed to be SHEET NAME with column titles).  Define all tables referenced in SELECT. This is a DOUBLE ARRAY and is done using the curly bracket {{a,b,c}; {a,b,c}} syntax.
+ *   * a)  table name - the table name referenced in SELECT for indicated range.
+ *   * b)  sheet range - (optional) either NAMED RANGE, A1 notation range, SHEET NAME or empty (table name used as sheet name).  This input is a string.  The first row of each range MUST be unique column titles.
+ *   * c)  cache seconds - (optional) time loaded range held in cache.  default=60.   
+ *   * d)  has column title - (optional) first row of data is a title (for field name).  default=true 
+ * * Parameter 3. (optional) Output result column title (true/false). default=true.   
+ * * Parameter 4... (optional) Bind variables.  List as many as required to match '?' in SELECT statement.
+ * <br>
+ * * **Example** use inside Google Sheet Cell.
+ * ```
+ * =gsSQL("select title, (select count(*)  from Booksales where books.id = BookSales.book_id) as 'Quantity Sold' from books", {{"booksales","booksales", 60};{"books", "books", 60}})
+ * ```
  * @param {String} statement - SQL (e.g.:  'select * from expenses')
  * @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds, hasColumnTitle}; {"name","range",cache,true};...}"
  * @param {Boolean} columnTitle - TRUE will add column title to output (default=TRUE)
  * @param {...any} bindings - Bind variables to match '?' in SQL statement.
- * @returns {any[][]}
+ * @returns {any[][]} - Double array of selected data.  First index ROW, Second index COLUMN.
  * @customfunction
  */
 function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {     //  skipcq: JS-0128
@@ -51,10 +59,23 @@ function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {     
 
 /**
  * 
- * @param {any[][]} tableArr 
- * @param {String} statement
- * @param {Boolean} randomOrder
- * @returns {any[][]}
+ * @param {any[][]} tableArr - Referenced Table list.  This is normally the second parameter in gsSQL() custom function.  
+ * It is a double array with first index for TABLE, and the second index are settings in the table. 
+ * The setting index for each table is as follows:
+ * * 0 - Table Name.
+ * * 1 - Sheet Range.
+ * * 2 - Cache seconds.
+ * * 3 - First row contains title (for field name)
+ * @param {String} statement - SQL SELECT statement.  If no data specified in 'tableArr', the SELECT is 
+ * parsed and each referenced table is assumed to be a TAB name on the sheet.
+ * @param {Boolean} randomOrder - Returned table list is randomized.
+ * @returns {any[][]} - Data from 'tableArr' PLUS any extracted tables referenced from SELECT statement.
+ * It is a double array with first index for TABLE, and the second index are settings in the table. 
+ * The setting index for each table is as follows:
+ * * 0 - Table Name.
+ * * 1 - Sheet Range.
+ * * 2 - Cache seconds.
+ * * 3 - First row contains title (for field name)
  */
 function parseTableSettings(tableArr, statement = "", randomOrder = true) {
     let tableList = [];
@@ -93,18 +114,19 @@ function parseTableSettings(tableArr, statement = "", randomOrder = true) {
     return tableList;
 }
 
-
+/** Perform SQL SELECT using this class. */
 class Sql {
     constructor() {
-        /** @type {Map<String,Table>} */
+        /** @property {Map<String,Table>} - Map of referenced tables.*/
         this.tables = new Map();
+        /** @property {Boolean} - Are column tables to be ouptout? */
         this.columnTitle = false;
-        /** @type {any[]} */
+        /** @property {any[]} - List of BIND data linked to '?' in statement. */
         this.bindParameters = [];
     }
 
     /**
-     * 
+     * Add data for each referenced table in SELECT, before EXECUTE().
      * @param {String} tableName - Name of table referenced in SELECT.
      * @param {any} tableData - Either double array or a named range.
      * @param {Number} cacheSeconds - How long should loaded data be cached (default=0)
@@ -141,7 +163,7 @@ class Sql {
     }
 
     /**
-     * 
+     * Query if this instance of Sql() will generate column titles.
      * @returns {Boolean}
      */
     areColumnTitlesOutput() {
@@ -149,8 +171,8 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {any} value 
+     * Add a bind data value.  Must be added in order.  If bind data is a named range, use addBindNamedRangeParameter().
+     * @param {any} value - literal data. 
      * @returns {Sql}
      */
     addBindParameter(value) {
@@ -158,13 +180,17 @@ class Sql {
         return this;
     }
 
+    /**
+     * List of bind data added so far.
+     * @returns {any[]}
+     */
     getBindData() {
         return this.bindParameters;
     }
 
     /**
      * The BIND data is a sheet named range that will be read and used for bind data.
-     * @param {String} value 
+     * @param {String} value - Sheets Named Range for SINGLE CELL only.
      * @returns {Sql}
      */
     addBindNamedRangeParameter(value) {
@@ -175,8 +201,8 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {any[]} value 
+     * Set all bind data at once using array.
+     * @param {any[]} value - List of all needed BIND data.
      * @returns {Sql}
      */
     setBindValues(value) {
@@ -185,7 +211,7 @@ class Sql {
     }
 
     /**
-     * 
+     * Clears existing BIND data so Sql() instance can be used again with new bind parameters.
      * @returns {Sql}
      */
     clearBindParameters() {
@@ -194,18 +220,42 @@ class Sql {
     }
 
     /**
-    * After command is parsed, perform SQL function.
-    * Execute() can be called multiple times for different SELECT statements, provided that all required
-    * table data was loaded in the constructor.
-    * @param {String} statement
-    * @returns {any[][]}
+    * Parse SQL SELECT statement, performs SQL query and returns data ready for custom function return.
+    * <br>Execute() can be called multiple times for different SELECT statements, provided that all required
+    * table data was loaded in the constructor.  
+    * Methods that would be used PRIOR to execute are:
+    * <br>**enableColumnTitle()** - turn on/off column title in output
+    * <br>**addBindParameter()** - If bind data is needed in select.  e.g. "select * from table where id = ?"
+    * <br>**addTableData()** - At least ONE table needs to be added prior to execute. This tells **execute** where to find the data.
+    * <br>**Example SELECT and RETURN Data**
+    * ```js
+    *   let stmt = "SELECT books.id, books.title, books.author_id " +
+    *        "FROM books " +
+    *        "WHERE books.author_id IN ('11','12') " +
+    *        "ORDER BY books.title";
+    *
+    *    let data = new Sql()
+    *        .addTableData("books", this.bookTable())
+    *        .enableColumnTitle(true)
+    *        .execute(stmt);
+    * 
+    *    Logger.log(data);
+    * 
+    * [["books.id", "books.title", "books.author_id"],
+    *    ["4", "Dream Your Life", "11"],
+    *    ["8", "My Last Book", "11"],
+    *    ["5", "Oranges", "12"],
+    *    ["1", "Time to Grow Up!", "11"]]
+    * ```
+    * @param {String} statement - SELECT statement.
+    * @returns {any[][]} - Double array where first index is ROW and second index is COLUMN.
     */
     execute(statement) {
         let sqlData = [];
 
         this.ast = SqlParse.sql2ast(statement);
 
-        //  SELECT * from (select a,b,c from table) as derivedtable
+        //  "SELECT * from (select a,b,c from table) as derivedtable"
         //  Sub query data is loaded and given the name 'derivedtable'
         //  The AST.FROM is updated from the sub-query to the new derived table name. 
         this.selectFromSubQuery();
@@ -228,8 +278,8 @@ class Sql {
     }
 
     /**
-     * 
-    * @param {Map<String,Table>} mapOfTables 
+     * Sets all tables referenced SELECT.
+    * @param {Map<String,Table>} mapOfTables - Map of referenced tables indexed by TABLE name.
     */
     setTables(mapOfTables) {
         this.tables = mapOfTables;
@@ -237,8 +287,8 @@ class Sql {
     }
 
     /**
-     * 
-     * @returns {Map<String,Table>} 
+     * Returns a map of all tables configured for this SELECT.
+     * @returns {Map<String,Table>} - Map of referenced tables indexed by TABLE name.
      */
     getTables() {
         return this.tables;
@@ -248,7 +298,7 @@ class Sql {
     * Find table alias name (if any) for input actual table name.
     * @param {String} tableName - Actual table name.
     * @param {Object} ast - Abstract Syntax Tree for SQL.
-    * @returns {String}
+    * @returns {String} - Table alias.  Empty string if not found.
     */
     getTableAlias(tableName, ast) {
         let tableAlias = "";
@@ -262,6 +312,9 @@ class Sql {
         return tableAlias;
     }
 
+    /**
+     * Modifies AST when FROM is a sub-query rather than a table name.
+     */
     selectFromSubQuery() {
         if (typeof this.ast.FROM !== 'undefined' && typeof this.ast.FROM.SELECT !== 'undefined') {
             const inSQL = new Sql().setTables(this.tables).enableColumnTitle(true);
@@ -272,11 +325,11 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {String} tableAlias - Extracted alias name
-     * @param {String} tableName 
-     * @param {Object} ast 
-     * @returns {String}
+     * Searches the FROM and JOIN components of a SELECT to find the table alias.
+     * @param {String} tableAlias - Default alias name
+     * @param {String} tableName - table name to search for.
+     * @param {Object} ast - Abstract Syntax Tree to search
+     * @returns {String} - Table alias name.
      */
     static getTableAliasFromJoin(tableAlias, tableName, ast) {
         const astTableBlocks = ['FROM', 'JOIN'];
@@ -292,11 +345,11 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {String} tableAlias 
-     * @param {String} tableName 
-     * @param {Object} ast 
-     * @returns {String}
+     * Searches the UNION portion of the SELECT to locate the table alias.
+     * @param {String} tableAlias - default table alias.
+     * @param {String} tableName - table name to search for.
+     * @param {Object} ast - Abstract Syntax Tree to search
+     * @returns {String} - table alias
      */
     getTableAliasUnion(tableAlias, tableName, ast) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
@@ -319,11 +372,11 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {String} tableAlias 
-     * @param {String} tableName 
-     * @param {Object} ast 
-     * @returns {String}
+     * Search WHERE IN component of SELECT to find table alias.
+     * @param {String} tableAlias - default table alias
+     * @param {String} tableName - table name to search for
+     * @param {Object} ast - Abstract Syntax Tree to search
+     * @returns {String} - table alias
      */
     getTableAliasWhereIn(tableAlias, tableName, ast) {
         let extractedAlias = tableAlias;
@@ -339,11 +392,11 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {String} tableAlias 
-     * @param {String} tableName 
-     * @param {Object} ast 
-     * @returns {String}
+     * Search WHERE terms of SELECT to find table alias.
+     * @param {String} tableAlias - default table alias
+     * @param {String} tableName  - table name to search for.
+     * @param {Object} ast - Abstract Syntax Tree to search.
+     * @returns {String} - table alias
      */
     getTableAliasWhereTerms(tableAlias, tableName, ast) {
         let extractedTableAlias = tableAlias;
@@ -358,15 +411,24 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {String} statement 
-     * @returns {String[][]}
+     * Create table definition array from select string.
+     * @param {String} statement - full sql select statement.
+     * @returns {String[][]} - table definition array.
      */
     static getReferencedTableNames(statement) {
         const ast = SqlParse.sql2ast(statement);
         return this.getReferencedTableNamesFromAst(ast);
     }
 
+    /**
+     * Create table definition array from select AST.
+     * @param {Object} ast - AST for SELECT. 
+     * @returns {any[]} - table definition array.
+     * * [0] - table name.
+     * * [1] - sheet tab name
+     * * [2] - cache seconds
+     * * [3] - output column title flag
+     */
     static getReferencedTableNamesFromAst(ast) {
         const DEFAULT_CACHE_SECONDS = 60;
         const DEFAULT_COLUMNS_OUTPUT = true;
@@ -386,9 +448,9 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {Map<String,String>} tableSet 
+     * Search for all referenced tables in SELECT.
+     * @param {Object} ast - AST for SELECT.
+     * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
      */
     static extractAstTables(ast, tableSet) {
         Sql.getTableNamesFromOrJoin(ast, tableSet);
@@ -399,9 +461,9 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {Map<String,String>} tableSet 
+     * Search for referenced table in FROM or JOIN part of select.
+     * @param {Object} ast - AST for SELECT.
+     * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
      */
     static getTableNamesFromOrJoin(ast, tableSet) {
         const astTableBlocks = ['FROM', 'JOIN'];
@@ -413,7 +475,7 @@ class Sql {
             let blockData = ast[astBlock];
 
             //  In the case where FROM (select sub-query) it will not be iterable.
-            if (! this.isIterable(blockData) && astBlock === 'FROM') {
+            if (!this.isIterable(blockData) && astBlock === 'FROM') {
                 blockData = blockData.FROM;
             }
 
@@ -423,18 +485,23 @@ class Sql {
         }
     }
 
-    static isIterable(input) {  
+    /**
+     * Check if input is iterable.
+     * @param {any} input - Check this object to see if it can be iterated. 
+     * @returns {Boolean} - true - can be iterated.  false - cannot be iterated.
+     */
+    static isIterable(input) {
         if (input === null || input === undefined) {
-          return false
+            return false
         }
-      
+
         return typeof input[Symbol.iterator] === 'function'
-      }
+    }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {Map<String,String>} tableSet 
+     * Searches for table names within SELECT (union, intersect, except) statements.
+     * @param {Object} ast - AST for SELECT
+     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesUnion(ast, tableSet) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
@@ -449,9 +516,9 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {Map<String,String>} tableSet 
+     * Searches for tables names within SELECT (in, exists) statements.
+     * @param {Object} ast - AST for SELECT
+     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesWhereIn(ast, tableSet) {
         //  where IN ().
@@ -466,9 +533,9 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {Map<String,String>} tableSet 
+     * Search WHERE to find referenced table names.
+     * @param {Object} ast -  AST to search.
+     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesWhereTerms(ast, tableSet) {
         if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
@@ -478,6 +545,11 @@ class Sql {
         }
     }
 
+    /**
+     * Search CORRELATES sub-query for table names.
+     * @param {*} ast - AST to search
+     * @param {*} tableSet - Function updates this map of table names and alias name.
+     */
     static getTableNamesCorrelatedSelect(ast, tableSet) {
         if (typeof ast.SELECT !== 'undefined') {
             for (const term of ast.SELECT) {
@@ -489,11 +561,11 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {String} tableName 
-     * @param {Object} ast 
-     * @param {String} astBlock 
-     * @returns {String}
+     * Search a property of AST for table alias name.
+     * @param {String} tableName - Table name to find in AST.
+     * @param {Object} ast - AST of SELECT.
+     * @param {String} astBlock - AST property to search.
+     * @returns {String} - Alias name or "" if not found.
      */
     static locateAstTableAlias(tableName, ast, astBlock) {
         if (typeof ast[astBlock] === 'undefined')
@@ -510,8 +582,11 @@ class Sql {
 
     /**
      * Load SELECT data and return in double array.
-     * @param {Object} selectAst 
-     * @returns {any[][]}
+     * @param {Object} selectAst - Abstract Syntax Tree of SELECT
+     * @returns {any[][]} - double array useable by Google Sheet in custom function return value.
+     * * First row of data will be column name if column title output was requested.
+     * * First Array Index - ROW
+     * * Second Array Index - COLUMN
      */
     select(selectAst) {
         let recordIDs = [];
@@ -573,8 +648,8 @@ class Sql {
 
     /**
      * If 'GROUP BY' is not set and 'DISTINCT' column is specified, update AST to add 'GROUP BY'.
-     * @param {Object} ast 
-     * @returns {Object}
+     * @param {Object} ast - Abstract Syntax Tree for SELECT.
+     * @returns {Object} - Updated AST to include GROUP BY when DISTINCT field used.
      */
     static distinctField(ast) {
         const astFields = ast.SELECT;
@@ -601,8 +676,8 @@ class Sql {
 
     /**
      * Add new column to AST for every AGGREGATE function and unique pivot column data.
-     * @param {Object} ast 
-     * @returns {Object}
+     * @param {Object} ast - AST which is checked to see if a PIVOT is used.
+     * @returns {Object} - Updated AST containing SELECT FIELDS for the pivot data OR original AST if no pivot.
      */
     pivotField(ast) {
         //  If we are doing a PIVOT, it then requires a GROUP BY.
@@ -623,8 +698,8 @@ class Sql {
 
     /**
      * Find distinct pivot column data.
-     * @param {Object} ast 
-     * @returns {any[][]}
+     * @param {Object} ast - Abstract Syntax Tree containing the PIVOT option.
+     * @returns {any[][]} - All unique data points found in the PIVOT field for the given SELECT.
      */
     getUniquePivotData(ast) {
         const pivotAST = {};
@@ -646,10 +721,14 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {any[][]} pivotFieldData 
-     * @returns {Object}
+     * Add new calculated fields to the existing SELECT fields.  A field is add for each combination of
+     * aggregate function and unqiue pivot data points.  The CASE function is used for each new field.
+     * A test is made if the column data equal the pivot data.  If it is, the aggregate function data 
+     * is returned, otherwise null.  The GROUP BY is later applied and the appropiate pivot data will
+     * be calculated.
+     * @param {Object} ast - AST to be updated.
+     * @param {any[][]} pivotFieldData - Table data with unique pivot field data points. 
+     * @returns {Object} - Abstract Sytax Tree with new SELECT fields with a CASE for each pivot data and aggregate function.
      */
     static addCalculatedPivotFieldsToAst(ast, pivotFieldData) {
         const newPivotAstFields = [];
@@ -675,10 +754,11 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {any[][]} viewTableData 
-     * @returns {any[][]}
+     * If any SET commands are found (like UNION, INTERSECT,...) the additional SELECT is done.  The new
+     * data applies the SET rule against the income viewTableData, and the result data set is returned.
+     * @param {Object} ast - SELECT AST.
+     * @param {any[][]} viewTableData - SELECTED data before UNION.
+     * @returns {any[][]} - New data with set rules applied.
      */
     unionSets(ast, viewTableData) {
         const unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
@@ -726,10 +806,10 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {any[][]} srcData 
-     * @param {any[][]} newData
-     * @returns {any[][]} 
+     * Appends any row in newData that does not exist in srcData.
+     * @param {any[][]} srcData - existing table data
+     * @param {any[][]} newData - new table data
+     * @returns {any[][]} - srcData rows PLUS any row in newData that is NOT in srcData.
      */
     static appendUniqueRows(srcData, newData) {
         const srcMap = new Map();
@@ -749,10 +829,10 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {any[][]} srcData 
-     * @param {any[][]} newData 
-     * @returns {any[][]}
+     * Finds the rows that are common between srcData and newData
+     * @param {any[][]} srcData - table data
+     * @param {any[][]} newData - table data
+     * @returns {any[][]} - returns only rows that intersect srcData and newData.
      */
     static intersectRows(srcData, newData) {
         const srcMap = new Map();
@@ -771,10 +851,10 @@ class Sql {
     }
 
     /**
-     * 
-     * @param {any[][]} srcData 
-     * @param {any[][]} newData 
-     * @returns {any[][]}
+     * Returns all rows in srcData MINUS any rows that match it from newData.
+     * @param {any[][]} srcData - starting table
+     * @param {any[][]} newData  - minus table (if it matches srcData row)
+     * @returns {any[][]} - srcData MINUS newData
      */
     static exceptRows(srcData, newData) {
         const srcMap = new Map();

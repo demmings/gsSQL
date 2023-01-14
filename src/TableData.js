@@ -13,10 +13,25 @@ class Logger {
 //  *** DEBUG END  ***/
 
 //  skipcq: JS-0128
+/** 
+ * Interface for loading table data either from CACHE or SHEET. 
+ * @class
+ * @classdesc
+ * * Automatically load table data from a **CACHE** or **SHEET** <br>
+ * * In all cases, if the cache has expired, the data is read from the sheet. 
+ * <br>
+ * 
+ * | Cache Seconds | Description |
+ * | ---           | ---         |
+ * | 0             | Data is not cached and always read directly from SHEET |
+ * | <= 21600      | Data read from SHEETS cache if it has not expired |
+ * | > 21600       | Data read from Google Sheets Script Settings |
+ * 
+ */
 class TableData {
     /**
     * Retrieve table data from SHEET or CACHE.
-    * @param {String} namedRange 
+    * @param {String} namedRange - Location of table data.  Either a) SHEET Name, b) Named Range, c) A1 sheet notation.
     * @param {Number} cacheSeconds - 0s Reads directly from sheet. > 21600s Sets in SCRIPT settings, else CacheService 
     * @returns {any[][]}
     */
@@ -273,9 +288,9 @@ class TableData {
     }
 
     /**
-     * 
-     * @param {String} namedRange 
-     * @returns {any[]}
+     * Read sheet data into double array.
+     * @param {String} namedRange - named range, A1 notation or sheet name
+     * @returns {any[][]} - table data.
      */
     static loadValuesFromRangeOrSheet(namedRange) {
         let tableNamedRange = namedRange;

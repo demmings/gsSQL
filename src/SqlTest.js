@@ -1039,8 +1039,8 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["books.id", "books.title", "editors.last_name"]
-            , ["1", "Time to Grow Up!", "Brown"],
+        let expected = [["books.id", "books.title", "editors.last_name"],
+        ["1", "Time to Grow Up!", "Brown"],
         ["2", "Your Trip", "Johnson"],
         ["3", "Lovely Love", "Roberts"],
         ["4", "Dream Your Life", "Roberts"],
@@ -1268,7 +1268,6 @@ class SqlTester {
 
         let data = new TestSql()
             .addTableData("books", this.bookTable())
-            .addTableData("authors", this.authorsTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
@@ -1349,6 +1348,23 @@ class SqlTester {
         ["5", "Oranges", "translated", "12", "25", "31"]];
 
         return this.isEqual("whereIn5", data, expected);
+    }
+
+    whereIn6() {
+        let stmt = "SELECT * " +
+            "FROM editors " +
+            "WHERE first_name IN (' Mark ', 'Maria    ', 'CATHRINE  ', '  jacK') ";
+
+        let data = new TestSql()
+            .addTableData("editors", this.editorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["EDITORS.ID", "EDITORS.FIRST_NAME", "EDITORS.LAST_NAME"],
+        ["22", "Mark", "Johnson"],
+        ["23", "Maria", "Evans"]];
+
+        return this.isEqual("whereIn6", data, expected);
     }
 
     whereNotIn1() {
@@ -2195,6 +2211,26 @@ class SqlTester {
         ["05/04/2022", 2022, 5, 4]];
 
         return this.isEqual("selectFuncs6", data, expected);
+    }
+
+    selectFuncs7() {
+        let stmt = "select name, charindex(' ', name, 2), charindex(' ', name, 4), charindex(' ', name, 6) from customers";
+
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["name", "charindex(' ', name, 2)", "charindex(' ', name, 4)", "charindex(' ', name, 6)"],
+        ["Numereo Uno", 8, 8, 8],
+        ["Dewy Tuesdays", 5, 5, 0],
+        ["Tres Buon Goods", 5, 5, 10],
+        ["ForMe Resellers", 6, 6, 6],
+        ["Fe Fi Fo Giant Tiger", 3, 6, 6],
+        ["Sx in Cars", 3, 6, 6],
+        ["7th Heaven", 4, 4, 0]];
+
+        return this.isEqual("selectFuncs7", data, expected);
     }
 
     selectFuncInFunc1() {
@@ -3144,7 +3180,7 @@ class SqlTester {
         let stmt = "select customer_id, wins, loss, (wins / (wins+loss)) as rate from (select customer_id, sum(case when quantity < 100 then 1 else 0 end) as wins, sum(case when quantity >= 100 then 1 else 0 end) as loss from booksales group by customer_id) as score";
 
         let data = parseTableSettings([], stmt, false);
-        let expected = [["BOOKSALES","BOOKSALES",60,true]];
+        let expected = [["BOOKSALES", "BOOKSALES", 60, true]];
 
         return this.isEqual("parseTableSettings11", data, expected);
     }
@@ -3798,6 +3834,7 @@ function testerSql() {
     result = result && tester.whereIn3();
     result = result && tester.whereIn4();
     result = result && tester.whereIn5();
+    result = result && tester.whereIn6();
     result = result && tester.whereNotIn1();
     result = result && tester.whereAndOr1();
     result = result && tester.whereAndOr2();
@@ -3835,6 +3872,7 @@ function testerSql() {
     result = result && tester.selectFuncs4();
     result = result && tester.selectFuncs5();
     result = result && tester.selectFuncs6();
+    result = result && tester.selectFuncs7();
     result = result && tester.selectFuncInFunc1();
     result = result && tester.selectFuncInFunc2();
     result = result && tester.selectIF1();

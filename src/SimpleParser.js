@@ -5,6 +5,7 @@ export { SqlParse };
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 
+/** Parse SQL SELECT statement and convert into Abstract Syntax Tree */
 class SqlParse {
     /**
      * 
@@ -450,7 +451,7 @@ class SqlParse {
  * Inspired by https://github.com/DmitrySoshnikov/Essentials-of-interpretation
  */
 
-// Constructor
+/** Lexical analyzer for SELECT statement. */
 class CondLexer {
     constructor(source) {
         this.source = source;
@@ -633,6 +634,7 @@ class CondLexer {
     }
 }
 
+/** SQL Condition parser class. */
 class CondParser {
     constructor(source) {
         this.lexer = new CondLexer(source);
@@ -826,7 +828,7 @@ class CondParser {
             }
 
             inCurrentToken = this.currentToken;
-            bracketCount += this.groupBracketIncrementer(inCurrentToken);
+            bracketCount += CondParser.groupBracketIncrementer(inCurrentToken);
         }
 
         if (isSelectStatement) {
@@ -836,7 +838,7 @@ class CondParser {
         return astNode;
     }
 
-    groupBracketIncrementer(inCurrentToken) {
+    static groupBracketIncrementer(inCurrentToken) {
         let diff = 0;
         if (inCurrentToken.type === 'group') {
             if (inCurrentToken.value === '(') {
@@ -851,6 +853,7 @@ class CondParser {
     }
 }
 
+/** Analyze each distinct component of SELECT statement. */
 class SelectKeywordAnalysis {
     static analyze(itemName, part) {
         const keyWord = itemName.toUpperCase().replace(/ /g, '_');
@@ -1096,7 +1099,7 @@ class SelectKeywordAnalysis {
     /**
     * If an ALIAS is specified after 'AS', return the field/table name and the alias.
     * @param {String} item 
-    * @returns {[String, String]}
+    * @returns {String[]}
     */
     static getNameAndAlias(item) {
         let realName = item;

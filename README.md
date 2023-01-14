@@ -366,6 +366,8 @@ let data = new Sql()
             .execute(stmt);
 ```
 
+4.  Documentation for using:
+   * https://demmings.github.io/docs/gssql/index.html
 
 ---
 

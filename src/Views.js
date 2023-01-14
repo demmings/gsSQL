@@ -8,23 +8,36 @@ import { SqlParse } from './SimpleParser.js';
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
 
+/** Perform SQL SELECT operations to retrieve requested data. */
 class SelectTables {
     /**
-     * @param {Object} ast
-     * @param {Map<String,Table>} tableInfo 
-     * @param {any[]} bindVariables
+     * @param {Object} ast - Abstract Syntax Tree
+     * @param {Map<String,Table>} tableInfo - Map of table info.
+     * @param {any[]} bindVariables - List of bind data.
      */
     constructor(ast, tableInfo, bindVariables) {
+        /** @property {String} - primary table name. */
         this.primaryTable = ast.FROM[0].table;
+
+        /** @property {Object} - AST of SELECT fields */
         this.astFields = ast.SELECT;
+
+        /** @property {Map<String,Table>} tableInfo - Map of table info. */
         this.tableInfo = tableInfo;
+
+        /** @property {any[]} - Bind variable data. */
         this.bindVariables = bindVariables;
-        this.joinedTablesMap = new Map();
+
+        /** @property {JoinTables} - Join table object. */
         this.dataJoin = new JoinTables([]);
+
+        /** @property {TableFields} */
         this.tableFields = new TableFields();
 
         if (!tableInfo.has(this.primaryTable.toUpperCase()))
             throw new Error(`Invalid table name: ${this.primaryTable}`);
+
+        /** @property {Table} - Primary table info. */
         this.primaryTableInfo = tableInfo.get(this.primaryTable.toUpperCase());
 
         //  Keep a list of all possible fields from all tables.
@@ -43,8 +56,8 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {Object} ast 
+     * Process any JOIN condition.
+     * @param {Object} ast - Abstract Syntax Tree
      */
     join(ast) {
         if (typeof ast.JOIN !== 'undefined')
@@ -53,8 +66,8 @@ class SelectTables {
 
     /**
       * Retrieve filtered record ID's.
-      * @param {Object} ast 
-      * @returns {Number[]}
+      * @param {Object} ast - Abstract Syntax Tree
+      * @returns {Number[]} - Records ID's that match WHERE condition.
       */
     whereCondition(ast) {
         let sqlData = [];
@@ -77,10 +90,10 @@ class SelectTables {
     }
 
     /**
-    * 
-    * @param {String} logic 
-    * @param {Object} terms 
-    * @returns {Number[]}
+    * Recursively resolve WHERE condition and then apply AND/OR logic to results.
+    * @param {String} logic - logic condition (AND/OR) between terms
+    * @param {Object} terms - terms of WHERE condition (value compared to value)
+    * @returns {Number[]} - record ID's 
     */
     resolveCondition(logic, terms) {
         const recordIDs = [];
@@ -111,9 +124,9 @@ class SelectTables {
     }
 
     /**
-    * 
-    * @param {Object} condition
-    * @returns {Number[]} 
+    * Find record ID's where condition is TRUE.
+    * @param {Object} condition - WHERE test condition
+    * @returns {Number[]} - record ID's which are true.
     */
     getRecordIDs(condition) {
         /** @type {Number[]} */
@@ -143,39 +156,31 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {any[]} fieldConditions 
-     * @param {CalculatedField} calcSqlField
-     * @param {Number} masterRecordID
+     * Evaulate value on left/right side of condition
+     * @param {ResolvedFieldCondition} fieldConditions - the value to be found will come from:
+     * * constant data
+     * * field data
+     * * calculated field
+     * * sub-query 
+     * @param {CalculatedField} calcSqlField - data to resolve the calculated field.
+     * @param {Number} masterRecordID - current record in table to grab field data from
+     * @returns {any} - resolve value.
      */
     static getConditionValue(fieldConditions, calcSqlField, masterRecordID) {
-        /** @type {any} */
-        let fieldConstant = null;
-        /** @type {Number} */
-        let fieldCol = -1;
-        /** @type {Table} */
-        let fieldTable = null;
-        /** @type {String} */
-        let fieldCalculatedField = "";
-        /** @type {CorrelatedSubQuery}  */
-        let subQueryObject = null;
-
-        [fieldTable, fieldCol, fieldConstant, fieldCalculatedField, subQueryObject] = fieldConditions;
-
-        let leftValue = fieldConstant;
-        if (fieldCol >= 0) {
-            leftValue = fieldTable.tableData[masterRecordID][fieldCol];
+        let leftValue = fieldConditions.constantData;
+        if (fieldConditions.columnNumber >= 0) {
+            leftValue = fieldConditions.fieldConditionTableInfo.tableData[masterRecordID][fieldConditions.columnNumber];
         }
-        else if (fieldCalculatedField !== "") {
-            if (fieldCalculatedField.toUpperCase() === "NULL") {
+        else if (fieldConditions.calculatedField !== "") {
+            if (fieldConditions.calculatedField.toUpperCase() === "NULL") {
                 leftValue = "NULL";
             }
             else {
-                leftValue = calcSqlField.evaluateCalculatedField(fieldCalculatedField, masterRecordID);
+                leftValue = calcSqlField.evaluateCalculatedField(fieldConditions.calculatedField, masterRecordID);
             }
         }
-        else if (subQueryObject !== null) {
-            const arrayResult = subQueryObject.select(masterRecordID, calcSqlField);
+        else if (fieldConditions.subQuery !== null) {
+            const arrayResult = fieldConditions.subQuery.select(masterRecordID, calcSqlField);
             if (typeof arrayResult !== 'undefined' && arrayResult !== null && arrayResult.length > 0)
                 leftValue = arrayResult[0][0];
         }
@@ -184,11 +189,11 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {any} leftValue 
-     * @param {String} operator 
-     * @param {any} rightValue 
-     * @returns 
+     * Compare where term values using operator and see if comparision is true.
+     * @param {any} leftValue - left value of condition
+     * @param {String} operator - operator for comparision
+     * @param {any} rightValue  - right value of condition
+     * @returns {Boolean} - is comparison true.
      */
     static isConditionTrue(leftValue, operator, rightValue) {
         let keep = false;
@@ -262,9 +267,9 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {Number[]} recordIDs 
-     * @returns {any[][]}
+     * Retrieve the data for the record ID's specified for ALL SELECT fields.
+     * @param {Number[]} recordIDs - record ID's which are SELECTed.
+     * @returns {any[][]} - double array of select data.  No column title is included here.
      */
     getViewData(recordIDs) {
         const virtualData = [];
@@ -294,9 +299,9 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {String} srcString 
-     * @returns {String}
+     * Returns the entire string in UPPER CASE - except for anything between quotes.
+     * @param {String} srcString - source string to convert.
+     * @returns {String} - converted string.
      */
     static toUpperCaseExceptQuoted(srcString) {
         let finalString = "";
@@ -322,10 +327,13 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {String} functionString 
-     * @param {String} func
-     * @returns {String[]} 
+     * Parse input string for 'func' and then parse if found.
+     * @param {String} functionString - Select field which may contain a function.
+     * @param {String} func - Function name to parse for.
+     * @returns {String[]} - Parsed function string.
+     *   * null if function not found, 
+     *   * string array[0] - original string, e.g. **sum(quantity)**
+     *   * string array[1] - function parameter, e.g. **quantity**
      */
     static parseForFunctions(functionString, func) {
         const args = [];
@@ -355,9 +363,10 @@ class SelectTables {
     }
 
     /**
+     * Parse the input for a calculated field.
      * String split on comma, EXCEPT if comma is within brackets (i.e. within an inner function)
-     * @param {String} paramString 
-     * @returns {String[]}
+     * @param {String} paramString - Search and parse this string for parameters.
+     * @returns {String[]} - List of function parameters.
      */
     static parseForParams(paramString, startBracket = "(", endBracket = ")") {
         const args = [];
@@ -385,10 +394,11 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {any[][]} viewTableData 
-     * @returns {any[][]}
+     * Compress the table data so there is one record per group (fields in GROUP BY).
+     * The other fields MUST be aggregate calculated fields that works on the data in that group.
+     * @param {Object} ast - Abstract Syntax Tree
+     * @param {any[][]} viewTableData - Table data.
+     * @returns {any[][]} - Aggregated table data.
      */
     groupBy(ast, viewTableData) {
         let groupedTableData = viewTableData;
@@ -415,10 +425,10 @@ class SelectTables {
     }
 
     /**
-    * 
-    * @param {any[]} astGroupBy 
-    * @param {any[][]} selectedData 
-    * @returns {any[][]}
+    * Group table data by group fields.
+    * @param {any[]} astGroupBy - AST group by fields.
+    * @param {any[][]} selectedData - table data
+    * @returns {any[][]} - compressed table data
     */
     groupByFields(astGroupBy, selectedData) {
         if (selectedData.length === 0)
@@ -457,10 +467,10 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {any[]} row 
-     * @param {any[]} astGroupBy 
-     * @returns 
+     * Create a composite key that is comprised from all field data in group by clause.
+     * @param {any[]} row  - current row of data.
+     * @param {any[]} astGroupBy - group by fields
+     * @returns {String} - group key
      */
     createGroupByKey(row, astGroupBy) {
         let key = "";
@@ -475,10 +485,10 @@ class SelectTables {
     }
 
     /**
-    * 
-    * @param {Object} astHaving 
-    * @param {any[][]} selectedData 
-    * @returns {any[][]}
+    * Take the compressed data from GROUP BY and then filter those records using HAVING conditions.
+    * @param {Object} astHaving - AST HAVING conditons
+    * @param {any[][]} selectedData - compressed table data (from group by)
+    * @returns {any[][]} - filtered data using HAVING conditions.
     */
     having(astHaving, selectedData) {
         //  Add in the title row for now
@@ -503,9 +513,9 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {any[][]} selectedData 
+     * Take select data and sort by columns specified in ORDER BY clause.
+     * @param {Object} ast - Abstract Syntax Tree for SELECT
+     * @param {any[][]} selectedData - Table data to sort.  On function return, this array is sorted.
      */
     orderBy(ast, selectedData) {
         if (typeof ast['ORDER BY'] === 'undefined')
@@ -533,9 +543,10 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {any[][]} viewTableData 
-     * @returns {any[][]}
+     * Removes temporary fields from return data.  These temporary fields were needed to generate
+     * the final table data, but are not included in the SELECT fields for final output.
+     * @param {any[][]} viewTableData - table data that may contain temporary columns.
+     * @returns {any[][]} - table data with temporary columns removed.
      */
     removeTempColumns(viewTableData) {
         const tempColumns = this.tableFields.getTempSelectedColumnNumbers();
@@ -553,10 +564,10 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {any[][]} tableData 
-     * @param {Number} colIndex 
-     * @returns {any[][]}
+     * Sort the table data from lowest to highest using the data in colIndex for sorting.
+     * @param {any[][]} tableData - table data to sort.
+     * @param {Number} colIndex - column index which indicates which column to use for sorting.
+     * @returns {any[][]} - sorted table data.
      */
     static sortByColumnASC(tableData, colIndex) {
         tableData.sort(sortFunction);
@@ -578,10 +589,10 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {any[][]} tableData 
-     * @param {Number} colIndex 
-     * @returns {any[][]}
+     * Sort the table data from highest to lowest using the data in colIndex for sorting.
+     * @param {any[][]} tableData - table data to sort.
+     * @param {Number} colIndex - column index which indicates which column to use for sorting.
+     * @returns {any[][]} - sorted table data.
      */
     static sortByColumnDESC(tableData, colIndex) {
 
@@ -604,9 +615,18 @@ class SelectTables {
     }
 
     /**
+     * @typedef {Object} ResolvedFieldCondition
+     * @property {Table} fieldConditionTableInfo
+     * @property {Number} columnNumber - use column data from this column, unless -1.
+     * @property {String} constantData - constant data used for column, unless null.
+     * @property {String} calculatedField - calculation of data for column, unless empty.
+     * @property {CorrelatedSubQuery} subQuery - use this correlated subquery object if not null. 
      * 
-     * @param {Object} fieldCondition 
-     * @returns {any[]}
+     */
+    /**
+     * Determine what the source of value is for the current field condition.
+     * @param {Object} fieldCondition - left or right portion of condition
+     * @returns {ResolvedFieldCondition}
      */
     resolveFieldCondition(fieldCondition) {
         /** @type {String} */
@@ -660,14 +680,14 @@ class SelectTables {
                 constantData = fieldCondition;
         }
 
-        return [fieldConditionTableInfo, columnNumber, constantData, calculatedField, subQuery];
+        return { fieldConditionTableInfo, columnNumber, constantData, calculatedField, subQuery };
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {Map<String,Table>} tableInfo 
-     * @returns {Map<String,Table>}
+     * Create a set of tables that are used in sub-query.
+     * @param {Object} ast - Sub-query AST.
+     * @param {Map<String,Table>} tableInfo - Master set of tables used for entire select.
+     * @returns {Map<String,Table>} - table set for sub-query.
      */
     static getSubQueryTableSet(ast, tableInfo) {
         const tableSubSet = new Map();
@@ -686,18 +706,18 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {String} value 
-     * @returns {Boolean}
+     * Is the string a constant in the SELECT condition.  
+     * @param {String} value - condition to test
+     * @returns {Boolean} - Is this string a constant.
      */
     static isStringConstant(value) {
         return value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'");
     }
 
     /**
-     * 
-     * @param {String} value 
-     * @returns {String}
+     * Extract the string literal out of condition.  This removes surrounding quotes.
+     * @param {String} value - String that encloses literal string data.
+     * @returns {String} - String with quotes removed.
      */
     static extractStringConstant(value) {
         if (value.startsWith('"') && value.endsWith('"'))
@@ -710,9 +730,9 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {any} value 
-     * @returns {Number}
+     * Convert input into milliseconds.
+     * @param {any} value - date as as Date or String.
+     * @returns {Number} - date as ms.
      */
     static dateToMs(value) {
         let year = 0;
@@ -738,10 +758,10 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {String} leftValue 
-     * @param {String} rightValue 
-     * @returns {Boolean}
+     * Compare strings in LIKE condition
+     * @param {String} leftValue - string for comparison
+     * @param {String} rightValue - string with wildcard
+     * @returns {Boolean} - Do strings match?
      */
     static likeCondition(leftValue, rightValue) {
         // @ts-ignore
@@ -752,10 +772,10 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {any} leftValue 
-     * @param {String} rightValue 
-     * @returns 
+     * Check if leftValue is contained in list in rightValue
+     * @param {any} leftValue - value to find in right value
+     * @param {String} rightValue - list of comma separated values
+     * @returns {Boolean} - Is contained IN list.
      */
     static inCondition(leftValue, rightValue) {
         const items = rightValue.split(",");
@@ -771,47 +791,59 @@ class SelectTables {
     }
 
     /**
-     * 
-     * @param {any} leftValue 
-     * @param {any} rightValue 
-     * @returns {Boolean}
+     * If leftValue is empty (we will consider that as NULL), condition will be true
+     * @param {any} leftValue - test this value for NULL
+     * @param {any} rightValue - 'NULL' considered as NULL.
+     * @returns {Boolean} - Is leftValue NULL (like).
      */
     static isCondition(leftValue, rightValue) {
         return (leftValue === "" && rightValue === "NULL");
     }
 
+    /**
+     * Test if input is not empty
+     * @param {*} rightValue - value to check if empty
+     * @returns - true if NOT empty
+     */
     static existsCondition(rightValue) {
         return rightValue !== '';
     }
 
     /**
-     * 
-     * @returns {String[]}
+     * Return a list of column titles for this table.
+     * @returns {String[]} - column titles
      */
     getColumnTitles() {
         return this.tableFields.getColumnTitles();
     }
 }
 
+/** Evaulate calculated fields in SELECT statement.  This is achieved by converting the request 
+ * into javascript and then using 'Function' to evaulate it.  
+ */
 class CalculatedField {
     /**
      * 
-     * @param {Table} masterTable 
-     * @param {Table} primaryTable
-     * @param {TableFields} tableFields 
+     * @param {Table} masterTable - JOINed table (unless not joined, then primary table)
+     * @param {Table} primaryTable - First table in SELECT
+     * @param {TableFields} tableFields - All fields from all tables
      */
     constructor(masterTable, primaryTable, tableFields) {
+        /** @property {Table} */
         this.masterTable = masterTable;
+        /** @property {Table} */
         this.primaryTable = primaryTable;
+        /** @property {Map<String,String>} - Map key=calculated field in SELECT, value=javascript equivalent code */ 
         this.sqlServerFunctionCache = new Map();
+        /** @property {TableField[]} */
         this.masterFields = tableFields.allFields.filter((vField) => this.masterTable === vField.tableInfo);
     }
 
     /**
-     * 
-     * @param {String} calculatedFormula 
-     * @param {Number} masterRecordID 
-     * @returns {any}
+     * Evaluate the calculated field for the current table record and return a value.
+     * @param {String} calculatedFormula - calculation from SELECT statement
+     * @param {Number} masterRecordID - current record ID.
+     * @returns {any} - Evaluated data from calculation.
      */
     evaluateCalculatedField(calculatedFormula, masterRecordID) {
         let result = "";
@@ -837,8 +869,8 @@ class CalculatedField {
      * find the value of the calculated field.  There are two parts.
      * 1)  Build LET statements to assign to all possible field name variants,
      * 2)  Add the 'massaged' calculated field so that it can be run in javascript.
-     * @param {String} calculatedFormula 
-     * @param {Number} masterRecordID
+     * @param {String} calculatedFormula - calculation from SELECT statement
+     * @param {Number} masterRecordID - current table record ID.
      * @returns {String} - String to be executed.  It is valid javascript lines of code.
      */
     sqlServerCalcFields(calculatedFormula, masterRecordID) {
@@ -864,12 +896,20 @@ class CalculatedField {
     }
 
     /**
-     * 
-     * @param {TableField} vField 
-     * @param {Map<String, Boolean>} objectsDeclared
-     * @param {Map<String, Boolean>} variablesDeclared
-     * @param {String} varData
-     * @returns {String}
+     * Creates a javascript code block.  For the current field (vField), a variable is assigned the appropriate
+     * value from 'varData'.  For example, if the column was 'ID' and the table was 'BOOKS'.
+     * ```
+     * "let BOOKS = {};BOOKS.ID = '9';"
+     * ```
+     * If the BOOKS object had already been declared, later variables would just be:
+     * ```
+     * "BOOKS.NAME = 'To Kill a Blue Jay';"
+     * ```
+     * @param {TableField} vField - current field that LET statements will be assigning to.
+     * @param {Map<String, Boolean>} objectsDeclared - tracks if TABLE name was been encountered yet.
+     * @param {Map<String, Boolean>} variablesDeclared - tracks if variables has already been assigned.
+     * @param {String} varData - the data from the table that will be assigned to the variable.
+     * @returns {String} - the javascript code block.
      */
     createAssignmentStatments(vField, objectsDeclared, variablesDeclared, varData) {
         let myVars = "";
@@ -918,24 +958,29 @@ class CalculatedField {
     }
 }
 
+/** Correlated Sub-Query requires special lookups for every record in the primary table. */
 class CorrelatedSubQuery {
     /**
      * 
-     * @param {Map<String, Table>} tableInfo 
-     * @param {TableFields} tableFields 
+     * @param {Map<String, Table>} tableInfo - Map of table info.
+     * @param {TableFields} tableFields - Fields from all tables.
+     * @param {Object} defaultSubQuery - Select AST
      */
     constructor(tableInfo, tableFields, defaultSubQuery = null) {
+        /** @property {Map<String, Table>} - Map of table info. */
         this.tableInfo = tableInfo;
+        /** @property {TableFields} - Fields from all tables.*/
         this.tableFields = tableFields;
+        /** @property {Object} - AST can be set here and skipped in select() statement. */
         this.defaultSubQuery = defaultSubQuery;
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @param {Number} masterRecordID
-     * @param {CalculatedField} calcSqlField
-     * @returns {any}
+     * Perform SELECT on sub-query using data from current record in outer table.
+     * @param {Number} masterRecordID - Current record number in outer table.
+     * @param {CalculatedField} calcSqlField - Calculated field object.
+     * @param {Object} ast - Sub-query AST.
+     * @returns {any[][]} - double array of selected table data.
      */
     select(masterRecordID, calcSqlField, ast = this.defaultSubQuery) {
         const inSQL = new Sql().setTables(this.tableInfo);
@@ -956,11 +1001,11 @@ class CorrelatedSubQuery {
     }
 
     /**
-     * If we find the field name in the AST, just replace with '?' and return true.
-     * @param {TableField[]} fieldNames 
-     * @param {Number} masterRecordID
-     * @param {Object} tempAst 
-     * @returns {any[]}
+     * If we find the field name in the AST, just replace with '?' and add to bind data variable list.
+     * @param {TableField[]} fieldNames - List of fields in outer query.  If any are found in subquery, the value of that field for the current record is inserted into subquery before it is executed.
+     * @param {Number} masterRecordID - current record number in outer query.
+     * @param {Object} tempAst - AST for subquery.  Any field names found from outer query will be replaced with bind place holder '?'.
+     * @returns {any[]} - Data from outer query to be used as bind variable data.
      */
     replaceOuterFieldValueInCorrelatedWhere(fieldNames, masterRecordID, tempAst) {
         const where = tempAst.WHERE;
@@ -987,42 +1032,49 @@ class CorrelatedSubQuery {
         return bindData;
     }
 
+    /**
+     * Search the WHERE portion of the subquery to find all references to the table in the outer query.
+     * @param {TableField[]} fieldNames - List of fields in outer query.
+     * @param {Object} terms - terms of WHERE.  It is modified with bind variable placeholders when outer table fields are located.
+     * @returns {String[]} - List of field names found from outer table in subquery.
+     */
     traverseWhere(fieldNames, terms) {
-        const recordIDs = [];
+        const bindFields = [];
 
         for (const cond of terms) {
             if (typeof cond.logic === 'undefined') {
                 let result = fieldNames.find(item => item.fieldName === cond.left.toUpperCase());
                 if (typeof result !== 'undefined') {
-                    recordIDs.push(cond.left.toUpperCase());
+                    bindFields.push(cond.left.toUpperCase());
                     cond.left = '?';
                 }
                 result = fieldNames.find(item => item.fieldName === cond.right.toUpperCase());
                 if (typeof result !== 'undefined') {
-                    recordIDs.push(cond.right.toUpperCase());
+                    bindFields.push(cond.right.toUpperCase());
                     cond.right = '?';
                 }
             }
             else {
-                recordIDs.push(fieldNames, this.traverseWhere(cond.terms));
+                bindFields.push(fieldNames, this.traverseWhere([cond.terms]));
             }
         }
 
-        return recordIDs;
+        return bindFields;
     }
 }
 
+/** Tracks all fields in a table (including derived tables when there is a JOIN). */
 class VirtualFields {
     constructor() {
-        /** @type {Map<String, VirtualField>} */
+        /** @property {Map<String, VirtualField>} - Map to field for fast access. Field name is key. */
         this.virtualFieldMap = new Map();
-        /** @type {VirtualField[]} */
+        /** @property {VirtualField[]} - List of all fields for table. */
         this.virtualFieldList = [];
     }
 
     /**
-     * 
-     * @param {VirtualField} field 
+     * Adds info for one field into master list of fields for table.
+     * @param {VirtualField} field - Information for one field in the table.
      */
     add(field, checkForDuplicates = false) {
         if (checkForDuplicates && this.virtualFieldMap.has(field.fieldName)) {
@@ -1033,7 +1085,7 @@ class VirtualFields {
     }
 
     /**
-     * 
+     * Returns a list of all fields in table.
      * @returns {VirtualField[]}
      */
     getAllVirtualFields() {
@@ -1041,10 +1093,10 @@ class VirtualFields {
     }
 
     /**
-     * 
-     * @param {Table} masterTableInfo 
-     * @param {any[]} astFields 
-     * @returns {any[]}
+     * When the wildcard '*' is found in the SELECT, it will add all fields in table to the AST used in the SELECT.
+     * @param {Table} masterTableInfo - The wildcard '*' (if found) will add fields from THIS table to the AST.
+     * @param {any[]} astFields - existing SELECT fields list.
+     * @returns {any[]} - original AST field list PLUS expanded list of fields if '*' was encountered.
      */
     static expandWildcardFields(masterTableInfo, astFields) {
         for (let i = 0; i < astFields.length; i++) {
@@ -1071,13 +1123,16 @@ class VirtualFields {
 class VirtualField {                        //  skipcq: JS-0128
     /**
      * 
-     * @param {String} fieldName 
-     * @param {Table} tableInfo 
-     * @param {Number} tableColumn 
+     * @param {String} fieldName - field name
+     * @param {Table} tableInfo - table this field belongs to.
+     * @param {Number} tableColumn - column number of this field.
      */
     constructor(fieldName, tableInfo, tableColumn) {
+        /** @property {String} - field name */
         this.fieldName = fieldName;
+        /** @property {Table} - table this field belongs to. */
         this.tableInfo = tableInfo;
+        /** @property {Number} - column number of this field. */
         this.tableColumn = tableColumn;
     }
 }
@@ -1085,12 +1140,12 @@ class VirtualField {                        //  skipcq: JS-0128
 /** Handle the various JOIN table types. */
 class JoinTables {
     /**
-     * 
-     * @param {any[]} astJoin 
+     * Join the tables and create a derived table with the combined data from all.
+     * @param {any[]} astJoin - AST list of tables to join.
      * @param {TableFields} tableFields
      */
     constructor(astJoin, tableFields = null) {
-        /** @type {DerivedTable} */
+        /** @property {DerivedTable} - result table after tables are joined */
         this.derivedTable = new DerivedTable();
 
         for (const joinTable of astJoin) {
@@ -1115,7 +1170,7 @@ class JoinTables {
     }
 
     /**
-     * 
+     * Does this object contain a derived (joined) table.
      * @returns {Boolean}
      */
     isDerivedTable() {
@@ -1123,7 +1178,7 @@ class JoinTables {
     }
 
     /**
-     * 
+     * Get derived table after tables are joined.
      * @returns {Table}
      */
     getJoinedTableInfo() {
@@ -1131,11 +1186,11 @@ class JoinTables {
     }
 
     /**
-    * 
-    * @param {TableField} leftFieldInfo 
-    * @param {TableField} rightFieldInfo 
-    * @param {Object} joinTable 
-    * @returns {DerivedTable}
+    * Join two tables and create a derived table that contains all data from both tables.
+    * @param {TableField} leftFieldInfo - left table field of join
+    * @param {TableField} rightFieldInfo - right table field of join
+    * @param {Object} joinTable - AST that contains join type.
+    * @returns {DerivedTable} - new derived table after join of left and right tables.
     */
     static joinTables(leftFieldInfo, rightFieldInfo, joinTable) {
         let matchedRecordIDs = [];
@@ -1206,10 +1261,10 @@ class JoinTables {
     /**
      * Returns array of each matching record ID from right table for every record in left table.
      * If the right table entry could NOT be found, -1 is set for that record index.
-     * @param {TableField} leftField 
-     * @param {TableField} rightField
-     * @param {String} type
-     * @returns {Number[][]} 
+     * @param {TableField} leftField - left table field
+     * @param {TableField} rightField - right table field
+     * @param {String} type - either 'inner' or 'outer'.
+     * @returns {Number[][]} - first index is record ID of left table, second index is a list of the matching record ID's in right table.
      */
     static leftRightJoin(leftField, rightField, type) {
         const leftRecordsIDs = [];
@@ -1250,20 +1305,20 @@ class JoinTables {
 /**  The JOIN creates a new logical table. */
 class DerivedTable {
     constructor() {
-        /** @type {Table} */
+        /** @property {Table} */
         this.tableInfo = null;
-        /** @type  {TableField} */
+        /** @property  {TableField} */
         this.leftField = null;
-        /** @type  {TableField} */
+        /** @property  {TableField} */
         this.rightField = null;
-        /** @type  {Number[][]} */
+        /** @property  {Number[][]} */
         this.leftRecords = null;
-        /** @type  {Boolean} */
+        /** @property  {Boolean} */
         this.isOuterJoin = null;
     }
 
     /**
-     * 
+     * Left side of join condition.
      * @param {TableField} leftField 
      * @returns {DerivedTable}
      */
@@ -1273,7 +1328,7 @@ class DerivedTable {
     }
 
     /**
-     * 
+     * Right side of join condition
      * @param {TableField} rightField 
      * @returns {DerivedTable}
      */
@@ -1284,7 +1339,7 @@ class DerivedTable {
 
     /**
      * 
-     * @param {Number[][]} leftRecords 
+     * @param {Number[][]} leftRecords - first index is record ID of left table, second index is a list of the matching record ID's in right table.
      * @returns {DerivedTable} 
      */
     setLeftRecords(leftRecords) {
@@ -1293,8 +1348,8 @@ class DerivedTable {
     }
 
     /**
-     * 
-     * @param {Boolean} isOuterJoin 
+     * Indicate if outer or inner join.
+     * @param {Boolean} isOuterJoin - true for outer, false for inner
      * @returns {DerivedTable}
      */
     setIsOuterJoin(isOuterJoin) {
@@ -1303,7 +1358,7 @@ class DerivedTable {
     }
 
     /**
-     * 
+     * Create derived table from the two tables that are joined.
      * @returns {DerivedTable}
      */
     createTable() {
@@ -1331,7 +1386,7 @@ class DerivedTable {
     }
 
     /**
-    * 
+    * Is this a derived table - one that has been joined.
     * @returns {Boolean}
     */
     isDerivedTable() {
@@ -1339,7 +1394,7 @@ class DerivedTable {
     }
 
     /**
-     * 
+     * Get derived table info.
      * @returns {Table}
      */
     getTableData() {
@@ -1347,7 +1402,7 @@ class DerivedTable {
     }
 
     /**
-     * 
+     * Create title row from LEFT and RIGHT table.
      * @param {TableField} leftField 
      * @param {TableField} rightField 
      * @returns {String[]}
@@ -1359,20 +1414,25 @@ class DerivedTable {
     }
 }
 
+/** Convert SQL CALCULATED fields into javascript code that can be evaulated and converted to data. */
 class SqlServerFunctions {
     /**
-     * 
-     * @param {String} calculatedFormula 
-     * @param {TableField[]} masterFields;
-     * @returns {String}
+     * Convert SQL formula to javascript code.
+     * @param {String} calculatedFormula - contains SQL formula and parameter(s)
+     * @param {TableField[]} masterFields - table fields
+     * @returns {String} - javascript code
      */
     convertToJs(calculatedFormula, masterFields) {
         const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT_WS", "DAY", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
+        /** @property {String} - regex to find components of CASE statement. */
         this.matchCaseWhenThenStr = /WHEN(.*?)THEN(.*?)(?=WHEN|ELSE|$)|ELSE(.*?)(?=$)/;
+        /** @property {String} - Original CASE statement. */
         this.originalCaseStatement = "";
+        /** @property {String} - Existing state of function string when CASE encountered. */
         this.originalFunctionString = "";
+        /** @property {Boolean} - when working on each WHEN/THEN in CASE, is this the first one encountered. */
         this.firstCase = true;
 
         let functionString = SelectTables.toUpperCaseExceptQuoted(calculatedFormula);
@@ -1501,9 +1561,9 @@ class SqlServerFunctions {
     }
 
     /**
-     * 
-     * @param {String} func 
-     * @param {String} functionString 
+     * Search for SELECT function arguments for specified 'func' only.  Special case for 'CASE'.  It breaks down one WHEN condition at a time.
+     * @param {String} func - an SQL function name.
+     * @param {String} functionString - SELECT SQL string to search
      * @returns {String[]}
      */
     parseFunctionArgs(func, functionString) {
@@ -1518,9 +1578,12 @@ class SqlServerFunctions {
     }
 
     /**
-     * 
-     * @param {any[]} parms 
-     * @returns {String}
+     * Find the position of a substring within a field - in javascript code.
+     * @param {any[]} parms - 
+     * * parms[0] - string to search for
+     * * parms[1] - field name
+     * * parms[2] - start to search from this position (starts at 1)
+     * @returns {String} - javascript code to find substring position.
      */
     static charIndex(parms) {
         let replacement = "";
@@ -1534,9 +1597,9 @@ class SqlServerFunctions {
     }
 
     /**
-     * 
-     * @param {any[]} parms 
-     * @returns {String}
+     * Returns first non-empty value in a list, in javascript code.
+     * @param {any[]} parms - coalesce parameters - no set limit for number of inputs.
+     * @returns {String} - javascript to solve
      */
     static coalesce(parms) {
         let replacement = "";
@@ -1550,10 +1613,12 @@ class SqlServerFunctions {
     }
 
     /**
-     * 
-     * @param {any[]} parms 
-     * @param {TableField[]} masterFields
-     * @returns {String}
+     * Concatenate all data and use separator between concatenated fields.
+     * @param {any[]} parms - 
+     * * parm[0] - separator string
+     * * parms... - data to concatenate.
+     * @param {TableField[]} masterFields - fields in table.
+     * @returns {String} - javascript to concatenate all data.
      */
     static concat_ws(parms, masterFields) {
         if (parms.length === 0) {
@@ -1586,11 +1651,11 @@ class SqlServerFunctions {
     }
 
     /**
-     * 
-     * @param {String} func 
-     * @param {any[]} args 
+     * When examining the SQL Select CASE, parse for next WHEN,END condition.
+     * @param {String} func - current function worked on.  If <> 'CASE', ignore.
+     * @param {any[]} args - default return value. 
      * @param {String} functionString 
-     * @returns {[any[], String]}
+     * @returns {any[]}
      */
     caseStart(func, args, functionString) {
         let caseArguments = args;
@@ -1613,9 +1678,12 @@ class SqlServerFunctions {
     }
 
     /**
-     * 
-     * @param {any[]} args 
-     * @returns {String}
+     * Convert SQL CASE to javascript executeable code to solve case options.
+     * @param {any[]} args - current CASE WHEN strings.
+     * * args[0] - entire WHEN ... THEN ...
+     * * args[1] - parsed string after WHEN, before THEN
+     * * args[2] - parse string after THEN
+     * @returns {String} - js code to handle this WHEN case.
      */
     caseWhen(args) {
         let replacement = "";
@@ -1639,10 +1707,10 @@ class SqlServerFunctions {
     }
 
     /**
-     * 
-     * @param {String} func 
-     * @param {String} funcString 
-     * @returns {String}
+     * Finish up the javascript code to handle the select CASE.
+     * @param {String} func - current function being processed.  If <> 'CASE', ignore.
+     * @param {String} funcString - current SQL/javascript string in the process of being converted to js.
+     * @returns {String} - updated js code
      */
     caseEnd(func, funcString) {
         let functionString = funcString;
@@ -1656,19 +1724,23 @@ class SqlServerFunctions {
     }
 }
 
+/** Used to create a single row from multiple rows for GROUP BY expressions. */
 class ConglomerateRecord {
     /**
      * 
      * @param {TableField[]} virtualFields 
      */
     constructor(virtualFields) {
+        /** @property {TableField[]} */
         this.selectVirtualFields = virtualFields;
     }
 
     /**
-     * 
-     * @param {any[]} groupRecords 
-     * @returns 
+     * Compress group records to a single row by applying appropriate aggregate functions.
+     * @param {any[][]} groupRecords - a group of table data records to compress.
+     * @returns {any[]} - compressed record.
+     * * If column is not an aggregate function, value from first row of group records is selected. (should all be the same)
+     * * If column has aggregate function, that function is applied to all rows from group records.
      */
     squish(groupRecords) {
         const row = [];
@@ -1688,11 +1760,11 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
-     * @param {TableField} field 
-     * @param {any[]} groupRecords 
-     * @param {Number} columnIndex 
-     * @returns {Number}
+     * Apply aggregate function to all rows on specified column and return result.
+     * @param {TableField} field - field with aggregate function
+     * @param {any[]} groupRecords - group of records we apply function to.
+     * @param {Number} columnIndex - the column index where data is read from and function is applied on.
+     * @returns {Number} - value of aggregate function for all group rows.
      */
     static aggregateColumn(field, groupRecords, columnIndex) {
         let groupValue = 0;
@@ -1741,11 +1813,11 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
-     * @param {Boolean} first 
-     * @param {Number} value 
-     * @param {Number} data 
-     * @returns {Number}
+     * Find minimum value from group records.
+     * @param {Boolean} first - true if first record in set.
+     * @param {Number} value - cumulative data from all previous group records
+     * @param {Number} data - data from current group record
+     * @returns {Number} - minimum value from set.
      */
     static minCase(first, value, data) {
         let groupValue = value;
@@ -1758,11 +1830,11 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
-     * @param {Boolean} first 
-     * @param {Number} value 
-     * @param {Number} data 
-     * @returns {Number}
+     * Find max value from group records.
+     * @param {Boolean} first - true if first record in set.
+     * @param {Number} value - cumulative data from all previous group records.
+     * @param {Number} data - data from current group record
+     * @returns {Number} - max value from set.
      */
     static maxCase(first, value, data) {
         let groupValue = value;
@@ -1775,20 +1847,21 @@ class ConglomerateRecord {
     }
 }
 
+/** Fields from all tables. */
 class TableFields {
     constructor() {
-        /** @type {TableField[]} */
+        /** @property {TableField[]} */
         this.allFields = [];
-        /** @type {Map<String, TableField>} */
+        /** @property {Map<String, TableField>} */
         this.fieldNameMap = new Map();
-        /** @type {Map<String, TableField>} */
+        /** @property {Map<String, TableField>} */
         this.tableColumnMap = new Map();
     }
 
     /**
      * Iterate through all table fields and create a list of these VirtualFields.
-     * @param {String} primaryTable
-     * @param {Map<String,Table>} tableInfo  
+     * @param {String} primaryTable - primary FROM table name in select.
+     * @param {Map<String,Table>} tableInfo - map of all loaded tables. 
      */
     loadVirtualFields(primaryTable, tableInfo) {
         /** @type {String} */
@@ -1826,7 +1899,7 @@ class TableFields {
     }
 
     /**
-     * 
+     * Sort function for table fields list.
      * @param {TableField} fldA 
      * @param {TableField} fldB 
      */
@@ -1845,9 +1918,9 @@ class TableFields {
     }
 
     /**
-     * 
-     * @param {TableField} field 
-     * @param {Boolean} isPrimaryTable
+     * Set up mapping to quickly find field info - by all (alias) names, by table+column.
+     * @param {TableField} field - field info.
+     * @param {Boolean} isPrimaryTable - is this a field from the SELECT FROM TABLE.
      */
     indexTableField(field, isPrimaryTable = false) {
         for (const aliasField of field.aliasNames) {
@@ -1864,10 +1937,10 @@ class TableFields {
     }
 
     /**
-     * 
-     * @param {String} tableName 
-     * @param {Number} tableColumn 
-     * @returns {TableField}
+     * Quickly find field info for TABLE + COLUMN NUMBER (key of map)
+     * @param {String} tableName - Table name to search for.
+     * @param {Number} tableColumn - Column number to search for.
+     * @returns {TableField} -located table info (null if not found).
      */
     findTableField(tableName, tableColumn) {
         const key = `${tableName}:${tableColumn}`;
@@ -1880,37 +1953,38 @@ class TableFields {
     }
 
     /**
-     * 
-     * @param {String} field 
-     * @returns {Boolean}
+     * Is this field in our map.
+     * @param {String} field - field name
+     * @returns {Boolean} - found in map if true.
      */
     hasField(field) {
         return this.fieldNameMap.has(field.toUpperCase());
     }
 
     /**
-     * 
-     * @param {String} field 
-     * @returns {TableField}
+     * Get field info.
+     * @param {String} field - table column name to find 
+     * @returns {TableField} - table info (undefined if not found)
      */
     getFieldInfo(field) {
         return this.fieldNameMap.get(field.toUpperCase());
     }
 
     /**
-     * 
-     * @param {String} field 
-     * @returns {Table}
+     * Get table associated with field name.
+     * @param {String} field - field name to search for
+     * @returns {Table} - associated table info (undefined if not found)
      */
     getTableInfo(field) {
         const fldInfo = this.getFieldInfo(field);
-        return fldInfo.tableInfo;
+
+        return typeof fldInfo !== 'undefined' ? fldInfo.tableInfo : fldInfo;
     }
 
     /**
-     * 
-     * @param {String} field 
-     * @returns {Number}
+     * Get column number for field.
+     * @param {String} field - field name
+     * @returns {Number} - column number in table for field (-1 if not found)
      */
     getFieldColumn(field) {
         const fld = this.getFieldInfo(field);
@@ -1922,9 +1996,9 @@ class TableFields {
     }
 
     /**
-     * 
-     * @param {String} field 
-     * @returns {Number}
+     * Get field column number.
+     * @param {String} field - field name
+     * @returns {Number} - column number.
      */
     getSelectFieldColumn(field) {
         let fld = this.getFieldInfo(field);
@@ -1942,18 +2016,18 @@ class TableFields {
     }
 
     /**
-     * Updates internal SELECTED field list.
-     * @param {Object} astFields 
+     * Updates internal SELECTED (returned in data) field list.
+     * @param {Object} astFields - AST from SELECT
      */
     updateSelectFieldList(astFields) {
         let i = 0;
         for (const selField of astFields) {
-            const [columnName, aggregateFunctionName, calculatedField, fieldDistinct] = this.getSelectFieldNames(selField);
+            const parsedField = this.parseAstSelectField(selField);
             const columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
-            if (calculatedField === null && this.hasField(columnName)) {
-                let fieldInfo = this.getFieldInfo(columnName);
-                if (aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
+            if (parsedField.calculatedField === null && this.hasField(parsedField.columnName)) {
+                let fieldInfo = this.getFieldInfo(parsedField.columnName);
+                if (parsedField.aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
                     //  A new SELECT field, not from existing.
                     const newFieldInfo = new TableField();
                     Object.assign(newFieldInfo, fieldInfo);
@@ -1963,15 +2037,15 @@ class TableFields {
                 }
 
                 fieldInfo
-                    .setAggregateFunction(aggregateFunctionName)
+                    .setAggregateFunction(parsedField.aggregateFunctionName)
                     .setColumnTitle(columnTitle)
                     .setColumnName(selField.name)
-                    .setDistinctSetting(fieldDistinct)
+                    .setDistinctSetting(parsedField.fieldDistinct)
                     .setSelectColumn(i);
 
                 this.indexTableField(fieldInfo);
             }
-            else if (calculatedField !== null) {
+            else if (parsedField.calculatedField !== null) {
                 const fieldInfo = new TableField();
                 this.allFields.push(fieldInfo);
 
@@ -1989,8 +2063,8 @@ class TableFields {
                 this.allFields.push(fieldInfo);
 
                 fieldInfo
-                    .setCalculatedFormula(columnName)
-                    .setAggregateFunction(aggregateFunctionName)
+                    .setCalculatedFormula(parsedField.columnName)
+                    .setAggregateFunction(parsedField.aggregateFunctionName)
                     .setSelectColumn(i)
                     .setColumnName(selField.name)
                     .setColumnTitle(columnTitle);
@@ -2002,8 +2076,8 @@ class TableFields {
     }
 
     /**
-     * 
-     * @param {Object} ast 
+     * Fields in GROUP BY and ORDER BY might not be in the SELECT field list.  Add a TEMP version to that list.
+     * @param {Object} ast - AST to search for GROUP BY and ORDER BY.
      */
     addReferencedColumnstoSelectFieldList(ast) {
         this.addTempMissingSelectedField(ast['GROUP BY']);
@@ -2011,8 +2085,8 @@ class TableFields {
     }
 
     /**
-     * 
-     * @param {Object} astColumns 
+     * Add to Select field list as a temporary field for the fields in AST.
+     * @param {Object} astColumns - find columns mentioned not already in Select Field List
      */
     addTempMissingSelectedField(astColumns) {
         if (typeof astColumns !== 'undefined') {
@@ -2034,8 +2108,8 @@ class TableFields {
     }
 
     /**
-     * 
-     * @returns {Number}
+     * Find next available column number in selected field list.
+     * @returns {Number} - column number
      */
     getNextSelectColumnNumber() {
         let next = -1;
@@ -2047,8 +2121,8 @@ class TableFields {
     }
 
     /**
-     * 
-     * @returns {Number[]}
+     * Return a list of temporary column numbers in select field list.
+     * @returns {Number[]} - sorted list of temp column numbers.
      */
     getTempSelectedColumnNumbers() {
         /** @type {Number[]} */
@@ -2064,7 +2138,8 @@ class TableFields {
     }
 
     /**
-     * @returns {TableField[]}
+     * Get a sorted list (by column number) of selected fields.
+     * @returns {TableField[]} - selected fields
      */
     getSelectFields() {
         const selectedFields = this.allFields.filter((a) => a.selectColumn !== -1);
@@ -2074,8 +2149,8 @@ class TableFields {
     }
 
     /**
-     * 
-     * @returns {String[]}
+     * Get SELECTED Field names sorted list of column number.
+     * @returns {String[]} - Table field names
      */
     getColumnNames() {
         const columnNames = [];
@@ -2088,8 +2163,8 @@ class TableFields {
     }
 
     /**
-     * 
-     * @returns {String[]}
+     * Get column titles. If alias was set, that column would be the alias, otherwise it is column name.
+     * @returns {String[]} - column titles
      */
     getColumnTitles() {
         const columnTitles = [];
@@ -2104,8 +2179,8 @@ class TableFields {
     }
 
     /**
-     * 
-     * @param {DerivedTable} derivedTable 
+     * Derived tables will cause an update to any TableField.  It updates with a new column number and new table (derived) info.
+     * @param {DerivedTable} derivedTable - derived table info.
      */
     updateDerivedTableVirtualFields(derivedTable) {
         const derivedTableFields = derivedTable.tableInfo.getAllVirtualFields();
@@ -2123,11 +2198,19 @@ class TableFields {
     }
 
     /**
-     * 
-     * @param {Object} selField 
-     * @returns {any[]}
+     * @typedef {Object} ParsedSelectField
+     * @property {String} columnName
+     * @property {String} aggregateFunctionName
+     * @property {Object} calculatedField
+     * @property {String} fieldDistinct
      */
-    getSelectFieldNames(selField) {
+
+    /**
+     * Parse SELECT field in AST (may include functions or calculations)
+     * @param {Object} selField 
+     * @returns {ParsedSelectField}
+     */
+    parseAstSelectField(selField) {
         let columnName = selField.name;
         let aggregateFunctionName = "";
         let fieldDistinct = "";
@@ -2148,13 +2231,13 @@ class TableFields {
             }
         }
 
-        return [columnName, aggregateFunctionName, calculatedField, fieldDistinct];
+        return {columnName, aggregateFunctionName, calculatedField, fieldDistinct};
     }
 
     /**
-     * 
-     * @param {String} originalColumnName 
-     * @returns {String[]}
+     * Parse for any SELECT COUNT modifiers like 'DISTINCT' or 'ALL'.
+     * @param {String} originalColumnName - column (e.g. 'distinct customer_id')
+     * @returns {String[]} - [0] - parsed column name, [1] - count modifier
      */
     static getSelectCountModifiers(originalColumnName) {
         let fieldDistinct = "";
@@ -2174,8 +2257,8 @@ class TableFields {
     }
 
     /**
-     * 
-     * @returns {Number}
+     * Counts the number of conglomerate field functions in SELECT field list.
+     * @returns {Number} - Number of conglomerate functions.
      */
     getConglomerateFieldCount() {
         let count = 0;
@@ -2188,36 +2271,52 @@ class TableFields {
     }
 }
 
+/** Table column information. */
 class TableField {
     constructor() {
+        /** @property {String} */
         this.originalTable = "";
+        /** @property {Number} */
         this.originalTableColumn = -1;
+        /** @property {String[]} */
         this.aliasNames = [];
+        /** @property {String} */
         this.fieldName = "";
+        /** @property {Number} */
         this.derivedTableColumn = -1;
+        /** @property {Number} */
         this.selectColumn = -1;
+        /** @property {Boolean} */
         this.tempField = false;
+        /** @property {String} */
         this.calculatedFormula = "";
+        /** @property {String} */
         this.aggregateFunction = "";
+        /** @property {String} */
         this.columnTitle = "";
+        /** @property {String} */
         this.columnName = "";
+        /** @property {String} */
         this.distinctSetting = "";
+        /** @property {Object} */
         this.subQueryAst = null;
+        /** @property {Boolean} */
         this._isPrimaryTable = false;
-        /** @type {Table} */
+        /** @property {Table} */
         this.tableInfo = null;
     }
 
     /**
-     * @returns {Number}
+     * Get field column number.
+     * @returns {Number} - column number
      */
     get tableColumn() {
         return this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
     }
 
     /**
-     * 
-     * @param {String} table 
+     * Original table name before any derived table updates.
+     * @param {String} table - original table name
      * @returns {TableField}
      */
     setOriginalTable(table) {
@@ -2226,7 +2325,7 @@ class TableField {
     }
 
     /**
-     * 
+     * Column name found in column title row.
      * @param {Number} column 
      * @returns {TableField}
      */
@@ -2236,8 +2335,8 @@ class TableField {
     }
 
     /**
-     * 
-     * @param {String} columnAlias 
+     * Alias name assigned to field in select statement.
+     * @param {String} columnAlias - alias name
      * @returns {TableField}
      */
     addAlias(columnAlias) {
@@ -2254,8 +2353,8 @@ class TableField {
     }
 
     /**
-     * 
-     * @param {Number} column 
+     * Set column number in table data for field.
+     * @param {Number} column - column number.
      * @returns {TableField}
      */
     setSelectColumn(column) {
@@ -2275,8 +2374,8 @@ class TableField {
     }
 
     /**
-     * 
-     * @param {String} value 
+     * Aggregate function number used (e.g. 'SUM')
+     * @param {String} value - aggregate function name or ''
      * @returns {TableField}
      */
     setAggregateFunction(value) {
@@ -2285,7 +2384,7 @@ class TableField {
     }
 
     /**
-     * 
+     * Calculated formula for field (e.g. 'CASE WHEN QUANTITY >= 100 THEN 1 ELSE 0 END')
      * @param {String} value 
      * @returns {TableField}
      */
@@ -2295,8 +2394,8 @@ class TableField {
     }
 
     /**
-     * 
-     * @param {Object} ast 
+     * The AST from just the subquery in the SELECT.
+     * @param {Object} ast - subquery ast.
      * @returns {TableField}
      */
     setSubQueryAst(ast) {
@@ -2305,17 +2404,17 @@ class TableField {
     }
 
     /**
-     * 
-     * @param {String} column 
+     * Set column TITLE.  If an alias is available, that is used - otherwise it is column name.
+     * @param {String} columnTitle - column title used in output
      * @returns {TableField}
      */
-    setColumnTitle(column) {
-        this.columnTitle = column;
+    setColumnTitle(columnTitle) {
+        this.columnTitle = columnTitle;
         return this;
     }
 
     /**
-     * 
+     * Set the columnname.
      * @param {String} columnName 
      * @returns {TableField}
      */
@@ -2324,14 +2423,19 @@ class TableField {
         return this;
     }
 
+    /**
+     * Set any count modified like 'DISTINCT' or 'ALL'.
+     * @param {String} distinctSetting 
+     * @returns 
+     */
     setDistinctSetting(distinctSetting) {
         this.distinctSetting = distinctSetting;
         return this
     }
 
     /**
-     * 
-     * @param {Boolean} isPrimary 
+     * Set if this field belongs to primary table (i.e. select * from table), rather than a joined tabled.
+     * @param {Boolean} isPrimary - true if from primary table.
      * @returns {TableField}
      */
     setIsPrimaryTable(isPrimary) {
@@ -2340,6 +2444,7 @@ class TableField {
     }
 
     /**
+     * Is this field in the primary table.
      * @returns {Boolean}
      */
     get isPrimaryTable() {
@@ -2347,7 +2452,7 @@ class TableField {
     }
 
     /**
-     * 
+     * Link this field to the table info.
      * @param {Table} tableInfo 
      * @returns {TableField}
      */
@@ -2357,9 +2462,9 @@ class TableField {
     }
 
     /**
-     * 
-     * @param {Number} tableRow 
-     * @returns {any}
+     * Retrieve field data for tableRow
+     * @param {Number} tableRow - row to read data from
+     * @returns {any} - data
      */
     getData(tableRow) {
         const columnNumber = this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
@@ -2370,7 +2475,7 @@ class TableField {
     }
 
     /**
-     * 
+     * Search through list of fields and return a list of those that include the table name (e.g. TABLE.COLUMN vs COLUMN)
      * @param {TableField[]} masterFields 
      * @returns {String[]}
      */

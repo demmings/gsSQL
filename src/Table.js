@@ -13,25 +13,34 @@ class Logger {
 //  *** DEBUG END  ***/
 
 //  skipcq: JS-0128
+/** Data and methods for each (logical) SQL table. */
 class Table {
     /**
      * 
-     * @param {String} tableName 
+     * @param {String} tableName - name of sql table.
      */
     constructor(tableName) {
+        /** @property {String} - table name. */
         this.tableName = tableName.toUpperCase();
+
+        /** @property {any[][]} - table data. */
         this.tableData = [];
+
+        /** @property {Map<String, Map<String,Number[]>>} - table indexes*/
         this.indexes = new Map();
+
+        /** @property {Boolean} */
         this.hasColumnTitle = true;
-        /** @type {Schema} */
+
+        /** @property {Schema} */
         this.schema = new Schema()
             .setTableName(tableName)
             .setTable(this);
     }
 
     /**
-     * 
-     * @param {String} tableAlias 
+     * Set associated table alias name to object.
+     * @param {String} tableAlias - table alias that may be used to prefix column names.
      * @returns {Table}
      */
     setTableAlias(tableAlias) {
@@ -40,8 +49,10 @@ class Table {
     }
 
     /**
-     * 
+     * Indicate if data contains a column title row.
      * @param {Boolean} hasTitle 
+     * * true - first row of data will contain unique column names
+     * * false - first row of data will contain data.  Column names are then referenced as letters (A, B, ...)
      * @returns {Table}
      */
     setHasColumnTitle(hasTitle) {
@@ -52,8 +63,12 @@ class Table {
 
     /**
      * Load sheets named range of data into table.
-     * @param {String} namedRange 
-     * @param {Number} cacheSeconds
+     * @param {String} namedRange - defines where data is located in sheets.
+     * * sheet name - reads entire sheet from top left corner.
+     * * named range - reads named range for data.
+     * * A1 notation - range of data using normal sheets notation like 'A1:C10'.  This may also include the sheet name like 'stocks!A1:C100'.
+     * @param {Number} cacheSeconds - How many seconds to cache data so we don't need to make time consuming
+     * getValues() from sheets.  
      * @returns {Table}
      */
     loadNamedRangeData(namedRange, cacheSeconds = 0) {
@@ -70,7 +85,7 @@ class Table {
     }
 
     /**
-     * 
+     * Read table data from a double array rather than from sheets.
      * @param {any[]} tableData - Loaded table data with first row titles included.
      * @returns {Table}
      */
@@ -89,9 +104,9 @@ class Table {
     }
 
     /**
-     * 
-     * @param {any[][]} tableData 
-     * @returns {any[][]}
+     * Internal function for updating the loaded data to include column names using letters, starting from 'A', 'B',...
+     * @param {any[][]} tableData - table data that does not currently contain a first row with column names.
+     * @returns {any[][]} - updated table data that includes a column title row.
      */
     addColumnLetters(tableData) {
         if (tableData.length === 0)
@@ -108,9 +123,13 @@ class Table {
     }
 
     /**
-     * 
-     * @param {Number} number 
-     * @returns {String}
+     * Find the sheet column letter name based on position.  
+     * @param {Number} number - Returns the sheets column name.  
+     * 1 = 'A'
+     * 2 = 'B'
+     * 26 = 'Z'
+     * 27 = 'AA'
+     * @returns {String} - the column letter.
      */
     numberToSheetColumnLetter(number) {
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -131,7 +150,7 @@ class Table {
     }
 
     /**
-     * 
+     * Read loaded table data and updates internal list of column information
      * @returns {Table}
      */
     loadSchema() {
@@ -143,9 +162,9 @@ class Table {
     }
 
     /**
-     * 
-     * @param {String} fieldName 
-     * @returns {Number}
+     * Find column number using the field name.
+     * @param {String} fieldName - Valid field name.
+     * @returns {Number} - column offset number starting at zero.
      */
     getFieldColumn(fieldName) {
         return this.schema.getFieldColumn(fieldName);
@@ -153,40 +172,40 @@ class Table {
 
     /**
     * Get field column index (starts at 0) for field names.
-    * @param {String[]} fieldNames 
-    * @returns {Number[]}
+    * @param {String[]} fieldNames - list of valid field names.
+    * @returns {Number[]} - list of column offsets, starting at zero corresponding to the input list of names.
     */
     getFieldColumns(fieldNames) {
         return this.schema.getFieldColumns(fieldNames);
     }
 
     /**
-     * 
-     * @returns {VirtualField[]}
+     * Find all field data for this table (or the derived table)
+     * @returns {VirtualField[]} - field column information list
      */
     getAllVirtualFields() {
         return this.schema.getAllVirtualFields();
     }
 
     /**
-     * 
-     * @returns {String[]}
+     * Returns a list of all possible field names that could be used in the SELECT.
+     * @returns {String[]} - List of field names.
      */
     getAllFieldNames() {
         return this.schema.getAllFieldNames();
     }
 
     /**
-     * 
-     * @returns {String[]}
+     * Returns table field names that are prefixed with table name.
+     * @returns {String[]} - field names
      */
     getAllExtendedNotationFieldNames() {
         return this.schema.getAllExtendedNotationFieldNames();
     }
 
     /**
-     * 
-     * @returns {Number}
+     * Find number of columns in table.
+     * @returns {Number} - column count.
      */
     getColumnCount() {
         const fields = this.getAllExtendedNotationFieldNames();
@@ -197,8 +216,8 @@ class Table {
      * Return range of records from table.
      * @param {Number} startRecord - 1 is first record
      * @param {Number} lastRecord - -1 for all. Last = RecordCount().    
-     * @param {Number[]} fields 
-     * @returns {any[][]}
+     * @param {Number[]} fields - fields to include in output
+     * @returns {any[][]} - subset table data.
      */
     getRecords(startRecord, lastRecord, fields) {
         const selectedRecords = [];
@@ -227,12 +246,14 @@ class Table {
     }
 
     /**
-     * 
-     * @param {String} fieldName 
-     * @returns 
+     * Create a logical table index on input field name.
+     * The resulting map is stored with the table.
+     * The Map<fieldDataItem, [rowNumbers]> is stored.
+     * @param {String} fieldName - field name to index.
      */
     addIndex(fieldName) {
         const indexedFieldName = fieldName.trim().toUpperCase();
+        /** @type {Map<String,Number[]>} */
         const fieldValuesMap = new Map();
 
         const fieldIndex = this.schema.getFieldColumn(indexedFieldName);
@@ -254,9 +275,9 @@ class Table {
 
     /**
      * Return all row ID's where FIELD = SEARCH VALUE.
-     * @param {String} fieldName 
-     * @param {any} searchValue 
-     * @returns {Number[]}
+     * @param {String} fieldName - table column name
+     * @param {any} searchValue - value to search for in index
+     * @returns {Number[]} - all matching row numbers.
      */
     search(fieldName, searchValue) {
         const rows = [];
@@ -273,8 +294,8 @@ class Table {
     }
 
     /**
-     * 
-     * @param {Table} concatTable 
+     * Append table data from 'concatTable' to the end of this tables existing data.
+     * @param {Table} concatTable - Append 'concatTable' data to end of current table data.
      */
     concat(concatTable) {
         const fieldsThisTable = this.schema.getAllFieldNames();
@@ -285,23 +306,34 @@ class Table {
 
 }
 
+/** Class contains information about each column in the SQL table. */
 class Schema {
     constructor() {
+        /** @property {String} - Table name. */
         this.tableName = "";
+
+        /** @property {String} - Alias name of table. */
         this.tableAlias = "";
+
+        /** @property {any[][]} - Table data double array. */
         this.tableData = [];
+
+        /** @property {Table} - Link to table info object. */
         this.tableInfo = null;
+
+        /** @property {Boolean} - Is this a derived table. */
         this.isDerivedTable = this.tableName === DERIVEDTABLE;
 
-        /** @type {Map<String,Number>} */
+        /** @property {Map<String,Number>} - String=Field Name, Number=Column Number */
         this.fields = new Map();
-        /** @type {VirtualFields} */
+
+        /** @property {VirtualFields} */
         this.virtualFields = new VirtualFields();
     }
 
     /**
-     * 
-     * @param {String} tableName 
+     * Set table name in this object.
+     * @param {String} tableName - Table name to remember.
      * @returns {Schema}
      */
     setTableName(tableName) {
@@ -310,8 +342,8 @@ class Schema {
     }
 
     /**
-     * 
-     * @param {String} tableAlias 
+     * Associate the table alias to this object.
+     * @param {String} tableAlias - table alias name
      * @returns {Schema}  
      */
     setTableAlias(tableAlias) {
@@ -320,8 +352,8 @@ class Schema {
     }
 
     /**
-     * 
-     * @param {any[][]} tableData 
+     * Associate table data with this object.
+     * @param {any[][]} tableData - double array of table data.
      * @returns {Schema}
      */
     setTableData(tableData) {
@@ -330,8 +362,8 @@ class Schema {
     }
 
     /**
-     * 
-     * @param {Table} tableInfo 
+     * Set the existing 'Table' info.
+     * @param {Table} tableInfo - table object.
      * @returns {Schema}
      */
     setTable(tableInfo) {
@@ -340,8 +372,8 @@ class Schema {
     }
 
     /**
-     * 
-     * @returns {String[]}
+     * Retrieve all field names for this table.
+     * @returns {String[]} - List of field names.
      */
     getAllFieldNames() {
         /** @type {String[]} */
@@ -358,7 +390,7 @@ class Schema {
 
     /**
      * All table fields names with 'TABLE.field_name'.
-     * @returns {String[]}
+     * @returns {String[]} - list of all field names with table prefix.
      */
     getAllExtendedNotationFieldNames() {
         /** @type {String[]} */
@@ -378,7 +410,7 @@ class Schema {
     }
 
     /**
-     * 
+     * Get a list of all virtual field data associated with this table.
      * @returns {VirtualField[]}
      */
     getAllVirtualFields() {
@@ -386,9 +418,9 @@ class Schema {
     }
 
     /**
-     * 
-     * @param {String} field 
-     * @returns {Number}
+     * Get the column number for the specified field name.
+     * @param {String} field - Field name to find column number for.
+     * @returns {Number} - Column number.
      */
     getFieldColumn(field) {
         const cols = this.getFieldColumns([field]);
@@ -397,8 +429,8 @@ class Schema {
 
     /**
     * Get field column index (starts at 0) for field names.
-    * @param {String[]} fieldNames 
-    * @returns {Number[]}
+    * @param {String[]} fieldNames - find columns for specific fields in table.
+    * @returns {Number[]} - column numbers for each specified field.
     */
     getFieldColumns(fieldNames) {
         /** @type {Number[]} */
@@ -433,7 +465,8 @@ class Schema {
         const titleRow = this.tableData[0];
 
         let colNum = 0;
-        let fieldVariants = [];
+        /** @type {FieldVariants} */
+        let fieldVariants = null;
         for (const baseColumnName of titleRow) {
             //  Find possible variations of the field column name.
             try {
@@ -442,7 +475,7 @@ class Schema {
             catch (ex) {
                 throw new Error(`Invalid column title: ${baseColumnName}`);
             }
-            const columnName = fieldVariants[0];
+            const columnName = fieldVariants.columnName;
 
             this.setFieldVariantsColumNumber(fieldVariants, colNum);
 
@@ -462,9 +495,16 @@ class Schema {
     }
 
     /**
-     * 
+     * @typedef {Object} FieldVariants
+     * @property {String} columnName
+     * @property {String} fullColumnName
+     * @property {String} fullColumnAliasName
+     */
+    /**
+     * Find all valid variations for a column name.  This will include base column name,
+     * the column name prefixed with full table name, and the column name prefixed with table alias.
      * @param {String} colName 
-     * @returns {any[]}
+     * @returns {FieldVariants}
      */
     getColumnNameVariants(colName) {
         const columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
@@ -476,25 +516,23 @@ class Schema {
                 fullColumnAliasName = `${this.tableAlias}.${columnName}`;
         }
 
-        return [columnName, fullColumnName, fullColumnAliasName];
+        return {columnName, fullColumnName, fullColumnAliasName};
     }
 
     /**
-     * 
-     * @param {any[]} fieldVariants 
+     * Associate table column number to each possible variation of column name.
+     * @param {FieldVariants} fieldVariants 
      * @param {Number} colNum 
      */
     setFieldVariantsColumNumber(fieldVariants, colNum) {
-        const [columnName, fullColumnName, fullColumnAliasName] = fieldVariants;
-
-        if (columnName !== "") {
-            this.fields.set(columnName, colNum);
+        if (fieldVariants.columnName !== "") {
+            this.fields.set(fieldVariants.columnName, colNum);
 
             if (!this.isDerivedTable) {
-                this.fields.set(fullColumnName, colNum);
+                this.fields.set(fieldVariants.fullColumnName, colNum);
 
-                if (fullColumnAliasName !== "") {
-                    this.fields.set(fullColumnAliasName, colNum);
+                if (fieldVariants.fullColumnAliasName !== "") {
+                    this.fields.set(fieldVariants.fullColumnAliasName, colNum);
                 }
             }
         }
