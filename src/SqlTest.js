@@ -1367,6 +1367,26 @@ class SqlTester {
         return this.isEqual("whereIn6", data, expected);
     }
 
+
+    whereIn7() {
+        let stmt = "select * from booksales where quantity in (select quantity from booksales where price < 30)";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022"]];
+
+        return this.isEqual("whereIn7", data, expected);
+    }
+
     whereNotIn1() {
         let stmt = "SELECT books.id, books.title, books.author_id " +
             "FROM books " +
@@ -3018,12 +3038,85 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL"],
-        ["C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
-        ["C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
-        ["C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "]];
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"]];
 
         return this.isEqual("selectCorrelatedSubQuery5", data, expected);
+    }
+
+    selectCorrelatedSubQuery6() {
+        let stmt = "select * from bookreturns as br where price < (select max(price) from bookreturns  where br.customer_id = customer_id) and price > (select min(price) from bookreturns  where br.customer_id = customer_id)";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKRETURNS.RMA", "BOOKRETURNS.BOOK_ID", "BOOKRETURNS.CUSTOMER_ID", "BOOKRETURNS.QUANTITY", "BOOKRETURNS.PRICE", "BOOKRETURNS.DATE"],
+        ["Rma001", "9", "c1", 10, 34.95, "05/01/2022"],
+        ["rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
+        ["Rma701", "3", "c4", 150, 24.95, "05/03/2022"]];
+
+        return this.isEqual("selectCorrelatedSubQuery6", data, expected);
+    }
+
+    selectCorrelatedSubQuery7() {
+        let stmt = "select * from bookreturns as br where price < (select max(sub.price) from bookreturns as sub where br.customer_id = sub.customer_id) and price > (select min(price) from bookreturns  where br.customer_id = customer_id)";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKRETURNS.RMA", "BOOKRETURNS.BOOK_ID", "BOOKRETURNS.CUSTOMER_ID", "BOOKRETURNS.QUANTITY", "BOOKRETURNS.PRICE", "BOOKRETURNS.DATE"],
+        ["Rma001", "9", "c1", 10, 34.95, "05/01/2022"],
+        ["rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
+        ["Rma701", "3", "c4", 150, 24.95, "05/03/2022"]];
+
+        return this.isEqual("selectCorrelatedSubQuery7", data, expected);
+    }
+
+    selectCorrelatedSubQuery8() {
+        let stmt = "select * from booksales as b1 where price in (select max(price) from booksales where b1.customer_id = customer_id)";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"]];
+
+        return this.isEqual("selectCorrelatedSubQuery8", data, expected);
+    }
+
+    selectCorrelatedSubQuery9() {
+        let stmt = "select id, name, (select max(quantity) from booksales where customers.id = booksales.customer_id) as 'max sold' from customers";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["id", "name", "max sold"],
+        ["C1", "Numereo Uno", 10],
+        ["C2", "Dewy Tuesdays", 100],
+        ["C3", "Tres Buon Goods", 1],
+        ["C4", "ForMe Resellers", 150],
+        ["C5", "Fe Fi Fo Giant Tiger", ""],
+        ["C6", "Sx in Cars", ""],
+        ["C7", "7th Heaven", ""]];
+
+        return this.isEqual("selectCorrelatedSubQuery9", data, expected);
     }
 
     selectFromSubQuery1() {
@@ -3835,6 +3928,7 @@ function testerSql() {
     result = result && tester.whereIn4();
     result = result && tester.whereIn5();
     result = result && tester.whereIn6();
+    result = result && tester.whereIn7();
     result = result && tester.whereNotIn1();
     result = result && tester.whereAndOr1();
     result = result && tester.whereAndOr2();
@@ -3911,7 +4005,11 @@ function testerSql() {
     result = result && tester.selectCorrelatedSubQuery2();
     result = result && tester.selectCorrelatedSubQuery3();
     result = result && tester.selectCorrelatedSubQuery4();
-    // result = result && tester.selectCorrelatedSubQuery5();
+    result = result && tester.selectCorrelatedSubQuery5();
+    result = result && tester.selectCorrelatedSubQuery6();
+    result = result && tester.selectCorrelatedSubQuery7();
+    result = result && tester.selectCorrelatedSubQuery8();
+    result = result && tester.selectCorrelatedSubQuery9();
     result = result && tester.selectFromSubQuery1();
     result = result && tester.selectFromSubQuery2();
 

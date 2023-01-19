@@ -497,6 +497,7 @@ class SelectTables {
         //  Create our virtual GROUP table with data already selected.
         const groupTable = new Table(this.primaryTable).loadArrayData(selectedData);
 
+        /** @type {Map<String, Table>} */
         const tableMapping = new Map();
         tableMapping.set(this.primaryTable.toUpperCase(), groupTable);
 
@@ -505,11 +506,11 @@ class SelectTables {
 
         //  Fudge the HAVING to look like a SELECT.
         const astSelect = {};
-        astSelect.FROM = [{ table: this.primaryTable }];
+        astSelect.FROM = [{ table: this.primaryTable, as : '' }];
         astSelect.SELECT = [{ name: "*" }];
         astSelect.WHERE = astHaving;
 
-        return inSQL.select(astSelect);
+        return inSQL.execute(astSelect);
     }
 
     /**
@@ -642,19 +643,17 @@ class SelectTables {
 
         //  Maybe a SELECT within...
         if (typeof fieldCondition.SELECT !== 'undefined') {
-            const subQueryTableInfo = SelectTables.getSubQueryTableSet(fieldCondition, this.tableInfo);
-
-            const inSQL = new Sql().setTables(subQueryTableInfo);
-            inSQL.setBindValues(this.bindVariables);
-            let inData = null;
-            try {
-                inData = inSQL.select(fieldCondition);
-                constantData = inData.join(",");
-            }
-            catch (ex) {
-                // IF (big if) a correlated sub-query, it will fail trying to reference a field
-                // from the outer query.
+            if (SelectTables.isCorrelatedSubQuery(fieldCondition)) {
                 subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields, fieldCondition);
+            }
+            else {
+                const subQueryTableInfo = SelectTables.getSubQueryTableSet(fieldCondition, this.tableInfo);
+                const inData = new Sql()
+                    .setTables(subQueryTableInfo)
+                    .setBindValues(this.bindVariables)
+                    .execute(fieldCondition);
+
+                constantData = inData.join(",");
             }
         }
         else if (SelectTables.isStringConstant(fieldCondition))
@@ -681,6 +680,31 @@ class SelectTables {
         }
 
         return { fieldConditionTableInfo, columnNumber, constantData, calculatedField, subQuery };
+    }
+
+    static isCorrelatedSubQuery(ast) {
+        const tableSet = new Map();
+        Sql.extractAstTables(ast, tableSet);
+
+        const tableSetCorrelated = new Map();
+        Sql.getTableNamesWhereCondition(ast, tableSetCorrelated);
+
+        // @ts-ignore
+        for (const tableName of tableSetCorrelated.keys()) {
+            let isFound = false;
+            // @ts-ignore
+            for (const outerTable of tableSet.keys()) {
+                if (outerTable === tableName || tableSet.get(outerTable) === tableName) {
+                    isFound = true;
+                    break;
+                }
+            }
+            if (!isFound) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -778,7 +802,16 @@ class SelectTables {
      * @returns {Boolean} - Is contained IN list.
      */
     static inCondition(leftValue, rightValue) {
-        const items = rightValue.split(",");
+        let items;
+        if (typeof rightValue === 'string') {
+            items = rightValue.split(",");
+        }
+        else {
+            //  select * from table WHERE IN (select number from table)
+            // @ts-ignore
+            items = [rightValue.toString()];
+        }
+
         for (let i = 0; i < items.length; i++)
             items[i] = items[i].trimStart().trimEnd();
 
@@ -833,7 +866,7 @@ class CalculatedField {
         this.masterTable = masterTable;
         /** @property {Table} */
         this.primaryTable = primaryTable;
-        /** @property {Map<String,String>} - Map key=calculated field in SELECT, value=javascript equivalent code */ 
+        /** @property {Map<String,String>} - Map key=calculated field in SELECT, value=javascript equivalent code */
         this.sqlServerFunctionCache = new Map();
         /** @property {TableField[]} */
         this.masterFields = tableFields.allFields.filter((vField) => this.masterTable === vField.tableInfo);
@@ -983,8 +1016,6 @@ class CorrelatedSubQuery {
      * @returns {any[][]} - double array of selected table data.
      */
     select(masterRecordID, calcSqlField, ast = this.defaultSubQuery) {
-        const inSQL = new Sql().setTables(this.tableInfo);
-
         const innerTableInfo = this.tableInfo.get(ast.FROM[0].table.toUpperCase());
         if (typeof innerTableInfo === 'undefined')
             throw new Error(`No table data found: ${ast.FROM[0].table}`);
@@ -994,8 +1025,10 @@ class CorrelatedSubQuery {
 
         const bindVariables = this.replaceOuterFieldValueInCorrelatedWhere(calcSqlField.masterFields, masterRecordID, tempAst);
 
-        inSQL.setBindValues(bindVariables);
-        const inData = inSQL.select(tempAst);
+        const inData = new Sql()
+            .setTables(this.tableInfo)
+            .setBindValues(bindVariables)
+            .execute(tempAst);
 
         return inData;
     }
@@ -2231,7 +2264,7 @@ class TableFields {
             }
         }
 
-        return {columnName, aggregateFunctionName, calculatedField, fieldDistinct};
+        return { columnName, aggregateFunctionName, calculatedField, fieldDistinct };
     }
 
     /**
@@ -2426,7 +2459,7 @@ class TableField {
     /**
      * Set any count modified like 'DISTINCT' or 'ALL'.
      * @param {String} distinctSetting 
-     * @returns 
+     * @returns {TableField}
      */
     setDistinctSetting(distinctSetting) {
         this.distinctSetting = distinctSetting;

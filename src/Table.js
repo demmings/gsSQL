@@ -12,9 +12,8 @@ class Logger {
 
 //  *** DEBUG END  ***/
 
-//  skipcq: JS-0128
 /** Data and methods for each (logical) SQL table. */
-class Table {
+class Table {       //  skipcq: JS-0128
     /**
      * 
      * @param {String} tableName - name of sql table.

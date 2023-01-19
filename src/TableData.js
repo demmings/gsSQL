@@ -12,7 +12,6 @@ class Logger {
 }
 //  *** DEBUG END  ***/
 
-//  skipcq: JS-0128
 /** 
  * Interface for loading table data either from CACHE or SHEET. 
  * @class
@@ -28,7 +27,7 @@ class Logger {
  * | > 21600       | Data read from Google Sheets Script Settings |
  * 
  */
-class TableData {
+class TableData {       //  skipcq: JS-0128
     /**
     * Retrieve table data from SHEET or CACHE.
     * @param {String} namedRange - Location of table data.  Either a) SHEET Name, b) Named Range, c) A1 sheet notation.

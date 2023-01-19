@@ -153,6 +153,20 @@ class Sql {
     }
 
     /**
+     * 
+     * @param {Map<String,Table>} tableMap 
+     */
+    copyTableData(tableMap) {
+        // @ts-ignore
+        for (const tableName of tableMap.keys()) {
+            const tableInfo = tableMap.get(tableName);
+            this.addTableData(tableName, tableInfo.tableData);  
+        }
+
+        return this;
+    }
+
+    /**
      * Include column headers in return data.
      * @param {Boolean} value - true will return column names in first row of return data.
      * @returns {Sql}
@@ -247,27 +261,26 @@ class Sql {
     *    ["5", "Oranges", "12"],
     *    ["1", "Time to Grow Up!", "11"]]
     * ```
-    * @param {String} statement - SELECT statement.
+    * @param {any} statement - SELECT statement as STRING or AST of SELECT statement.
     * @returns {any[][]} - Double array where first index is ROW and second index is COLUMN.
     */
     execute(statement) {
         let sqlData = [];
 
-        this.ast = SqlParse.sql2ast(statement);
+        if (typeof statement === 'string') {
+            this.ast = SqlParse.sql2ast(statement);
+        }
+        else {
+            this.ast = statement;
+        }
 
         //  "SELECT * from (select a,b,c from table) as derivedtable"
         //  Sub query data is loaded and given the name 'derivedtable'
         //  The AST.FROM is updated from the sub-query to the new derived table name. 
         this.selectFromSubQuery();
 
-        // @ts-ignore
-        for (const table of this.tables.keys()) {
-            const tableAlias = this.getTableAlias(table, this.ast);
-            const tableInfo = this.tables.get(table.toUpperCase());
-            tableInfo
-                .setTableAlias(tableAlias)
-                .loadSchema();
-        }
+        Sql.setTableAlias(this.tables, this.ast);
+        Sql.loadSchema(this.tables);
 
         if (typeof this.ast.SELECT !== 'undefined')
             sqlData = this.select(this.ast);
@@ -275,6 +288,32 @@ class Sql {
             throw new Error("Only SELECT statements are supported.");
 
         return sqlData;
+    }
+
+    /**
+     * Updates 'tables' with table column information.
+     * @param {Map<String,Table>} tables 
+     */
+    static loadSchema(tables) {
+        // @ts-ignore
+        for (const table of tables.keys()) {
+            const tableInfo = tables.get(table.toUpperCase());
+            tableInfo.loadSchema();
+        }
+    }
+
+    /**
+     * Updates 'tables' with associated table ALIAS name found in ast.
+     * @param {Map<String,Table>} tables 
+     * @param {Object} ast 
+     */
+    static setTableAlias(tables, ast) {
+        // @ts-ignore
+        for (const table of tables.keys()) {
+            const tableAlias = Sql.getTableAlias(table, ast);
+            const tableInfo = tables.get(table.toUpperCase());
+            tableInfo.setTableAlias(tableAlias);
+        }
     }
 
     /**
@@ -300,14 +339,14 @@ class Sql {
     * @param {Object} ast - Abstract Syntax Tree for SQL.
     * @returns {String} - Table alias.  Empty string if not found.
     */
-    getTableAlias(tableName, ast) {
+    static getTableAlias(tableName, ast) {
         let tableAlias = "";
         const ucTableName = tableName.toUpperCase();
 
         tableAlias = Sql.getTableAliasFromJoin(tableAlias, ucTableName, ast);
-        tableAlias = this.getTableAliasUnion(tableAlias, ucTableName, ast);
-        tableAlias = this.getTableAliasWhereIn(tableAlias, ucTableName, ast);
-        tableAlias = this.getTableAliasWhereTerms(tableAlias, ucTableName, ast);
+        tableAlias = Sql.getTableAliasUnion(tableAlias, ucTableName, ast);
+        tableAlias = Sql.getTableAliasWhereIn(tableAlias, ucTableName, ast);
+        tableAlias = Sql.getTableAliasWhereTerms(tableAlias, ucTableName, ast);
 
         return tableAlias;
     }
@@ -317,8 +356,10 @@ class Sql {
      */
     selectFromSubQuery() {
         if (typeof this.ast.FROM !== 'undefined' && typeof this.ast.FROM.SELECT !== 'undefined') {
-            const inSQL = new Sql().setTables(this.tables).enableColumnTitle(true);
-            const data = inSQL.select(this.ast.FROM);
+            const data = new Sql()
+                .setTables(this.tables)
+                .enableColumnTitle(true)
+                .execute(this.ast.FROM);
             this.addTableData(this.ast.FROM.FROM[0].as, data);
             this.ast.FROM = [{ table: this.ast.FROM.FROM[0].as, as: this.ast.FROM.FROM[0].as }];
         }
@@ -351,7 +392,7 @@ class Sql {
      * @param {Object} ast - Abstract Syntax Tree to search
      * @returns {String} - table alias
      */
-    getTableAliasUnion(tableAlias, tableName, ast) {
+    static getTableAliasUnion(tableAlias, tableName, ast) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
         let extractedAlias = tableAlias;
 
@@ -359,7 +400,7 @@ class Sql {
         while (extractedAlias === "" && i < astRecursiveTableBlocks.length) {
             if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
                 for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
-                    extractedAlias = this.getTableAlias(tableName, unionAst);
+                    extractedAlias = Sql.getTableAlias(tableName, unionAst);
 
                     if (extractedAlias !== "")
                         break;
@@ -378,14 +419,14 @@ class Sql {
      * @param {Object} ast - Abstract Syntax Tree to search
      * @returns {String} - table alias
      */
-    getTableAliasWhereIn(tableAlias, tableName, ast) {
+    static getTableAliasWhereIn(tableAlias, tableName, ast) {
         let extractedAlias = tableAlias;
         if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
-            extractedAlias = this.getTableAlias(tableName, ast.WHERE.right);
+            extractedAlias = Sql.getTableAlias(tableName, ast.WHERE.right);
         }
 
         if (extractedAlias === "" && ast.operator === "IN") {
-            extractedAlias = this.getTableAlias(tableName, ast.right);
+            extractedAlias = Sql.getTableAlias(tableName, ast.right);
         }
 
         return extractedAlias;
@@ -398,12 +439,12 @@ class Sql {
      * @param {Object} ast - Abstract Syntax Tree to search.
      * @returns {String} - table alias
      */
-    getTableAliasWhereTerms(tableAlias, tableName, ast) {
+    static getTableAliasWhereTerms(tableAlias, tableName, ast) {
         let extractedTableAlias = tableAlias;
         if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
             for (const term of ast.WHERE.terms) {
                 if (extractedTableAlias === "")
-                    extractedTableAlias = this.getTableAlias(tableName, term);
+                    extractedTableAlias = Sql.getTableAlias(tableName, term);
             }
         }
 
@@ -545,6 +586,23 @@ class Sql {
         }
     }
 
+    static getTableNamesWhereCondition(ast, tableSet) {
+        if (typeof ast.WHERE !== 'undefined') {
+            const lParts = typeof ast.WHERE.left === 'string' ? ast.WHERE.left.split(".") : [];
+            if (lParts.length > 1) {
+                tableSet.set(lParts[0].toUpperCase(), "");
+            }
+            const rParts = typeof ast.WHERE.right === 'string' ? ast.WHERE.right.split(".") : [];
+            if (rParts.length > 1) {
+                tableSet.set(rParts[0].toUpperCase(), "");
+            }
+
+            if (typeof ast.WHERE.terms !== 'undefined') {
+                Sql.getTableNamesWhereCondition(ast.WHERE.terms, tableSet);
+            }
+        }
+    }
+
     /**
      * Search CORRELATES sub-query for table names.
      * @param {*} ast - AST to search
@@ -619,7 +677,7 @@ class Sql {
         //  Sort our selected data.
         view.orderBy(ast, viewTableData);
 
-        //  Fields referenced but not included in SELECT field list.
+        //  Remove fields referenced but not included in SELECT field list.
         view.removeTempColumns(viewTableData);
 
         if (typeof ast.LIMIT !== 'undefined') {
@@ -709,13 +767,17 @@ class Sql {
         pivotAST.FROM = ast.FROM;
         pivotAST.WHERE = ast.WHERE;
 
-        // These are all of the unique PIVOT field data points.
-        const oldSetting = this.columnTitle;
         const oldBindVariables = [...this.bindParameters];
-        this.columnTitle = false;
-        const tableData = this.select(pivotAST);
-        this.columnTitle = oldSetting;
-        this.bindParameters = oldBindVariables;
+
+        const pivotSql = new Sql()
+            .enableColumnTitle(false)
+            .setBindValues(this.bindParameters)
+            .copyTableData(this.getTables());
+
+        // These are all of the unique PIVOT field data points.
+        const tableData = pivotSql.execute(pivotAST);
+
+        this.setBindValues(oldBindVariables);
 
         return tableData;
     }
@@ -768,9 +830,9 @@ class Sql {
             if (typeof ast[type] !== 'undefined') {
                 const unionSQL = new Sql()
                     .setBindValues(this.bindParameters)
-                    .setTables(this.tables);
+                    .copyTableData(this.getTables());
                 for (const union of ast[type]) {
-                    const unionData = unionSQL.select(union);
+                    const unionData = unionSQL.execute(union);
                     if (unionTableData.length > 0 && unionData.length > 0 && unionTableData[0].length !== unionData[0].length)
                         throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
 
@@ -897,9 +959,8 @@ class Logger {
 
 //  *** DEBUG END  ***/
 
-//  skipcq: JS-0128
 /** Data and methods for each (logical) SQL table. */
-class Table {
+class Table {       //  skipcq: JS-0128
     /**
      * 
      * @param {String} tableName - name of sql table.
@@ -1921,6 +1982,7 @@ class SelectTables {
         //  Create our virtual GROUP table with data already selected.
         const groupTable = new Table(this.primaryTable).loadArrayData(selectedData);
 
+        /** @type {Map<String, Table>} */
         const tableMapping = new Map();
         tableMapping.set(this.primaryTable.toUpperCase(), groupTable);
 
@@ -1929,11 +1991,11 @@ class SelectTables {
 
         //  Fudge the HAVING to look like a SELECT.
         const astSelect = {};
-        astSelect.FROM = [{ table: this.primaryTable }];
+        astSelect.FROM = [{ table: this.primaryTable, as : '' }];
         astSelect.SELECT = [{ name: "*" }];
         astSelect.WHERE = astHaving;
 
-        return inSQL.select(astSelect);
+        return inSQL.execute(astSelect);
     }
 
     /**
@@ -2066,19 +2128,17 @@ class SelectTables {
 
         //  Maybe a SELECT within...
         if (typeof fieldCondition.SELECT !== 'undefined') {
-            const subQueryTableInfo = SelectTables.getSubQueryTableSet(fieldCondition, this.tableInfo);
-
-            const inSQL = new Sql().setTables(subQueryTableInfo);
-            inSQL.setBindValues(this.bindVariables);
-            let inData = null;
-            try {
-                inData = inSQL.select(fieldCondition);
-                constantData = inData.join(",");
-            }
-            catch (ex) {
-                // IF (big if) a correlated sub-query, it will fail trying to reference a field
-                // from the outer query.
+            if (SelectTables.isCorrelatedSubQuery(fieldCondition)) {
                 subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields, fieldCondition);
+            }
+            else {
+                const subQueryTableInfo = SelectTables.getSubQueryTableSet(fieldCondition, this.tableInfo);
+                const inData = new Sql()
+                    .setTables(subQueryTableInfo)
+                    .setBindValues(this.bindVariables)
+                    .execute(fieldCondition);
+
+                constantData = inData.join(",");
             }
         }
         else if (SelectTables.isStringConstant(fieldCondition))
@@ -2105,6 +2165,31 @@ class SelectTables {
         }
 
         return { fieldConditionTableInfo, columnNumber, constantData, calculatedField, subQuery };
+    }
+
+    static isCorrelatedSubQuery(ast) {
+        const tableSet = new Map();
+        Sql.extractAstTables(ast, tableSet);
+
+        const tableSetCorrelated = new Map();
+        Sql.getTableNamesWhereCondition(ast, tableSetCorrelated);
+
+        // @ts-ignore
+        for (const tableName of tableSetCorrelated.keys()) {
+            let isFound = false;
+            // @ts-ignore
+            for (const outerTable of tableSet.keys()) {
+                if (outerTable === tableName || tableSet.get(outerTable) === tableName) {
+                    isFound = true;
+                    break;
+                }
+            }
+            if (!isFound) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -2202,7 +2287,16 @@ class SelectTables {
      * @returns {Boolean} - Is contained IN list.
      */
     static inCondition(leftValue, rightValue) {
-        const items = rightValue.split(",");
+        let items;
+        if (typeof rightValue === 'string') {
+            items = rightValue.split(",");
+        }
+        else {
+            //  select * from table WHERE IN (select number from table)
+            // @ts-ignore
+            items = [rightValue.toString()];
+        }
+
         for (let i = 0; i < items.length; i++)
             items[i] = items[i].trimStart().trimEnd();
 
@@ -2257,7 +2351,7 @@ class CalculatedField {
         this.masterTable = masterTable;
         /** @property {Table} */
         this.primaryTable = primaryTable;
-        /** @property {Map<String,String>} - Map key=calculated field in SELECT, value=javascript equivalent code */ 
+        /** @property {Map<String,String>} - Map key=calculated field in SELECT, value=javascript equivalent code */
         this.sqlServerFunctionCache = new Map();
         /** @property {TableField[]} */
         this.masterFields = tableFields.allFields.filter((vField) => this.masterTable === vField.tableInfo);
@@ -2407,8 +2501,6 @@ class CorrelatedSubQuery {
      * @returns {any[][]} - double array of selected table data.
      */
     select(masterRecordID, calcSqlField, ast = this.defaultSubQuery) {
-        const inSQL = new Sql().setTables(this.tableInfo);
-
         const innerTableInfo = this.tableInfo.get(ast.FROM[0].table.toUpperCase());
         if (typeof innerTableInfo === 'undefined')
             throw new Error(`No table data found: ${ast.FROM[0].table}`);
@@ -2418,8 +2510,10 @@ class CorrelatedSubQuery {
 
         const bindVariables = this.replaceOuterFieldValueInCorrelatedWhere(calcSqlField.masterFields, masterRecordID, tempAst);
 
-        inSQL.setBindValues(bindVariables);
-        const inData = inSQL.select(tempAst);
+        const inData = new Sql()
+            .setTables(this.tableInfo)
+            .setBindValues(bindVariables)
+            .execute(tempAst);
 
         return inData;
     }
@@ -3655,7 +3749,7 @@ class TableFields {
             }
         }
 
-        return {columnName, aggregateFunctionName, calculatedField, fieldDistinct};
+        return { columnName, aggregateFunctionName, calculatedField, fieldDistinct };
     }
 
     /**
@@ -3850,7 +3944,7 @@ class TableField {
     /**
      * Set any count modified like 'DISTINCT' or 'ALL'.
      * @param {String} distinctSetting 
-     * @returns 
+     * @returns {TableField}
      */
     setDistinctSetting(distinctSetting) {
         this.distinctSetting = distinctSetting;
@@ -5086,7 +5180,6 @@ class Logger {
 }
 //  *** DEBUG END  ***/
 
-//  skipcq: JS-0128
 /** 
  * Interface for loading table data either from CACHE or SHEET. 
  * @class
@@ -5102,7 +5195,7 @@ class Logger {
  * | > 21600       | Data read from Google Sheets Script Settings |
  * 
  */
-class TableData {
+class TableData {       //  skipcq: JS-0128
     /**
     * Retrieve table data from SHEET or CACHE.
     * @param {String} namedRange - Location of table data.  Either a) SHEET Name, b) Named Range, c) A1 sheet notation.
@@ -5530,9 +5623,8 @@ export { ScriptSettings };
 import { PropertiesService } from "./SqlTest.js";
 //  *** DEBUG END  ***/
 
-//  skipcq: JS-0128
 /** Stores settings for the SCRIPT.  Long term cache storage for small tables.  */
-class ScriptSettings {
+class ScriptSettings {      //  skipcq: JS-0128
     /**
      * For storing cache data for very long periods of time.
      */
