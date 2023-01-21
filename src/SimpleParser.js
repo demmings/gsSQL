@@ -627,8 +627,13 @@ class CondLexer {
     }
 
     readBindVariable() {
-        const tokenValue = this.currentChar;
+        let tokenValue = this.currentChar;
         this.readNextChar();
+
+        while (/[0-9]/.test(this.currentChar)) {
+            tokenValue += this.currentChar;
+            this.readNextChar();
+        }
 
         return { type: 'bindVariable', value: tokenValue };
     }
@@ -685,10 +690,10 @@ class CondParser {
 
     // Parse conditions ([word/string] [operator] [word/string])
     parseConditionExpression() {
-        let leftNode = this.parseBaseExpression();
+        let left = this.parseBaseExpression();
 
         if (this.currentToken.type !== 'operator') {
-            return leftNode;
+            return left;
         }
 
         let operator = this.currentToken.value;
@@ -700,14 +705,14 @@ class CondParser {
             this.readNextToken();
         }
 
-        let rightNode = null;
+        let right = null;
         if (this.currentToken.type === 'group' && (operator === 'EXISTS' || operator === 'NOT EXISTS')) {
-            [leftNode, rightNode] = this.parseSelectExistsSubQuery();
+            [left, right] = this.parseSelectExistsSubQuery();
         } else {
-            rightNode = this.parseBaseExpression(operator);
+            right = this.parseBaseExpression(operator);
         }
 
-        return { 'operator': operator, 'left': leftNode, 'right': rightNode };
+        return { operator, left, right };
     }
 
     /**
@@ -871,25 +876,20 @@ class SelectKeywordAnalysis {
             return item !== '';
         }).map(function (item) {
             //  Is there a column alias?
-            const [field, alias] = SelectKeywordAnalysis.getNameAndAlias(item);
+            const [name, as] = SelectKeywordAnalysis.getNameAndAlias(item);
 
             const splitPattern = /[\s()*/%+-]+/g;
-            let terms = field.split(splitPattern);
+            let terms = name.split(splitPattern);
 
             if (terms !== null) {
                 const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
                 terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
             }
-            if (field !== "*" && terms !== null && terms.length > 1) {
-                const astSelect = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
-                return {
-                    name: field,
-                    terms: terms,
-                    as: alias,
-                    subQuery: astSelect
-                };
+            if (name !== "*" && terms !== null && terms.length > 1) {
+                const subQuery = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
+                return { name, terms, as, subQuery };
             }
-            return { name: field, as: alias };
+            return { name: name, as: as };
         });
 
         return selectResult;
@@ -910,8 +910,8 @@ class SelectKeywordAnalysis {
             return SelectKeywordAnalysis.trim(item);
         });
         fromResult = fromResult.map(function (item) {
-            const [table, alias] = SelectKeywordAnalysis.getNameAndAlias(item);
-            return { table: table, as: alias };
+            const [table, as] = SelectKeywordAnalysis.getNameAndAlias(item);
+            return { table, as };
         });
         return fromResult;
     }

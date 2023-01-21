@@ -399,7 +399,7 @@ class TestSql extends Sql {
         let bindings = [...super.getBindData()];
         let tables = super.getTables();
         let generateColumnTitles = super.areColumnTitlesOutput();
-        let data;
+        let data = [];
 
         try {
             data = super.execute(stmt);
@@ -1301,9 +1301,9 @@ class SqlTester {
     whereIn4() {
         let stmt = "SELECT * " +
             "FROM books " +
-            "WHERE author_id IN (select id from authors where first_name = ?) " +
-            "or editor_id in (select id from editors where last_name = ?) " +
-            "or title = ? " +
+            "WHERE author_id IN (select id from authors where first_name = ?1) " +
+            "or editor_id in (select id from editors where last_name = ?2) " +
+            "or title = ?3 " +
             "ORDER BY title";
 
         let data = new TestSql()
@@ -1327,9 +1327,9 @@ class SqlTester {
     whereIn5() {
         let stmt = "SELECT * " +
             "FROM books " +
-            "WHERE author_id IN (select a.id from authors as a where first_name = ?) " +
-            "or editor_id in (select e.id from editors as e where last_name = ?) " +
-            "or title = ? " +
+            "WHERE author_id IN (select a.id from authors as a where first_name = ?1) " +
+            "or editor_id in (select e.id from editors as e where last_name = ?2) " +
+            "or title = ?3 " +
             "ORDER BY title";
 
         let data = new TestSql()
@@ -1425,7 +1425,7 @@ class SqlTester {
     }
 
     whereAndOr2() {
-        let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
+        let stmt = "select * from bookSales where date > ?1 AND date < ?2 OR book_id = ?3";
 
         let data = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
@@ -1447,7 +1447,7 @@ class SqlTester {
     }
 
     whereAndOr3() {
-        let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
+        let stmt = "select * from bookSales where date > ?1 AND date < ?2 OR book_id = ?3";
 
         let startDate = new Date();
         startDate.setDate(1);
@@ -1474,13 +1474,13 @@ class SqlTester {
     }
 
     whereAndNotEqual2() {
-        let stmt = "select * from bookSales where date >= ? AND date <= ? And book_id <> ?";
+        let stmt = "select * from bookSales where date >= ?1 AND date <= ?2 And book_id <> ?3";
         let func = "whereAndNotEqual2";
         return this.whereAndNotEqual2base(stmt, func);
     }
 
     whereAndNotEqual3() {
-        let stmt = "select * from bookSales where date>=? AND date<=? And book_id<>?";
+        let stmt = "select * from bookSales where date>=?1 AND date<=?2 And book_id<>?3";
         let func = "whereAndNotEqual3";
         return this.whereAndNotEqual2base(stmt, func);
     }
@@ -1508,7 +1508,7 @@ class SqlTester {
     }
 
     selectAgainNewBinds1() {
-        let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
+        let stmt = "select * from bookSales where date > ?1 AND date < ?2 OR book_id = ?3";
 
         let sqlObj = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
@@ -1812,7 +1812,7 @@ class SqlTester {
     }
 
     unionBind1() {
-        let stmt = "select * from authors where id = ? UNION select * from editors where id = ? UNION select * from translators where id = ?";
+        let stmt = "select * from authors where id = ?1 UNION select * from editors where id = ?2 UNION select * from translators where id = ?3";
 
         let data = new TestSql()
             .addTableData("authors", this.authorsTable())
@@ -1902,9 +1902,9 @@ class SqlTester {
             "left join authors on books.author_id = authors.id " +
             "left join translators on books.translator_id = translators.id " +
             "left join editors on books.editor_id = editors.id " +
-            "where booksales.date >= ? and booksales.date <= ? " +
+            "where booksales.date >= ?1 and booksales.date <= ?2 " +
             "union all select 'Total', SUM(booksales.quantity), avg(booksales.price), SUM(booksales.price * booksales.quantity), '' ,'', '', '', '', '' from booksales " +
-            "where booksales.date >= ? and booksales.date <= ? ";
+            "where booksales.date >= ?3 and booksales.date <= ?4 ";
 
         let data = new TestSql()
             .addTableData("authors", this.authorsTable())
@@ -2582,7 +2582,7 @@ class SqlTester {
     }
 
     groupPivot3() {
-        let stmt = "select date, sum(quantity) from bookReturns where date >= ? and date <= ? group by date pivot customer_id";
+        let stmt = "select date, sum(quantity) from bookReturns where date >= ?1 and date <= ?2 group by date pivot customer_id";
 
         let data = new TestSql()
             .addTableData("bookReturns", this.bookReturnsTable())
@@ -3119,6 +3119,40 @@ class SqlTester {
         return this.isEqual("selectCorrelatedSubQuery9", data, expected);
     }
 
+    selectCorrelatedSubQuery10() {
+        let stmt = "select * from booksales as b1 where price in (select max(price) from booksales where b1.customer_id = customer_id and book_id <> '9')";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022"]];
+
+        return this.isEqual("selectCorrelatedSubQuery10", data, expected);
+    }
+
+    selectCorrelatedSubQuery11() {
+        let stmt = "select *, (select sum(quantity) from booksales where b1.customer_id = customer_id) as 'Total for Customer' from booksales as b1 where customer_id = ?1";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .addBindParameter("C4")
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "Total for Customer"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", 300],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", 300],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", 300]];
+
+        return this.isEqual("selectCorrelatedSubQuery11", data, expected);
+    }
+
     selectFromSubQuery1() {
         let stmt = "select score.customer_id, score.wins, score.loss, (score.wins / (score.wins+score.loss)) as rate from (select customer_id, sum(case when quantity < 100 then 1 else 0 end) as wins, sum(case when quantity >= 100 then 1 else 0 end) as loss from booksales group by customer_id) as score";
 
@@ -3326,7 +3360,7 @@ class SqlTester {
             .addBindNamedRangeParameter('endIncomeDate')
             .execute("select transaction_date as 'Transaction Date', sum(gross) as Gross, sum(amount) as Net " +
                 "from mastertransactions " +
-                "where transaction_date >=  ? and transaction_date <= ? ");
+                "where transaction_date >=  ?1 and transaction_date <= ?2 ");
 
         //  Load load from sheet.
         let trans = new TestSql()
@@ -3336,7 +3370,7 @@ class SqlTester {
             .addBindNamedRangeParameter('endIncomeDate')
             .execute("select * " +
                 "from mastertransactions " +
-                "where transaction_date >=  ? and transaction_date <= ? ");
+                "where transaction_date >=  ?1 and transaction_date <= ?2 ");
 
         Utilities.sleep(.12);
 
@@ -3348,7 +3382,7 @@ class SqlTester {
             .addBindNamedRangeParameter('endIncomeDate')
             .execute("select * " +
                 "from mastertransactions " +
-                "where transaction_date >=  ? and transaction_date <= ? ");
+                "where transaction_date >=  ?1 and transaction_date <= ?2 ");
 
         //  Save to long term cache.
         let trans2 = new TestSql()
@@ -3358,7 +3392,7 @@ class SqlTester {
             .addBindNamedRangeParameter('endIncomeDate')
             .execute("select * " +
                 "from mastertransactions " +
-                "where transaction_date >=  ? and transaction_date <= ? ");
+                "where transaction_date >=  ?1 and transaction_date <= ?2 ");
 
         //  Load from long term cache.
         let trans3 = new TestSql()
@@ -3368,7 +3402,7 @@ class SqlTester {
             .addBindNamedRangeParameter('endIncomeDate')
             .execute("select * " +
                 "from mastertransactions " +
-                "where transaction_date >=  ? and transaction_date <= ? ");
+                "where transaction_date >=  ?1 and transaction_date <= ?2 ");
 
         //  Force the expiry times for all items in long term cache.
         //  It does not remove items from cache, it just forces that check -
@@ -3381,7 +3415,7 @@ class SqlTester {
             .addBindNamedRangeParameter('endIncomeDate')
             .execute("select * " +
                 "from mastertransactions " +
-                "where transaction_date >=  ? and transaction_date <= ? ");
+                "where transaction_date >=  ?1 and transaction_date <= ?2 ");
 
         //  This test is not going to run long enough for long cache to be forceably 
         //  expired, so we should make that long cache expire.
@@ -3716,7 +3750,7 @@ class SqlTester {
     }
 
     bindVariableMissing() {
-        let stmt = "select * from bookSales where date > ? AND date < ? OR book_id = ?";
+        let stmt = "select * from bookSales where date > ?1 AND date < ?2 OR book_id = ?3";
 
         let testSQL = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
@@ -3733,6 +3767,26 @@ class SqlTester {
         }
 
         return this.isFail("bindVariableMissing", ex);
+    }
+
+    bindVariableMissing1() {
+        let stmt = "select * from bookSales where date > ? AND date < ?";
+
+        let testSQL = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .addBindParameter('05/01/2022')
+            .addBindParameter('05/04/2022')
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("bindVariableMissing1", ex);
     }
 
     selectNoFrom() {
@@ -3786,7 +3840,7 @@ class SqlTester {
     }
 
     pivotGroupByMissing() {
-        let stmt = "select sum(quantity) from bookSales where date > ? AND date < ? OR book_id = ? pivot customer_id";
+        let stmt = "select sum(quantity) from bookSales where date > ?1 AND date < ?2 OR book_id = ?3 pivot customer_id";
 
         let testSQL = new TestSql()
             .addTableData("bookSales", this.bookSalesTable())
@@ -4010,6 +4064,8 @@ function testerSql() {
     result = result && tester.selectCorrelatedSubQuery7();
     result = result && tester.selectCorrelatedSubQuery8();
     result = result && tester.selectCorrelatedSubQuery9();
+    result = result && tester.selectCorrelatedSubQuery10();
+    result = result && tester.selectCorrelatedSubQuery11();
     result = result && tester.selectFromSubQuery1();
     result = result && tester.selectFromSubQuery2();
 
@@ -4031,6 +4087,7 @@ function testerSql() {
     result = result && tester.badOrderBy1();
     result = result && tester.badOrderBy2();
     result = result && tester.bindVariableMissing();
+    result = result && tester.bindVariableMissing1();
     result = result && tester.selectNoFrom();
     result = result && tester.selectNoTitles();
     result = result && tester.pivotGroupByMissing();

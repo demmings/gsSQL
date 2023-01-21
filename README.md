@@ -297,7 +297,10 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
     * If parameter 2 is to be omitted, the table must be a sheet name.  If the sheet name contains spaces, you must use single quotes around the table name within the select.
       * e.g.  ```select * from 'master transactions' where account = 'bank'```
     * Bind variables use the question mark as a placeholder.  There must be matching question marks to bind variable data - which is specified starting in parameter 4.  
-      * e.g.  ```select * from transactions where transaction_date >= ? and transaction_date <= ?``` 
+    * Each bind placeholder must reference a specific bind data point by its position in the bind data list.  For example:
+      * ?1 - references first bind data in list.
+      * ?2 - references second bind data in list, and so on.
+      * e.g.  ```select * from transactions where transaction_date >= ?1 and transaction_date <= ?2``` 
     * The PIVOT command is also supported.  The 'PIVOT field' if used is the last part of the statement.  It must be used in conjunction with 'group by'.
       * e.g.  ```select transaction_date, sum(gross), sum(amount) from mastertransactions where transaction_date >=  '01/01/2022' and transaction_date <= '05/19/2022' and expense_category in (select income from budgetCategories where income <> '') group by transaction_date pivot account```
 
@@ -356,7 +359,7 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
 3.  Example usage:
    
 ```
-let stmt = "select date, sum(quantity) from bookReturns where date >= ? and date <= ? group by date pivot customer_id";
+let stmt = "select date, sum(quantity) from bookReturns where date >= ?1 and date <= ?2 group by date pivot customer_id";
 
 let data = new Sql()
             .addTableData("bookReturns", this.bookReturnsTable())

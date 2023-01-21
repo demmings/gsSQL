@@ -1,6 +1,6 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
-export { Sql, gsSQL, parseTableSettings };
+export { Sql, gsSQL, parseTableSettings, BindData };
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
 import { SqlParse } from './SimpleParser.js';
@@ -121,8 +121,8 @@ class Sql {
         this.tables = new Map();
         /** @property {Boolean} - Are column tables to be ouptout? */
         this.columnTitle = false;
-        /** @property {any[]} - List of BIND data linked to '?' in statement. */
-        this.bindParameters = [];
+        /** @property {BindData} - List of BIND data linked to '?' in statement. */
+        this.bindData = new BindData();
     }
 
     /**
@@ -153,14 +153,16 @@ class Sql {
     }
 
     /**
-     * 
+     * Copies the data from an external tableMap to this instance.  
+     * It copies a reference to outside array data only.  
+     * The schema would need to be re-loaded.
      * @param {Map<String,Table>} tableMap 
      */
     copyTableData(tableMap) {
         // @ts-ignore
         for (const tableName of tableMap.keys()) {
             const tableInfo = tableMap.get(tableName);
-            this.addTableData(tableName, tableInfo.tableData);  
+            this.addTableData(tableName, tableInfo.tableData);
         }
 
         return this;
@@ -190,7 +192,7 @@ class Sql {
      * @returns {Sql}
      */
     addBindParameter(value) {
-        this.bindParameters.push(value);
+        this.bindData.add(value);
         return this;
     }
 
@@ -199,7 +201,7 @@ class Sql {
      * @returns {any[]}
      */
     getBindData() {
-        return this.bindParameters;
+        return this.bindData.getBindDataList();
     }
 
     /**
@@ -209,18 +211,18 @@ class Sql {
      */
     addBindNamedRangeParameter(value) {
         const namedValue = TableData.getValueCached(value, 30);
-        this.bindParameters.push(namedValue);
+        this.bindData.add(namedValue);
         Logger.log(`BIND=${value} = ${namedValue}`);
         return this;
     }
 
     /**
      * Set all bind data at once using array.
-     * @param {any[]} value - List of all needed BIND data.
+     * @param {BindData} value - Bind data.
      * @returns {Sql}
      */
     setBindValues(value) {
-        this.bindParameters = value;
+        this.bindData = value;
         return this;
     }
 
@@ -229,7 +231,7 @@ class Sql {
      * @returns {Sql}
      */
     clearBindParameters() {
-        this.bindParameters = [];
+        this.bindData.clear();
         return this;
     }
 
@@ -586,19 +588,23 @@ class Sql {
         }
     }
 
+    /**
+     * Search for table references in the WHERE condition.
+     * @param {Object} ast -  AST to search.
+     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name. 
+     */
     static getTableNamesWhereCondition(ast, tableSet) {
-        if (typeof ast.WHERE !== 'undefined') {
-            const lParts = typeof ast.WHERE.left === 'string' ? ast.WHERE.left.split(".") : [];
-            if (lParts.length > 1) {
-                tableSet.set(lParts[0].toUpperCase(), "");
-            }
-            const rParts = typeof ast.WHERE.right === 'string' ? ast.WHERE.right.split(".") : [];
-            if (rParts.length > 1) {
-                tableSet.set(rParts[0].toUpperCase(), "");
-            }
-
-            if (typeof ast.WHERE.terms !== 'undefined') {
-                Sql.getTableNamesWhereCondition(ast.WHERE.terms, tableSet);
+        const lParts = typeof ast.left === 'string' ? ast.left.split(".") : [];
+        if (lParts.length > 1) {
+            tableSet.set(lParts[0].toUpperCase(), "");
+        }
+        const rParts = typeof ast.right === 'string' ? ast.right.split(".") : [];
+        if (rParts.length > 1) {
+            tableSet.set(rParts[0].toUpperCase(), "");
+        }
+        if (typeof ast.terms !== 'undefined') {
+            for (const term of ast.terms) {
+                Sql.getTableNamesWhereCondition(term, tableSet);
             }
         }
     }
@@ -660,7 +666,7 @@ class Sql {
         //  Manipulate AST add pivot fields.
         ast = this.pivotField(ast);
 
-        const view = new SelectTables(ast, this.tables, this.bindParameters);
+        const view = new SelectTables(ast, this.tables, this.bindData);
 
         //  JOIN tables to create a derived table.
         view.join(ast);
@@ -767,17 +773,13 @@ class Sql {
         pivotAST.FROM = ast.FROM;
         pivotAST.WHERE = ast.WHERE;
 
-        const oldBindVariables = [...this.bindParameters];
-
         const pivotSql = new Sql()
             .enableColumnTitle(false)
-            .setBindValues(this.bindParameters)
+            .setBindValues(this.bindData)
             .copyTableData(this.getTables());
 
         // These are all of the unique PIVOT field data points.
         const tableData = pivotSql.execute(pivotAST);
-
-        this.setBindValues(oldBindVariables);
 
         return tableData;
     }
@@ -829,7 +831,7 @@ class Sql {
         for (const type of unionTypes) {
             if (typeof ast[type] !== 'undefined') {
                 const unionSQL = new Sql()
-                    .setBindValues(this.bindParameters)
+                    .setBindValues(this.bindData)
                     .copyTableData(this.getTables());
                 for (const union of ast[type]) {
                     const unionData = unionSQL.execute(union);
@@ -943,7 +945,62 @@ class Sql {
     }
 }
 
+class BindData {
+    constructor() {
+        this.clear();
+    }
 
+    /**
+     * Reset the bind data.
+     */
+    clear() {
+        this.next = 1;
+        this.bindMap = new Map();
+        this.bindQueue = [];        
+    }
+
+    /**
+     * Add bind data 
+     * @param {any} data 
+     * @returns {String}
+     */
+    add(data) {
+        const key = "?" + this.next.toString();
+        this.bindMap.set(key, data);
+        this.bindQueue.push(data);
+
+        this.next++;
+
+        return key;
+    }
+
+    /**
+     * Add a list of bind data points.
+     * @param {any[]} bindList 
+     */
+    addList(bindList) {
+        for (const data of bindList) {
+            this.add(data);
+        }
+    }
+
+    /**
+     * Pull out a bind data entry.
+     * @param {String} name - Get by name or get NEXT if empty.
+     * @returns 
+     */
+    get(name = "") {
+        return name === '' ? this.bindQueue.shift() : this.bindMap.get(name);
+    }
+
+    /**
+     * Return the ordered list of bind data.
+     * @returns {any[]} - Current list of bind data.
+     */
+    getBindDataList() {
+        return this.bindQueue;
+    }
+}
 
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
@@ -1487,7 +1544,7 @@ class Schema {
 /*  *** DEBUG START ***
 export { DERIVEDTABLE, VirtualFields, VirtualField, SelectTables };
 import { Table } from './Table.js';
-import { Sql } from './Sql.js';
+import { Sql, BindData } from './Sql.js';
 import { SqlParse } from './SimpleParser.js';
 //  *** DEBUG END  ***/
 
@@ -1498,7 +1555,7 @@ class SelectTables {
     /**
      * @param {Object} ast - Abstract Syntax Tree
      * @param {Map<String,Table>} tableInfo - Map of table info.
-     * @param {any[]} bindVariables - List of bind data.
+     * @param {BindData} bindVariables - List of bind data.
      */
     constructor(ast, tableInfo, bindVariables) {
         /** @property {String} - primary table name. */
@@ -1510,7 +1567,7 @@ class SelectTables {
         /** @property {Map<String,Table>} tableInfo - Map of table info. */
         this.tableInfo = tableInfo;
 
-        /** @property {any[]} - Bind variable data. */
+        /** @property {BindData} - Bind variable data. */
         this.bindVariables = bindVariables;
 
         /** @property {JoinTables} - Join table object. */
@@ -1759,7 +1816,7 @@ class SelectTables {
     getViewData(recordIDs) {
         const virtualData = [];
         const calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
-        const subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields);
+        const subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields, this.bindVariables);
 
         for (const masterRecordID of recordIDs) {
             const newRow = [];
@@ -2129,7 +2186,7 @@ class SelectTables {
         //  Maybe a SELECT within...
         if (typeof fieldCondition.SELECT !== 'undefined') {
             if (SelectTables.isCorrelatedSubQuery(fieldCondition)) {
-                subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields, fieldCondition);
+                subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields, this.bindVariables, fieldCondition);
             }
             else {
                 const subQueryTableInfo = SelectTables.getSubQueryTableSet(fieldCondition, this.tableInfo);
@@ -2143,11 +2200,17 @@ class SelectTables {
         }
         else if (SelectTables.isStringConstant(fieldCondition))
             constantData = SelectTables.extractStringConstant(fieldCondition);
-        else if (fieldCondition === '?') {
+        else if (fieldCondition.startsWith('?')) {
             //  Bind variable data.
-            if (this.bindVariables.length === 0)
-                throw new Error("Bind variable mismatch");
-            constantData = this.bindVariables.shift();
+            constantData = this.bindVariables.get(fieldCondition);
+            if (typeof constantData === 'undefined') {
+                if (fieldCondition === '?') {
+                    throw new Error("Bind variable naming is ?1, ?2... where ?1 is first bind data point in list.")
+                }
+                else {
+                    throw new Error(`Bind variable ${fieldCondition} was not found`);    
+                }
+            }
         }
         else {
             if (isNaN(fieldCondition)) {
@@ -2172,7 +2235,9 @@ class SelectTables {
         Sql.extractAstTables(ast, tableSet);
 
         const tableSetCorrelated = new Map();
-        Sql.getTableNamesWhereCondition(ast, tableSetCorrelated);
+        if (typeof ast.WHERE !== 'undefined') {
+            Sql.getTableNamesWhereCondition(ast.WHERE, tableSetCorrelated);
+        }
 
         // @ts-ignore
         for (const tableName of tableSetCorrelated.keys()) {
@@ -2287,7 +2352,7 @@ class SelectTables {
      * @returns {Boolean} - Is contained IN list.
      */
     static inCondition(leftValue, rightValue) {
-        let items;
+        let items = [];
         if (typeof rightValue === 'string') {
             items = rightValue.split(",");
         }
@@ -2355,6 +2420,25 @@ class CalculatedField {
         this.sqlServerFunctionCache = new Map();
         /** @property {TableField[]} */
         this.masterFields = tableFields.allFields.filter((vField) => this.masterTable === vField.tableInfo);
+
+        this.mapMasterFields = new Map();
+        for (const fld of this.masterFields) {
+            this.mapMasterFields.set(fld.fieldName, fld);
+        }
+    }
+
+    /**
+     * Get data from the table for the requested field name and record number
+     * @param {String} fldName - Name of field to get data for.
+     * @param {Number} masterRecordID - The row number in table to extract data from.
+     * @returns {any} - Data from table.  undefined if not found.
+     */
+    getData(fldName, masterRecordID) {
+        const vField = this.mapMasterFields.get(fldName);
+        if (typeof vField === 'undefined')
+            return vField;
+
+        return vField.getData(masterRecordID);
     }
 
     /**
@@ -2482,13 +2566,16 @@ class CorrelatedSubQuery {
      * 
      * @param {Map<String, Table>} tableInfo - Map of table info.
      * @param {TableFields} tableFields - Fields from all tables.
+     * @param {BindData}  bindData - List of bind data.
      * @param {Object} defaultSubQuery - Select AST
      */
-    constructor(tableInfo, tableFields, defaultSubQuery = null) {
+    constructor(tableInfo, tableFields, bindData, defaultSubQuery = null) {
         /** @property {Map<String, Table>} - Map of table info. */
         this.tableInfo = tableInfo;
         /** @property {TableFields} - Fields from all tables.*/
         this.tableFields = tableFields;
+        /** @property {BindData} */
+        this.bindVariables = bindData;
         /** @property {Object} - AST can be set here and skipped in select() statement. */
         this.defaultSubQuery = defaultSubQuery;
     }
@@ -2507,12 +2594,14 @@ class CorrelatedSubQuery {
 
         //  Add BIND variable for all matching fields in WHERE.
         const tempAst = JSON.parse(JSON.stringify(ast));
+        const tempBindVariables = new BindData();
+        tempBindVariables.addList(this.bindVariables.getBindDataList());
 
-        const bindVariables = this.replaceOuterFieldValueInCorrelatedWhere(calcSqlField.masterFields, masterRecordID, tempAst);
+        this.replaceOuterFieldValueInCorrelatedWhere(calcSqlField, masterRecordID, tempAst, tempBindVariables);
 
         const inData = new Sql()
             .setTables(this.tableInfo)
-            .setBindValues(bindVariables)
+            .setBindValues(tempBindVariables)
             .execute(tempAst);
 
         return inData;
@@ -2520,64 +2609,47 @@ class CorrelatedSubQuery {
 
     /**
      * If we find the field name in the AST, just replace with '?' and add to bind data variable list.
-     * @param {TableField[]} fieldNames - List of fields in outer query.  If any are found in subquery, the value of that field for the current record is inserted into subquery before it is executed.
+     * @param {CalculatedField} calcSqlField - List of fields in outer query.  If any are found in subquery, the value of that field for the current record is inserted into subquery before it is executed.
      * @param {Number} masterRecordID - current record number in outer query.
      * @param {Object} tempAst - AST for subquery.  Any field names found from outer query will be replaced with bind place holder '?'.
-     * @returns {any[]} - Data from outer query to be used as bind variable data.
+     * @param {BindData} bindData
      */
-    replaceOuterFieldValueInCorrelatedWhere(fieldNames, masterRecordID, tempAst) {
+    replaceOuterFieldValueInCorrelatedWhere(calcSqlField, masterRecordID, tempAst, bindData) {
         const where = tempAst.WHERE;
 
         if (typeof where === 'undefined')
-            return [];
+            return;
 
-        let bindData = [];
         if (typeof where.logic === 'undefined')
-            bindData = this.traverseWhere(fieldNames, [where]);
+            this.traverseWhere(calcSqlField, [where], masterRecordID, bindData);
         else
-            bindData = this.traverseWhere(fieldNames, where.terms);
-
-        for (let i = 0; i < bindData.length; i++) {
-            const fldName = bindData[i];
-            for (const vField of fieldNames) {
-                if (fldName === vField.fieldName) {
-                    bindData[i] = vField.getData(masterRecordID);
-                    break;
-                }
-            }
-        }
-
-        return bindData;
+            this.traverseWhere(calcSqlField, where.terms, masterRecordID, bindData);
     }
 
     /**
      * Search the WHERE portion of the subquery to find all references to the table in the outer query.
-     * @param {TableField[]} fieldNames - List of fields in outer query.
+     * @param {CalculatedField} calcSqlField - List of fields in outer query.
      * @param {Object} terms - terms of WHERE.  It is modified with bind variable placeholders when outer table fields are located.
-     * @returns {String[]} - List of field names found from outer table in subquery.
+     * @param {Number} masterRecordID
+     * @param {BindData} bindData
      */
-    traverseWhere(fieldNames, terms) {
-        const bindFields = [];
+    traverseWhere(calcSqlField, terms, masterRecordID, bindData) {
 
         for (const cond of terms) {
             if (typeof cond.logic === 'undefined') {
-                let result = fieldNames.find(item => item.fieldName === cond.left.toUpperCase());
+                let result = calcSqlField.masterFields.find(item => item.fieldName === cond.left.toUpperCase());
                 if (typeof result !== 'undefined') {
-                    bindFields.push(cond.left.toUpperCase());
-                    cond.left = '?';
+                    cond.left = bindData.add(calcSqlField.getData(cond.left.toUpperCase(), masterRecordID));
                 }
-                result = fieldNames.find(item => item.fieldName === cond.right.toUpperCase());
+                result = calcSqlField.masterFields.find(item => item.fieldName === cond.right.toUpperCase());
                 if (typeof result !== 'undefined') {
-                    bindFields.push(cond.right.toUpperCase());
-                    cond.right = '?';
+                    cond.right = bindData.add(calcSqlField.getData(cond.right.toUpperCase(), masterRecordID));
                 }
             }
             else {
-                bindFields.push(fieldNames, this.traverseWhere([cond.terms]));
+                this.traverseWhere(calcSqlField, [cond.terms], masterRecordID, bindData);
             }
         }
-
-        return bindFields;
     }
 }
 
@@ -4639,8 +4711,13 @@ class CondLexer {
     }
 
     readBindVariable() {
-        const tokenValue = this.currentChar;
+        let tokenValue = this.currentChar;
         this.readNextChar();
+
+        while (/[0-9]/.test(this.currentChar)) {
+            tokenValue += this.currentChar;
+            this.readNextChar();
+        }
 
         return { type: 'bindVariable', value: tokenValue };
     }
@@ -4697,10 +4774,10 @@ class CondParser {
 
     // Parse conditions ([word/string] [operator] [word/string])
     parseConditionExpression() {
-        let leftNode = this.parseBaseExpression();
+        let left = this.parseBaseExpression();
 
         if (this.currentToken.type !== 'operator') {
-            return leftNode;
+            return left;
         }
 
         let operator = this.currentToken.value;
@@ -4712,14 +4789,14 @@ class CondParser {
             this.readNextToken();
         }
 
-        let rightNode = null;
+        let right = null;
         if (this.currentToken.type === 'group' && (operator === 'EXISTS' || operator === 'NOT EXISTS')) {
-            [leftNode, rightNode] = this.parseSelectExistsSubQuery();
+            [left, right] = this.parseSelectExistsSubQuery();
         } else {
-            rightNode = this.parseBaseExpression(operator);
+            right = this.parseBaseExpression(operator);
         }
 
-        return { 'operator': operator, 'left': leftNode, 'right': rightNode };
+        return { operator, left, right };
     }
 
     /**
@@ -4883,25 +4960,20 @@ class SelectKeywordAnalysis {
             return item !== '';
         }).map(function (item) {
             //  Is there a column alias?
-            const [field, alias] = SelectKeywordAnalysis.getNameAndAlias(item);
+            const [name, as] = SelectKeywordAnalysis.getNameAndAlias(item);
 
             const splitPattern = /[\s()*/%+-]+/g;
-            let terms = field.split(splitPattern);
+            let terms = name.split(splitPattern);
 
             if (terms !== null) {
                 const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
                 terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
             }
-            if (field !== "*" && terms !== null && terms.length > 1) {
-                const astSelect = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
-                return {
-                    name: field,
-                    terms: terms,
-                    as: alias,
-                    subQuery: astSelect
-                };
+            if (name !== "*" && terms !== null && terms.length > 1) {
+                const subQuery = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
+                return { name, terms, as, subQuery };
             }
-            return { name: field, as: alias };
+            return { name: name, as: as };
         });
 
         return selectResult;
@@ -4922,8 +4994,8 @@ class SelectKeywordAnalysis {
             return SelectKeywordAnalysis.trim(item);
         });
         fromResult = fromResult.map(function (item) {
-            const [table, alias] = SelectKeywordAnalysis.getNameAndAlias(item);
-            return { table: table, as: alias };
+            const [table, as] = SelectKeywordAnalysis.getNameAndAlias(item);
+            return { table, as };
         });
         return fromResult;
     }

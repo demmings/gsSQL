@@ -1,6 +1,6 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
-export { Sql, gsSQL, parseTableSettings };
+export { Sql, gsSQL, parseTableSettings, BindData };
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
 import { SqlParse } from './SimpleParser.js';
@@ -121,8 +121,8 @@ class Sql {
         this.tables = new Map();
         /** @property {Boolean} - Are column tables to be ouptout? */
         this.columnTitle = false;
-        /** @property {any[]} - List of BIND data linked to '?' in statement. */
-        this.bindParameters = [];
+        /** @property {BindData} - List of BIND data linked to '?' in statement. */
+        this.bindData = new BindData();
     }
 
     /**
@@ -153,14 +153,16 @@ class Sql {
     }
 
     /**
-     * 
+     * Copies the data from an external tableMap to this instance.  
+     * It copies a reference to outside array data only.  
+     * The schema would need to be re-loaded.
      * @param {Map<String,Table>} tableMap 
      */
     copyTableData(tableMap) {
         // @ts-ignore
         for (const tableName of tableMap.keys()) {
             const tableInfo = tableMap.get(tableName);
-            this.addTableData(tableName, tableInfo.tableData);  
+            this.addTableData(tableName, tableInfo.tableData);
         }
 
         return this;
@@ -190,7 +192,7 @@ class Sql {
      * @returns {Sql}
      */
     addBindParameter(value) {
-        this.bindParameters.push(value);
+        this.bindData.add(value);
         return this;
     }
 
@@ -199,7 +201,7 @@ class Sql {
      * @returns {any[]}
      */
     getBindData() {
-        return this.bindParameters;
+        return this.bindData.getBindDataList();
     }
 
     /**
@@ -209,18 +211,18 @@ class Sql {
      */
     addBindNamedRangeParameter(value) {
         const namedValue = TableData.getValueCached(value, 30);
-        this.bindParameters.push(namedValue);
+        this.bindData.add(namedValue);
         Logger.log(`BIND=${value} = ${namedValue}`);
         return this;
     }
 
     /**
      * Set all bind data at once using array.
-     * @param {any[]} value - List of all needed BIND data.
+     * @param {BindData} value - Bind data.
      * @returns {Sql}
      */
     setBindValues(value) {
-        this.bindParameters = value;
+        this.bindData = value;
         return this;
     }
 
@@ -229,7 +231,7 @@ class Sql {
      * @returns {Sql}
      */
     clearBindParameters() {
-        this.bindParameters = [];
+        this.bindData.clear();
         return this;
     }
 
@@ -586,19 +588,23 @@ class Sql {
         }
     }
 
+    /**
+     * Search for table references in the WHERE condition.
+     * @param {Object} ast -  AST to search.
+     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name. 
+     */
     static getTableNamesWhereCondition(ast, tableSet) {
-        if (typeof ast.WHERE !== 'undefined') {
-            const lParts = typeof ast.WHERE.left === 'string' ? ast.WHERE.left.split(".") : [];
-            if (lParts.length > 1) {
-                tableSet.set(lParts[0].toUpperCase(), "");
-            }
-            const rParts = typeof ast.WHERE.right === 'string' ? ast.WHERE.right.split(".") : [];
-            if (rParts.length > 1) {
-                tableSet.set(rParts[0].toUpperCase(), "");
-            }
-
-            if (typeof ast.WHERE.terms !== 'undefined') {
-                Sql.getTableNamesWhereCondition(ast.WHERE.terms, tableSet);
+        const lParts = typeof ast.left === 'string' ? ast.left.split(".") : [];
+        if (lParts.length > 1) {
+            tableSet.set(lParts[0].toUpperCase(), "");
+        }
+        const rParts = typeof ast.right === 'string' ? ast.right.split(".") : [];
+        if (rParts.length > 1) {
+            tableSet.set(rParts[0].toUpperCase(), "");
+        }
+        if (typeof ast.terms !== 'undefined') {
+            for (const term of ast.terms) {
+                Sql.getTableNamesWhereCondition(term, tableSet);
             }
         }
     }
@@ -660,7 +666,7 @@ class Sql {
         //  Manipulate AST add pivot fields.
         ast = this.pivotField(ast);
 
-        const view = new SelectTables(ast, this.tables, this.bindParameters);
+        const view = new SelectTables(ast, this.tables, this.bindData);
 
         //  JOIN tables to create a derived table.
         view.join(ast);
@@ -767,17 +773,13 @@ class Sql {
         pivotAST.FROM = ast.FROM;
         pivotAST.WHERE = ast.WHERE;
 
-        const oldBindVariables = [...this.bindParameters];
-
         const pivotSql = new Sql()
             .enableColumnTitle(false)
-            .setBindValues(this.bindParameters)
+            .setBindValues(this.bindData)
             .copyTableData(this.getTables());
 
         // These are all of the unique PIVOT field data points.
         const tableData = pivotSql.execute(pivotAST);
-
-        this.setBindValues(oldBindVariables);
 
         return tableData;
     }
@@ -829,7 +831,7 @@ class Sql {
         for (const type of unionTypes) {
             if (typeof ast[type] !== 'undefined') {
                 const unionSQL = new Sql()
-                    .setBindValues(this.bindParameters)
+                    .setBindValues(this.bindData)
                     .copyTableData(this.getTables());
                 for (const union of ast[type]) {
                     const unionData = unionSQL.execute(union);
@@ -943,5 +945,60 @@ class Sql {
     }
 }
 
+class BindData {
+    constructor() {
+        this.clear();
+    }
 
+    /**
+     * Reset the bind data.
+     */
+    clear() {
+        this.next = 1;
+        this.bindMap = new Map();
+        this.bindQueue = [];        
+    }
+
+    /**
+     * Add bind data 
+     * @param {any} data 
+     * @returns {String}
+     */
+    add(data) {
+        const key = "?" + this.next.toString();
+        this.bindMap.set(key, data);
+        this.bindQueue.push(data);
+
+        this.next++;
+
+        return key;
+    }
+
+    /**
+     * Add a list of bind data points.
+     * @param {any[]} bindList 
+     */
+    addList(bindList) {
+        for (const data of bindList) {
+            this.add(data);
+        }
+    }
+
+    /**
+     * Pull out a bind data entry.
+     * @param {String} name - Get by name or get NEXT if empty.
+     * @returns 
+     */
+    get(name = "") {
+        return name === '' ? this.bindQueue.shift() : this.bindMap.get(name);
+    }
+
+    /**
+     * Return the ordered list of bind data.
+     * @returns {any[]} - Current list of bind data.
+     */
+    getBindDataList() {
+        return this.bindQueue;
+    }
+}
 
