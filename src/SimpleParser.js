@@ -630,7 +630,7 @@ class CondLexer {
         let tokenValue = this.currentChar;
         this.readNextChar();
 
-        while (/[0-9]/.test(this.currentChar)) {
+        while (/\d/.test(this.currentChar)) {
             tokenValue += this.currentChar;
             this.readNextChar();
         }
@@ -889,7 +889,7 @@ class SelectKeywordAnalysis {
                 const subQuery = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
                 return { name, terms, as, subQuery };
             }
-            return { name: name, as: as };
+            return { name, as };
         });
 
         return selectResult;

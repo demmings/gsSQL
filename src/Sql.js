@@ -945,6 +945,9 @@ class Sql {
     }
 }
 
+/**
+ * Store and retrieve bind data for use in WHERE portion of SELECT statement.
+ */
 class BindData {
     constructor() {
         this.clear();
@@ -961,11 +964,11 @@ class BindData {
 
     /**
      * Add bind data 
-     * @param {any} data 
-     * @returns {String}
+     * @param {any} data - bind data
+     * @returns {String} - bind variable name for reference in SQL.  e.g.  first data point would return '?1'.
      */
     add(data) {
-        const key = "?" + this.next.toString();
+        const key = `?${this.next.toString()}`;
         this.bindMap.set(key, data);
         this.bindQueue.push(data);
 
@@ -987,7 +990,7 @@ class BindData {
     /**
      * Pull out a bind data entry.
      * @param {String} name - Get by name or get NEXT if empty.
-     * @returns 
+     * @returns {any}
      */
     get(name = "") {
         return name === '' ? this.bindQueue.shift() : this.bindMap.get(name);

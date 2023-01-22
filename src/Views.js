@@ -58,6 +58,7 @@ class SelectTables {
     /**
      * Process any JOIN condition.
      * @param {Object} ast - Abstract Syntax Tree
+     * @returns {void}
      */
     join(ast) {
         if (typeof ast.JOIN !== 'undefined')
@@ -506,7 +507,7 @@ class SelectTables {
 
         //  Fudge the HAVING to look like a SELECT.
         const astSelect = {};
-        astSelect.FROM = [{ table: this.primaryTable, as : '' }];
+        astSelect.FROM = [{ table: this.primaryTable, as: '' }];
         astSelect.SELECT = [{ name: "*" }];
         astSelect.WHERE = astHaving;
 
@@ -640,52 +641,80 @@ class SelectTables {
         let calculatedField = "";
         /** @type {CorrelatedSubQuery} */
         let subQuery = null;
-
-        //  Maybe a SELECT within...
+       
         if (typeof fieldCondition.SELECT !== 'undefined') {
-            if (SelectTables.isCorrelatedSubQuery(fieldCondition)) {
-                subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields, this.bindVariables, fieldCondition);
-            }
-            else {
-                const subQueryTableInfo = SelectTables.getSubQueryTableSet(fieldCondition, this.tableInfo);
-                const inData = new Sql()
-                    .setTables(subQueryTableInfo)
-                    .setBindValues(this.bindVariables)
-                    .execute(fieldCondition);
-
-                constantData = inData.join(",");
-            }
+            //  Maybe a SELECT within...
+            [subQuery, constantData] = this.resolveSubQuery(fieldCondition);
         }
         else if (SelectTables.isStringConstant(fieldCondition))
+            //  String constant
             constantData = SelectTables.extractStringConstant(fieldCondition);
         else if (fieldCondition.startsWith('?')) {
             //  Bind variable data.
-            constantData = this.bindVariables.get(fieldCondition);
-            if (typeof constantData === 'undefined') {
-                if (fieldCondition === '?') {
-                    throw new Error("Bind variable naming is ?1, ?2... where ?1 is first bind data point in list.")
-                }
-                else {
-                    throw new Error(`Bind variable ${fieldCondition} was not found`);    
-                }
-            }
+            constantData = this.resolveBindData(fieldCondition);
+        }
+        else if (!isNaN(fieldCondition)) {
+            //  Literal number.
+            constantData = fieldCondition;
+        }
+        else if (this.tableFields.hasField(fieldCondition)) {
+            //  Table field.
+            columnNumber = this.tableFields.getFieldColumn(fieldCondition);
+            fieldConditionTableInfo = this.tableFields.getTableInfo(fieldCondition);
         }
         else {
-            if (isNaN(fieldCondition)) {
-                if (this.tableFields.hasField(fieldCondition)) {
-                    columnNumber = this.tableFields.getFieldColumn(fieldCondition)
-                    fieldConditionTableInfo = this.tableFields.getTableInfo(fieldCondition)
-                }
-                else {
-                    //  Calculated field?
-                    calculatedField = fieldCondition;
-                }
-            }
-            else
-                constantData = fieldCondition;
+            //  Calculated field?
+            calculatedField = fieldCondition;
         }
 
         return { fieldConditionTableInfo, columnNumber, constantData, calculatedField, subQuery };
+    }
+
+    /**
+     * Handle subquery.  If correlated subquery, return object to handle, otherwise resolve and return constant data.
+     * @param {Object} fieldCondition - left or right portion of condition
+     * @returns {any[]}
+     */
+    resolveSubQuery(fieldCondition) {
+        /** @type {CorrelatedSubQuery} */
+        let subQuery = null;
+        /** @type {String} */
+        let constantData = null;
+
+        if (SelectTables.isCorrelatedSubQuery(fieldCondition)) {
+            subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields, this.bindVariables, fieldCondition);
+        }
+        else {
+            const subQueryTableInfo = SelectTables.getSubQueryTableSet(fieldCondition, this.tableInfo);
+            const inData = new Sql()
+                .setTables(subQueryTableInfo)
+                .setBindValues(this.bindVariables)
+                .execute(fieldCondition);
+
+            constantData = inData.join(",");
+        }
+
+        return [subQuery, constantData];
+    }
+
+    /**
+     * Get constant bind data
+     * @param {Object} fieldCondition - left or right portion of condition
+     * @returns {any}
+     */
+    resolveBindData(fieldCondition) {
+        //  Bind variable data.
+        const constantData = this.bindVariables.get(fieldCondition);
+        if (typeof constantData === 'undefined') {
+            if (fieldCondition === '?') {
+                throw new Error("Bind variable naming is ?1, ?2... where ?1 is first bind data point in list.")
+            }
+            else {
+                throw new Error(`Bind variable ${fieldCondition} was not found`);
+            }
+        }
+
+        return constantData;
     }
 
     static isCorrelatedSubQuery(ast) {

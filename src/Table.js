@@ -295,6 +295,7 @@ class Table {       //  skipcq: JS-0128
     /**
      * Append table data from 'concatTable' to the end of this tables existing data.
      * @param {Table} concatTable - Append 'concatTable' data to end of current table data.
+     * @returns {void}
      */
     concat(concatTable) {
         const fieldsThisTable = this.schema.getAllFieldNames();
