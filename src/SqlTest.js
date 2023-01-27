@@ -3189,7 +3189,62 @@ class SqlTester {
         return this.isEqual("selectFromSubQuery2", data, expected);
     }
 
-    //  S T A R T   O T H E R   T E S TS
+    selectFromSubQuery3() {
+        let stmt = "select invoice from (select invoice from booksales where customer_id = 'C1') as mysales";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["invoice"],
+        ["I7200"],
+        ["I7205"]];
+
+        return this.isEqual("selectFromSubQuery3", data, expected);
+    }
+
+    selectFromSubQuery4() {
+        let stmt = "select table3.invoice from " + 
+            "(select invoice, quantity from " + 
+                "(select invoice, table1.QTY as quantity from " + 
+                    "(select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 " 
+                + "where customer_id = 'C1') as table2) " 
+            + "as table3";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["table3.invoice"],
+        ["I7200"],
+        ["I7205"]];
+
+        return this.isEqual("selectFromSubQuery4", data, expected);
+    }
+
+    selectFromSubQuery5() {
+        let stmt = "select table3.invoice from " + 
+            "(select * from " + 
+                "(select invoice, table1.QTY as quantity from " + 
+                    "(select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 " 
+                + "where customer_id = 'C1') as table2) " 
+            + "as table3";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["table3.invoice"],
+        ["I7200"],
+        ["I7205"]];
+
+        return this.isEqual("selectFromSubQuery5", data, expected);
+    }
+
+    //  S T A R T   O T H E R   T E S T S
     parseTableSettings1() {
         let data = parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
         let expected = [["authors", "authorsNamedRange", 60, false],
@@ -3310,6 +3365,21 @@ class SqlTester {
         let expected = [["BOOKSALES", "BOOKSALES", 60, true]];
 
         return this.isEqual("parseTableSettings11", data, expected);
+    }
+
+
+    parseTableSettings12() {
+        let stmt = "select table3.invoice from " + 
+        "(select invoice, quantity from " + 
+            "(select invoice, table1.QTY as quantity from " + 
+                "(select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 " 
+            + "where customer_id = 'C1') as table2) " 
+        + "as table3";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKSALES", "BOOKSALES", 60, true]];
+
+        return this.isEqual("parseTableSettings12", data, expected);
     }
 
     //  Mock the GAS sheets functions required to load.
@@ -3827,6 +3897,25 @@ class SqlTester {
         return this.isFail("selectNoTitles", ex);
     }
 
+
+    selectFromSubQueryNoAlias() {
+        let stmt = "select invoice from (select invoice from booksales where customer_id = 'C1')";
+        let ex = "";
+
+        let testSQL = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectFromSubQueryNoAlias", ex);
+    }
+
     badParseTableSettings1() {
         let ex = "";
         try {
@@ -4068,6 +4157,9 @@ function testerSql() {
     result = result && tester.selectCorrelatedSubQuery11();
     result = result && tester.selectFromSubQuery1();
     result = result && tester.selectFromSubQuery2();
+    result = result && tester.selectFromSubQuery3();
+    result = result && tester.selectFromSubQuery4();
+    result = result && tester.selectFromSubQuery5();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();
@@ -4090,6 +4182,7 @@ function testerSql() {
     result = result && tester.bindVariableMissing1();
     result = result && tester.selectNoFrom();
     result = result && tester.selectNoTitles();
+    result = result && tester.selectFromSubQueryNoAlias();
     result = result && tester.pivotGroupByMissing();
     result = result && tester.badUnion1();
     result = result && tester.badFieldNames1();
@@ -4106,6 +4199,7 @@ function testerSql() {
     result = result && tester.parseTableSettings9();
     result = result && tester.parseTableSettings10();
     result = result && tester.parseTableSettings11();
+    result = result && tester.parseTableSettings12();
     result = result && tester.testTableData1();
     result = result && tester.badParseTableSettings1();
 

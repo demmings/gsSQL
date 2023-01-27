@@ -67,6 +67,12 @@ class SqlParse {
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
 
+        if (typeof result.FROM !== 'undefined' && typeof result.FROM.FROM !== 'undefined' && typeof result.FROM.FROM.as !== 'undefined' && result.FROM.FROM.as != '') {
+            //   Subquery FROM creates an ALIAS name, which is then used as FROM table name.
+            result.FROM["table"] = result.FROM.FROM.as;
+            result.FROM["isDerived"] = true;
+        }
+
         return result;
     }
 
@@ -896,13 +902,16 @@ class SelectKeywordAnalysis {
     }
 
     static FROM(str) {
-        const isSubQuery = this.parseForCorrelatedSubQuery(str);
-        if (isSubQuery !== null) {
+        const subqueryAst = this.parseForCorrelatedSubQuery(str);
+        if (subqueryAst !== null) {
+            //  If there is a subquery creating a DERIVED table, it must have a derived table name.
+            //  Extract this subquery AS tableName.
             const [, alias] = SelectKeywordAnalysis.getNameAndAlias(str);
-            if (alias !== "" && typeof isSubQuery.FROM !== 'undefined') {
-                isSubQuery.FROM[0].as = alias.toUpperCase();
+            if (alias !== "" && typeof subqueryAst.FROM !== 'undefined') {
+                subqueryAst.FROM.as = alias.toUpperCase();
             }
-            return isSubQuery;
+
+            return subqueryAst;
         }
 
         let fromResult = str.split(',');
@@ -913,7 +922,7 @@ class SelectKeywordAnalysis {
             const [table, as] = SelectKeywordAnalysis.getNameAndAlias(item);
             return { table, as };
         });
-        return fromResult;
+        return fromResult[0];
     }
 
     static LEFT_JOIN(str) {

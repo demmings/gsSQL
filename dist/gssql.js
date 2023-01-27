@@ -123,6 +123,8 @@ class Sql {
         this.columnTitle = false;
         /** @property {BindData} - List of BIND data linked to '?' in statement. */
         this.bindData = new BindData();
+        /** @property {String} - derived table name to output in column title replacing source table name. */
+        this.columnTableNameReplacement = null;
     }
 
     /**
@@ -175,6 +177,16 @@ class Sql {
      */
     enableColumnTitle(value) {
         this.columnTitle = value;
+        return this;
+    }
+
+    /**
+     * Derived table data that requires the ALIAS table name in column title.
+     * @param {String} replacementTableName - derived table name to replace original table name.  To disable, set to null.
+     * @returns {Sql}
+     */
+    replaceColumnTableNameWith(replacementTableName){
+        this.columnTableNameReplacement = replacementTableName;
         return this;
     }
 
@@ -361,9 +373,18 @@ class Sql {
             const data = new Sql()
                 .setTables(this.tables)
                 .enableColumnTitle(true)
+                .replaceColumnTableNameWith(this.ast.FROM.table)
                 .execute(this.ast.FROM);
-            this.addTableData(this.ast.FROM.FROM[0].as, data);
-            this.ast.FROM = [{ table: this.ast.FROM.FROM[0].as, as: this.ast.FROM.FROM[0].as }];
+
+            if (typeof this.ast.FROM.table !== 'undefined') {
+                this.addTableData(this.ast.FROM.table, data);
+            }
+
+            if (this.ast.FROM.table === '') {
+                throw new Error("Every derived table must have its own alias");
+            }
+
+            this.ast.FROM["as"] = '';
         }
     }
 
@@ -496,7 +517,8 @@ class Sql {
      * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
      */
     static extractAstTables(ast, tableSet) {
-        Sql.getTableNamesFromOrJoin(ast, tableSet);
+        Sql.getTableNamesFrom(ast, tableSet);
+        Sql.getTableNamesJoin(ast, tableSet);
         Sql.getTableNamesUnion(ast, tableSet);
         Sql.getTableNamesWhereIn(ast, tableSet);
         Sql.getTableNamesWhereTerms(ast, tableSet);
@@ -508,23 +530,28 @@ class Sql {
      * @param {Object} ast - AST for SELECT.
      * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
      */
-    static getTableNamesFromOrJoin(ast, tableSet) {
-        const astTableBlocks = ['FROM', 'JOIN'];
-
-        for (const astBlock of astTableBlocks) {
-            if (typeof ast[astBlock] === 'undefined')
-                continue;
-
-            let blockData = ast[astBlock];
-
-            //  In the case where FROM (select sub-query) it will not be iterable.
-            if (!this.isIterable(blockData) && astBlock === 'FROM') {
-                blockData = blockData.FROM;
+    static getTableNamesFrom(ast, tableSet) {
+        let fromAst = ast.FROM;
+        while (typeof fromAst !== 'undefined') {
+            if (typeof fromAst.isDerived === 'undefined') {
+                tableSet.set(fromAst.table.toUpperCase(), typeof fromAst.as === 'undefined' ? '' : fromAst.as.toUpperCase());
             }
+            fromAst = fromAst.FROM;
+        }
+    }
 
-            for (const astItem of blockData) {
-                tableSet.set(astItem.table.toUpperCase(), astItem.as.toUpperCase());
-            }
+    /**
+    * Search for referenced table in FROM or JOIN part of select.
+    * @param {Object} ast - AST for SELECT.
+    * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
+    */
+    static getTableNamesJoin(ast, tableSet) {
+
+        if (typeof ast.JOIN === 'undefined')
+            return;
+
+        for (const astItem of ast.JOIN) {
+            tableSet.set(astItem.table.toUpperCase(), typeof astItem.as === 'undefined' ? '' : astItem.as.toUpperCase());
         }
     }
 
@@ -635,7 +662,12 @@ class Sql {
         if (typeof ast[astBlock] === 'undefined')
             return "";
 
-        for (const astItem of ast[astBlock]) {
+        let block = [ast[astBlock]];
+        if (this.isIterable(ast[astBlock])) {
+            block = ast[astBlock];
+        }
+
+        for (const astItem of block) {
             if (tableName === astItem.table.toUpperCase() && astItem.as !== "") {
                 return astItem.as;
             }
@@ -696,7 +728,7 @@ class Sql {
         viewTableData = this.unionSets(ast, viewTableData);
 
         if (this.columnTitle) {
-            viewTableData.unshift(view.getColumnTitles());
+            viewTableData.unshift(view.getColumnTitles(this.columnTableNameReplacement));
         }
 
         if (viewTableData.length === 0) {
@@ -959,7 +991,7 @@ class BindData {
     clear() {
         this.next = 1;
         this.bindMap = new Map();
-        this.bindQueue = [];        
+        this.bindQueue = [];
     }
 
     /**
@@ -1563,7 +1595,7 @@ class SelectTables {
      */
     constructor(ast, tableInfo, bindVariables) {
         /** @property {String} - primary table name. */
-        this.primaryTable = ast.FROM[0].table;
+        this.primaryTable = ast.FROM.table;
 
         /** @property {Object} - AST of SELECT fields */
         this.astFields = ast.SELECT;
@@ -2053,7 +2085,7 @@ class SelectTables {
 
         //  Fudge the HAVING to look like a SELECT.
         const astSelect = {};
-        astSelect.FROM = [{ table: this.primaryTable, as: '' }];
+        astSelect.FROM = { table: this.primaryTable, as: '' };
         astSelect.SELECT = [{ name: "*" }];
         astSelect.WHERE = astHaving;
 
@@ -2427,10 +2459,11 @@ class SelectTables {
 
     /**
      * Return a list of column titles for this table.
+     * @param {String} columnTableNameReplacement
      * @returns {String[]} - column titles
      */
-    getColumnTitles() {
-        return this.tableFields.getColumnTitles();
+    getColumnTitles(columnTableNameReplacement) {
+        return this.tableFields.getColumnTitles(columnTableNameReplacement);
     }
 }
 
@@ -2621,9 +2654,9 @@ class CorrelatedSubQuery {
      * @returns {any[][]} - double array of selected table data.
      */
     select(masterRecordID, calcSqlField, ast = this.defaultSubQuery) {
-        const innerTableInfo = this.tableInfo.get(ast.FROM[0].table.toUpperCase());
+        const innerTableInfo = this.tableInfo.get(ast.FROM.table.toUpperCase());
         if (typeof innerTableInfo === 'undefined')
-            throw new Error(`No table data found: ${ast.FROM[0].table}`);
+            throw new Error(`No table data found: ${ast.FROM.table}`);
 
         //  Add BIND variable for all matching fields in WHERE.
         const tempAst = JSON.parse(JSON.stringify(ast));
@@ -3787,14 +3820,23 @@ class TableFields {
 
     /**
      * Get column titles. If alias was set, that column would be the alias, otherwise it is column name.
+     * @param {String} columnTableNameReplacement
      * @returns {String[]} - column titles
      */
-    getColumnTitles() {
+    getColumnTitles(columnTableNameReplacement) {
         const columnTitles = [];
 
         for (const fld of this.getSelectFields()) {
             if (!fld.tempField) {
-                columnTitles.push(fld.columnTitle);
+                let columnOutput = fld.columnTitle;
+
+                //  When subquery table data becomes data for the derived table name, references to
+                //  original table names in column output needs to be changed to new derived table name.
+                if (columnTableNameReplacement !== null && columnOutput.startsWith(fld.originalTable + ".")) {
+                    columnOutput = columnOutput.replace(fld.originalTable + ".", columnTableNameReplacement + ".");
+                    let a = 1;
+                }
+                columnTitles.push(columnOutput);
             }
         }
 
@@ -4183,6 +4225,12 @@ class SqlParse {
 
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
+
+        if (typeof result.FROM !== 'undefined' && typeof result.FROM.FROM !== 'undefined' && typeof result.FROM.FROM.as !== 'undefined' && result.FROM.FROM.as != '') {
+            //   Subquery FROM creates an ALIAS name, which is then used as FROM table name.
+            result.FROM["table"] = result.FROM.FROM.as;
+            result.FROM["isDerived"] = true;
+        }
 
         return result;
     }
@@ -5013,13 +5061,16 @@ class SelectKeywordAnalysis {
     }
 
     static FROM(str) {
-        const isSubQuery = this.parseForCorrelatedSubQuery(str);
-        if (isSubQuery !== null) {
+        const subqueryAst = this.parseForCorrelatedSubQuery(str);
+        if (subqueryAst !== null) {
+            //  If there is a subquery creating a DERIVED table, it must have a derived table name.
+            //  Extract this subquery AS tableName.
             const [, alias] = SelectKeywordAnalysis.getNameAndAlias(str);
-            if (alias !== "" && typeof isSubQuery.FROM !== 'undefined') {
-                isSubQuery.FROM[0].as = alias.toUpperCase();
+            if (alias !== "" && typeof subqueryAst.FROM !== 'undefined') {
+                subqueryAst.FROM.as = alias.toUpperCase();
             }
-            return isSubQuery;
+
+            return subqueryAst;
         }
 
         let fromResult = str.split(',');
@@ -5030,7 +5081,7 @@ class SelectKeywordAnalysis {
             const [table, as] = SelectKeywordAnalysis.getNameAndAlias(item);
             return { table, as };
         });
-        return fromResult;
+        return fromResult[0];
     }
 
     static LEFT_JOIN(str) {

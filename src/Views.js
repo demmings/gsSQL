@@ -17,7 +17,7 @@ class SelectTables {
      */
     constructor(ast, tableInfo, bindVariables) {
         /** @property {String} - primary table name. */
-        this.primaryTable = ast.FROM[0].table;
+        this.primaryTable = ast.FROM.table;
 
         /** @property {Object} - AST of SELECT fields */
         this.astFields = ast.SELECT;
@@ -507,7 +507,7 @@ class SelectTables {
 
         //  Fudge the HAVING to look like a SELECT.
         const astSelect = {};
-        astSelect.FROM = [{ table: this.primaryTable, as: '' }];
+        astSelect.FROM = { table: this.primaryTable, as: '' };
         astSelect.SELECT = [{ name: "*" }];
         astSelect.WHERE = astHaving;
 
@@ -881,10 +881,11 @@ class SelectTables {
 
     /**
      * Return a list of column titles for this table.
+     * @param {String} columnTableNameReplacement
      * @returns {String[]} - column titles
      */
-    getColumnTitles() {
-        return this.tableFields.getColumnTitles();
+    getColumnTitles(columnTableNameReplacement) {
+        return this.tableFields.getColumnTitles(columnTableNameReplacement);
     }
 }
 
@@ -1075,9 +1076,9 @@ class CorrelatedSubQuery {
      * @returns {any[][]} - double array of selected table data.
      */
     select(masterRecordID, calcSqlField, ast = this.defaultSubQuery) {
-        const innerTableInfo = this.tableInfo.get(ast.FROM[0].table.toUpperCase());
+        const innerTableInfo = this.tableInfo.get(ast.FROM.table.toUpperCase());
         if (typeof innerTableInfo === 'undefined')
-            throw new Error(`No table data found: ${ast.FROM[0].table}`);
+            throw new Error(`No table data found: ${ast.FROM.table}`);
 
         //  Add BIND variable for all matching fields in WHERE.
         const tempAst = JSON.parse(JSON.stringify(ast));
@@ -2241,14 +2242,23 @@ class TableFields {
 
     /**
      * Get column titles. If alias was set, that column would be the alias, otherwise it is column name.
+     * @param {String} columnTableNameReplacement
      * @returns {String[]} - column titles
      */
-    getColumnTitles() {
+    getColumnTitles(columnTableNameReplacement) {
         const columnTitles = [];
 
         for (const fld of this.getSelectFields()) {
             if (!fld.tempField) {
-                columnTitles.push(fld.columnTitle);
+                let columnOutput = fld.columnTitle;
+
+                //  When subquery table data becomes data for the derived table name, references to
+                //  original table names in column output needs to be changed to new derived table name.
+                if (columnTableNameReplacement !== null && columnOutput.startsWith(fld.originalTable + ".")) {
+                    columnOutput = columnOutput.replace(fld.originalTable + ".", columnTableNameReplacement + ".");
+                    let a = 1;
+                }
+                columnTitles.push(columnOutput);
             }
         }
 

@@ -123,6 +123,8 @@ class Sql {
         this.columnTitle = false;
         /** @property {BindData} - List of BIND data linked to '?' in statement. */
         this.bindData = new BindData();
+        /** @property {String} - derived table name to output in column title replacing source table name. */
+        this.columnTableNameReplacement = null;
     }
 
     /**
@@ -175,6 +177,16 @@ class Sql {
      */
     enableColumnTitle(value) {
         this.columnTitle = value;
+        return this;
+    }
+
+    /**
+     * Derived table data that requires the ALIAS table name in column title.
+     * @param {String} replacementTableName - derived table name to replace original table name.  To disable, set to null.
+     * @returns {Sql}
+     */
+    replaceColumnTableNameWith(replacementTableName){
+        this.columnTableNameReplacement = replacementTableName;
         return this;
     }
 
@@ -361,9 +373,18 @@ class Sql {
             const data = new Sql()
                 .setTables(this.tables)
                 .enableColumnTitle(true)
+                .replaceColumnTableNameWith(this.ast.FROM.table)
                 .execute(this.ast.FROM);
-            this.addTableData(this.ast.FROM.FROM[0].as, data);
-            this.ast.FROM = [{ table: this.ast.FROM.FROM[0].as, as: this.ast.FROM.FROM[0].as }];
+
+            if (typeof this.ast.FROM.table !== 'undefined') {
+                this.addTableData(this.ast.FROM.table, data);
+            }
+
+            if (this.ast.FROM.table === '') {
+                throw new Error("Every derived table must have its own alias");
+            }
+
+            this.ast.FROM["as"] = '';
         }
     }
 
@@ -496,7 +517,8 @@ class Sql {
      * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
      */
     static extractAstTables(ast, tableSet) {
-        Sql.getTableNamesFromOrJoin(ast, tableSet);
+        Sql.getTableNamesFrom(ast, tableSet);
+        Sql.getTableNamesJoin(ast, tableSet);
         Sql.getTableNamesUnion(ast, tableSet);
         Sql.getTableNamesWhereIn(ast, tableSet);
         Sql.getTableNamesWhereTerms(ast, tableSet);
@@ -508,23 +530,28 @@ class Sql {
      * @param {Object} ast - AST for SELECT.
      * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
      */
-    static getTableNamesFromOrJoin(ast, tableSet) {
-        const astTableBlocks = ['FROM', 'JOIN'];
-
-        for (const astBlock of astTableBlocks) {
-            if (typeof ast[astBlock] === 'undefined')
-                continue;
-
-            let blockData = ast[astBlock];
-
-            //  In the case where FROM (select sub-query) it will not be iterable.
-            if (!this.isIterable(blockData) && astBlock === 'FROM') {
-                blockData = blockData.FROM;
+    static getTableNamesFrom(ast, tableSet) {
+        let fromAst = ast.FROM;
+        while (typeof fromAst !== 'undefined') {
+            if (typeof fromAst.isDerived === 'undefined') {
+                tableSet.set(fromAst.table.toUpperCase(), typeof fromAst.as === 'undefined' ? '' : fromAst.as.toUpperCase());
             }
+            fromAst = fromAst.FROM;
+        }
+    }
 
-            for (const astItem of blockData) {
-                tableSet.set(astItem.table.toUpperCase(), astItem.as.toUpperCase());
-            }
+    /**
+    * Search for referenced table in FROM or JOIN part of select.
+    * @param {Object} ast - AST for SELECT.
+    * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
+    */
+    static getTableNamesJoin(ast, tableSet) {
+
+        if (typeof ast.JOIN === 'undefined')
+            return;
+
+        for (const astItem of ast.JOIN) {
+            tableSet.set(astItem.table.toUpperCase(), typeof astItem.as === 'undefined' ? '' : astItem.as.toUpperCase());
         }
     }
 
@@ -635,7 +662,12 @@ class Sql {
         if (typeof ast[astBlock] === 'undefined')
             return "";
 
-        for (const astItem of ast[astBlock]) {
+        let block = [ast[astBlock]];
+        if (this.isIterable(ast[astBlock])) {
+            block = ast[astBlock];
+        }
+
+        for (const astItem of block) {
             if (tableName === astItem.table.toUpperCase() && astItem.as !== "") {
                 return astItem.as;
             }
@@ -696,7 +728,7 @@ class Sql {
         viewTableData = this.unionSets(ast, viewTableData);
 
         if (this.columnTitle) {
-            viewTableData.unshift(view.getColumnTitles());
+            viewTableData.unshift(view.getColumnTitles(this.columnTableNameReplacement));
         }
 
         if (viewTableData.length === 0) {
@@ -959,7 +991,7 @@ class BindData {
     clear() {
         this.next = 1;
         this.bindMap = new Map();
-        this.bindQueue = [];        
+        this.bindQueue = [];
     }
 
     /**
