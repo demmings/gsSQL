@@ -1326,7 +1326,7 @@ class JoinTables {
                     .setIsOuterJoin(true)
                     .createTable();
 
-                derivedTable.tableInfo.concat(rightDerivedTable.tableInfo);
+                derivedTable.tableInfo.concat(rightDerivedTable.tableInfo);         // skipcq: JS-D008
 
                 break;
 
@@ -2254,9 +2254,8 @@ class TableFields {
 
                 //  When subquery table data becomes data for the derived table name, references to
                 //  original table names in column output needs to be changed to new derived table name.
-                if (columnTableNameReplacement !== null && columnOutput.startsWith(fld.originalTable + ".")) {
-                    columnOutput = columnOutput.replace(fld.originalTable + ".", columnTableNameReplacement + ".");
-                    let a = 1;
+                if (columnTableNameReplacement !== null && columnOutput.startsWith(`${fld.originalTable}.`)) {
+                    columnOutput = columnOutput.replace(`${fld.originalTable}.`, `${columnTableNameReplacement}.`);
                 }
                 columnTitles.push(columnOutput);
             }

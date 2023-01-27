@@ -384,7 +384,7 @@ class Sql {
                 throw new Error("Every derived table must have its own alias");
             }
 
-            this.ast.FROM["as"] = '';
+            this.ast.FROM.as = '';
         }
     }
 
@@ -701,7 +701,7 @@ class Sql {
         const view = new SelectTables(ast, this.tables, this.bindData);
 
         //  JOIN tables to create a derived table.
-        view.join(ast);
+        view.join(ast);                 // skipcq: JS-D008
 
         //  Get the record ID's of all records matching WHERE condition.
         recordIDs = view.whereCondition(ast);

@@ -67,10 +67,10 @@ class SqlParse {
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
 
-        if (typeof result.FROM !== 'undefined' && typeof result.FROM.FROM !== 'undefined' && typeof result.FROM.FROM.as !== 'undefined' && result.FROM.FROM.as != '') {
+        if (typeof result.FROM !== 'undefined' && typeof result.FROM.FROM !== 'undefined' && typeof result.FROM.FROM.as !== 'undefined' && result.FROM.FROM.as !== '') {
             //   Subquery FROM creates an ALIAS name, which is then used as FROM table name.
-            result.FROM["table"] = result.FROM.FROM.as;
-            result.FROM["isDerived"] = true;
+            result.FROM.table = result.FROM.FROM.as;
+            result.FROM.isDerived = true;
         }
 
         return result;

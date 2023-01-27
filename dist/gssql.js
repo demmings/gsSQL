@@ -384,7 +384,7 @@ class Sql {
                 throw new Error("Every derived table must have its own alias");
             }
 
-            this.ast.FROM["as"] = '';
+            this.ast.FROM.as = '';
         }
     }
 
@@ -701,7 +701,7 @@ class Sql {
         const view = new SelectTables(ast, this.tables, this.bindData);
 
         //  JOIN tables to create a derived table.
-        view.join(ast);
+        view.join(ast);                 // skipcq: JS-D008
 
         //  Get the record ID's of all records matching WHERE condition.
         recordIDs = view.whereCondition(ast);
@@ -2904,7 +2904,7 @@ class JoinTables {
                     .setIsOuterJoin(true)
                     .createTable();
 
-                derivedTable.tableInfo.concat(rightDerivedTable.tableInfo);
+                derivedTable.tableInfo.concat(rightDerivedTable.tableInfo);         // skipcq: JS-D008
 
                 break;
 
@@ -3832,9 +3832,8 @@ class TableFields {
 
                 //  When subquery table data becomes data for the derived table name, references to
                 //  original table names in column output needs to be changed to new derived table name.
-                if (columnTableNameReplacement !== null && columnOutput.startsWith(fld.originalTable + ".")) {
-                    columnOutput = columnOutput.replace(fld.originalTable + ".", columnTableNameReplacement + ".");
-                    let a = 1;
+                if (columnTableNameReplacement !== null && columnOutput.startsWith(`${fld.originalTable}.`)) {
+                    columnOutput = columnOutput.replace(`${fld.originalTable}.`, `${columnTableNameReplacement}.`);
                 }
                 columnTitles.push(columnOutput);
             }
@@ -4226,10 +4225,10 @@ class SqlParse {
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
 
-        if (typeof result.FROM !== 'undefined' && typeof result.FROM.FROM !== 'undefined' && typeof result.FROM.FROM.as !== 'undefined' && result.FROM.FROM.as != '') {
+        if (typeof result.FROM !== 'undefined' && typeof result.FROM.FROM !== 'undefined' && typeof result.FROM.FROM.as !== 'undefined' && result.FROM.FROM.as !== '') {
             //   Subquery FROM creates an ALIAS name, which is then used as FROM table name.
-            result.FROM["table"] = result.FROM.FROM.as;
-            result.FROM["isDerived"] = true;
+            result.FROM.table = result.FROM.FROM.as;
+            result.FROM.isDerived = true;
         }
 
         return result;
