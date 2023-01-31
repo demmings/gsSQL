@@ -301,7 +301,7 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
     * Each bind placeholder must reference a specific bind data point by its position in the bind data list.  For example:
       * ?1 - references first bind data in list.
       * ?2 - references second bind data in list, and so on.
-      * e.g.  ```select * from transactions where transaction_date >= ?1 and transaction_date <= ?2``` 
+      * e.g.  ```gsSQL("select * from transactions where transaction_date >= ?1 and transaction_date <= ?2",, true, '05/01/2023', '05/30/2023')``` 
     * The PIVOT command is also supported.  The 'PIVOT field' if used is the last part of the statement.  It must be used in conjunction with 'group by'.
       * e.g.  ```select transaction_date, sum(gross), sum(amount) from mastertransactions where transaction_date >=  '01/01/2022' and transaction_date <= '05/19/2022' and expense_category in (select income from budgetCategories where income <> '') group by transaction_date pivot account```
 
