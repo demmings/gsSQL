@@ -514,9 +514,9 @@ let data = new Sql()
 7.  The Google cache does have size and duration limits.  If the table is huge, it is probably best to set the cache size to zero.  Also note that the cache has a duration limit of 21600 seconds.  Beyond that number of saeconds, the script properties are used to store the data - which may not be as quick as the cache and the long term cache has **VERY** limited capacity.
 8.  Use BIND variables to simplify the SELECT statement.  Each bind placeholder is substituted with the data from the bind list.  The bind name starts with '?' followed immediately by the position of the bind data list.  For example:  
 ```select * from table where id = ?1 and date > ?2```
-* ?1 - references first bind data
-* ?2 - references second bind data
-9.  BIND variables simplify the use of date comparisons.  The QUERY statement requires that you format the date in your SELECT.  Any DATE BIND variables are converted automatically.  Just specify the named range or A1 range in your gsSQL statement (without quotes) for each parameter and in your SELECT, just substitute with a question mark.  
+    * ?1 - references first bind data
+    * ?2 - references second bind data
+1.  BIND variables simplify the use of date comparisons.  The QUERY statement requires that you format the date in your SELECT.  Any DATE BIND variables are converted automatically.  Just specify the named range or A1 range in your gsSQL statement (without quotes) for each parameter and in your SELECT, just substitute with a question mark.  
 
 ---
 
