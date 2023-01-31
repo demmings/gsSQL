@@ -18,7 +18,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          sonar.projectKey : demmings_gsSQL
-          sonar.organization : demmings
         with:
           projectBaseDir: "./src"
+          args: >
+            -Dsonar.organization=demmings
+            -Dsonar.projectKey=demmings_gsSQL
