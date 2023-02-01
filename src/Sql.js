@@ -536,6 +536,9 @@ class Sql {
             if (typeof fromAst.isDerived === 'undefined') {
                 tableSet.set(fromAst.table.toUpperCase(), typeof fromAst.as === 'undefined' ? '' : fromAst.as.toUpperCase());
             }
+            else {
+                Sql.extractAstTables(fromAst.FROM, tableSet);
+            }
             fromAst = fromAst.FROM;
         }
     }
