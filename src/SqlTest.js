@@ -3205,11 +3205,11 @@ class SqlTester {
     }
 
     selectFromSubQuery4() {
-        let stmt = "select table3.invoice from " + 
-            "(select invoice, quantity from " + 
-                "(select invoice, table1.QTY as quantity from " + 
-                    "(select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 " 
-                + "where customer_id = 'C1') as table2) " 
+        let stmt = "select table3.invoice from " +
+            "(select invoice, quantity from " +
+            "(select invoice, table1.QTY as quantity from " +
+            "(select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 "
+            + "where customer_id = 'C1') as table2) "
             + "as table3";
 
         let data = new TestSql()
@@ -3225,11 +3225,11 @@ class SqlTester {
     }
 
     selectFromSubQuery5() {
-        let stmt = "select table3.invoice from " + 
-            "(select * from " + 
-                "(select invoice, table1.QTY as quantity from " + 
-                    "(select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 " 
-                + "where customer_id = 'C1') as table2) " 
+        let stmt = "select table3.invoice from " +
+            "(select * from " +
+            "(select invoice, table1.QTY as quantity from " +
+            "(select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 "
+            + "where customer_id = 'C1') as table2) "
             + "as table3";
 
         let data = new TestSql()
@@ -3242,6 +3242,22 @@ class SqlTester {
         ["I7205"]];
 
         return this.isEqual("selectFromSubQuery5", data, expected);
+    }
+
+    selectFromSubQuery6() {
+        let stmt = "select table3.invoice, table3.name from (select * from (select invoice, table1.QTY as quantity, customers.name from (select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 join customers on table1.customer_id = customers.id where customer_id = 'C1') as table2) as table3";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["table3.invoice", "table3.name"],
+        ["I7200", "Numereo Uno"],
+        ["I7205", "Numereo Uno"]];
+
+        return this.isEqual("selectFromSubQuery6", data, expected);
     }
 
     //  S T A R T   O T H E R   T E S T S
@@ -3369,18 +3385,29 @@ class SqlTester {
 
 
     parseTableSettings12() {
-        let stmt = "select table3.invoice from " + 
-        "(select invoice, quantity from " + 
-            "(select invoice, table1.QTY as quantity from " + 
-                "(select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 " 
-            + "where customer_id = 'C1') as table2) " 
-        + "as table3";
+        let stmt = "select table3.invoice from " +
+            "(select invoice, quantity from " +
+            "(select invoice, table1.QTY as quantity from " +
+            "(select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 "
+            + "where customer_id = 'C1') as table2) "
+            + "as table3";
 
         let data = parseTableSettings([], stmt, false);
         let expected = [["BOOKSALES", "BOOKSALES", 60, true]];
 
         return this.isEqual("parseTableSettings12", data, expected);
     }
+
+    parseTableSettings13() {
+        let stmt = "select table3.invoice, table3.name from (select * from (select invoice, table1.QTY as quantity, customers.name from (select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 join customers on table1.customer_id = customers.id where customer_id = 'C1') as table2) as table3";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKSALES", "BOOKSALES", 60, true],
+        ["CUSTOMERS", "CUSTOMERS", 60, true]];
+
+        return this.isEqual("parseTableSettings13", data, expected);
+    }
+
 
     //  Mock the GAS sheets functions required to load.
     testTableData1() {
@@ -4160,6 +4187,7 @@ function testerSql() {
     result = result && tester.selectFromSubQuery3();
     result = result && tester.selectFromSubQuery4();
     result = result && tester.selectFromSubQuery5();
+    result = result && tester.selectFromSubQuery6();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();
@@ -4200,6 +4228,8 @@ function testerSql() {
     result = result && tester.parseTableSettings10();
     result = result && tester.parseTableSettings11();
     result = result && tester.parseTableSettings12();
+    result = result && tester.parseTableSettings13();
+
     result = result && tester.testTableData1();
     result = result && tester.badParseTableSettings1();
 
