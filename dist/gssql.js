@@ -1662,7 +1662,7 @@ class SelectTables {
     updateSelectedFields(ast) {
         let astFields = ast.SELECT;
 
-        let tableInfo = !this.dataJoin.isDerivedTable() ? this.primaryTableInfo : this.dataJoin.derivedTable.tableInfo;
+        const tableInfo = !this.dataJoin.isDerivedTable() ? this.primaryTableInfo : this.dataJoin.derivedTable.tableInfo;
 
         //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
         astFields = VirtualFields.expandWildcardFields(tableInfo, astFields);
@@ -2875,7 +2875,7 @@ class JoinTables {
      */
     joinNextTable(astJoin) {
         this.leftRightFieldInfo = null;
-        let recIds = this.joinCondition(astJoin);
+        const recIds = this.joinCondition(astJoin);
 
         this.derivedTable = JoinTables.joinTables(this.leftRightFieldInfo, astJoin, recIds);
 
@@ -2942,10 +2942,10 @@ class JoinTables {
     }
 
     static andJoinIds(recIds) {
-        let result = [];
+        const result = [];
 
         for (let i = 0; i < recIds[0].length; i++) {
-            let temp = [];
+            const temp = [];
 
             for (let j = 0; j < recIds.length; j++) {
                 temp.push(typeof recIds[j][i] === 'undefined' ? [] : recIds[j][i]);
@@ -2966,7 +2966,7 @@ class JoinTables {
      * @returns {Number[][]}
      */
     static orJoinIds(recIds) {
-        let result = [];
+        const result = [];
 
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
@@ -3054,6 +3054,8 @@ class JoinTables {
                 matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, type);
                 rightJoinRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
                 break;
+            default:
+                throw new Error(`Invalid join type: ${type}`);
         }
 
         return [matchedRecordIDs, rightJoinRecordIDs];
@@ -3569,7 +3571,6 @@ class SqlServerFunctions {
                 break;
             default:
                 throw new Error(`Unrecognized data type ${dataType} in CONVERT`);
-                break;
         }
 
         return replacement;
