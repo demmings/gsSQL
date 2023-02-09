@@ -257,7 +257,10 @@ class Table {       //  skipcq: JS-0128
 
         const fieldIndex = this.schema.getFieldColumn(indexedFieldName);
         for (let i = 1; i < this.tableData.length; i++) {
-            const value = this.tableData[i][fieldIndex];
+            let value = this.tableData[i][fieldIndex];
+            if (value !== null) {
+                value = value.toString();
+            }
 
             if (value !== "") {
                 let rowNumbers = [];

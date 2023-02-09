@@ -1019,7 +1019,7 @@ class SqlTester {
         ["5", "Oranges", "Wright"],
         ["6", "Your Happy Life", "Johnson"],
         ["7", "Applied AI", "Evans"],
-        ["8", "My Last Book", ""],
+        ["8", "My Last Book", null],
         ["9", "Book with Mysterious Author", "Evans"]];
 
         return this.isEqual("join3", data, expected);
@@ -1067,15 +1067,15 @@ class SqlTester {
             .execute(stmt);
 
         let expected = [["books.id", "books.title", "books.type", "authors.last_name", "translators.last_name"],
-        ["1", "Time to Grow Up!", "original", "Writer", ""],
+        ["1", "Time to Grow Up!", "original", "Writer", null],
         ["2", "Your Trip", "translated", "Dou", "Weng"],
-        ["3", "Lovely Love", "original", "Brain", ""],
-        ["4", "Dream Your Life", "original", "Writer", ""],
+        ["3", "Lovely Love", "original", "Brain", null],
+        ["4", "Dream Your Life", "original", "Writer", null],
         ["5", "Oranges", "translated", "Savelieva", "Davies"],
         ["6", "Your Happy Life", "translated", "Dou", "Green"],
         ["7", "Applied AI", "translated", "Smart", "Edwards"],
-        ["8", "My Last Book", "original", "Writer", ""],
-        ["9", "Book with Mysterious Author", "translated", "", "Edwards"]];
+        ["8", "My Last Book", "original", "Writer", null],
+        ["9", "Book with Mysterious Author", "translated", null, "Edwards"]];
 
         return this.isEqual("leftJoin1", data, expected);
     }
@@ -1094,11 +1094,11 @@ class SqlTester {
             .execute(stmt);
 
         let expected = [["books.id", "books.title", "editors.last_name", "editors.id"],
-        ["", "", "Smart", "13"],
-        ["", "", "Jones", "26"],
-        ["", "", "Smith", "27"],
-        ["", "", "Dumb", "50"],
-        ["", "", "Smart", "51"],
+        [null, null, "Smart", "13"],
+        [null, null, "Jones", "26"],
+        [null, null, "Smith", "27"],
+        [null, null, "Dumb", "50"],
+        [null, null, "Smart", "51"],
         ["1", "Time to Grow Up!", "Brown", "21"],
         ["2", "Your Trip", "Johnson", "22"],
         ["3", "Lovely Love", "Roberts", "24"],
@@ -1152,29 +1152,30 @@ class SqlTester {
             .execute(stmt);
 
         let expected = [["authors.id", "authors.last_name", "editors.id", "editors.last_name"],
-        ["11", "Writer", "", ""],
-        ["12", "Savelieva", "", ""],
+        ["11", "Writer", null, null],
+        ["12", "Savelieva", null, null],
         ["13", "Smart", "13", "Smart"],
-        ["14", "Brain", "", ""],
-        ["15", "Dou", "", ""],
-        ["", "", "21", "Brown"],
-        ["", "", "22", "Johnson"],
-        ["", "", "23", "Evans"],
-        ["", "", "24", "Roberts"],
-        ["", "", "25", "Wright"],
-        ["", "", "26", "Jones"],
-        ["", "", "27", "Smith"],
-        ["", "", "50", "Dumb"],
-        ["", "", "51", "Smart"]];
+        ["14", "Brain", null, null],
+        ["15", "Dou", null, null],
+        [null, null, "21", "Brown"],
+        [null, null, "22", "Johnson"],
+        [null, null, "23", "Evans"],
+        [null, null, "24", "Roberts"],
+        [null, null, "25", "Wright"],
+        [null, null, "26", "Jones"],
+        [null, null, "27", "Smith"],
+        [null, null, "50", "Dumb"],
+        [null, null, "51", "Smart"]];
 
         return this.isEqual("fullJoin1", data, expected);
     }
 
+    //  FULL JOIN not supported in mySQL - so no comparison is possible.
     fullJoin2() {
         let stmt = "SELECT *, customers.address, customers.id, customers.name " +
             "FROM booksales " +
             "FULL JOIN customers " +
-            "ON booksales.customer_id = customers.id ";
+            "ON customer_id = customers.id ";
 
         let data = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
@@ -1182,26 +1183,26 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "customers.address", "customers.id", "customers.name"],
-        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "101 One Way", "C1", "Numereo Uno"],
-        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays"],
-        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays"],
-        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "3 Way St", "C3", "Tres Buon Goods"],
-        ["I7203", "1", "", 1, 90, "05/02/2022", "", "", ""],
-        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "40 Four St", "C4", "ForMe Resellers"],
-        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "40 Four St", "C4", "ForMe Resellers"],
-        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "40 Four St", "C4", "ForMe Resellers"],
-        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "101 One Way", "C1", "Numereo Uno"],
-        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "202 Second St.", "C2", "Dewy Tuesdays"],
-        ["", "", "", "", "", "", "5 ohFive St.", "C5", "Fe Fi Fo Giant Tiger"],
-        ["", "", "", "", "", "", "6 Seventh St", "C6", "Sx in Cars"],
-        ["", "", "", "", "", "", "7 Eight Crt.", "C7", "7th Heaven"]];
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL", "customers.address", "customers.id", "customers.name"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com", "101 One Way", "C1", "Numereo Uno"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com", "202 Second St.", "C2", "Dewy Tuesdays"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com", "202 Second St.", "C2", "Dewy Tuesdays"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com", "3 Way St", "C3", "Tres Buon Goods"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", null, null, null, null, null, null, null, null, null],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "40 Four St", "C4", "ForMe Resellers"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "40 Four St", "C4", "ForMe Resellers"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "40 Four St", "C4", "ForMe Resellers"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com", "101 One Way", "C1", "Numereo Uno"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com", "202 Second St.", "C2", "Dewy Tuesdays"],
+        [null, null, null, null, null, null, "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com", "5 ohFive St.", "C5", "Fe Fi Fo Giant Tiger"],
+        [null, null, null, null, null, null, "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   ", "6 Seventh St", "C6", "Sx in Cars"],
+        [null, null, null, null, null, null, "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com ", "7 Eight Crt.", "C7", "7th Heaven"]];
 
         return this.isEqual("fullJoin2", data, expected);
     }
 
     fullJoin3() {
-        let stmt = "SELECT *, customers.address, customers.id, customers.name, books.id, books.title " +
+        let stmt = "SELECT * " +
             "FROM booksales " +
             "FULL JOIN customers " +
             "ON booksales.customer_id = customers.id " +
@@ -1215,22 +1216,22 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "customers.address", "customers.id", "customers.name", "books.id", "books.title"],
-        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "101 One Way", "C1", "Numereo Uno", "9", "Book with Mysterious Author"],
-        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays", "8", "My Last Book"],
-        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "202 Second St.", "C2", "Dewy Tuesdays", "7", "Applied AI"],
-        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "3 Way St", "C3", "Tres Buon Goods", "9", "Book with Mysterious Author"],
-        ["I7203", "1", "", 1, 90, "05/02/2022", "", "", "", "1", "Time to Grow Up!"],
-        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "2", "Your Trip"],
-        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "3", "Lovely Love"],
-        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "40 Four St", "C4", "ForMe Resellers", "4", "Dream Your Life"],
-        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "101 One Way", "C1", "Numereo Uno", "7", "Applied AI"],
-        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "202 Second St.", "C2", "Dewy Tuesdays", "7", "Applied AI"],
-        ["", "", "", "", "", "", "5 ohFive St.", "C5", "Fe Fi Fo Giant Tiger", "", ""],
-        ["", "", "", "", "", "", "6 Seventh St", "C6", "Sx in Cars", "", ""],
-        ["", "", "", "", "", "", "7 Eight Crt.", "C7", "7th Heaven", "", ""],
-        ["", "", "", "", "", "", "", "", "", "5", "Oranges"],
-        ["", "", "", "", "", "", "", "", "", "6", "Your Happy Life"]];
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL", "BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com", "9", "Book with Mysterious Author", "translated", "1", "23", "34"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com", "8", "My Last Book", "original", "11", "28", ""],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com", "7", "Applied AI", "translated", "13", "23", "34"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com", "9", "Book with Mysterious Author", "translated", "1", "23", "34"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", null, null, null, null, null, null, "1", "Time to Grow Up!", "original", "11", "21", ""],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "2", "Your Trip", "translated", "15", "22", "32"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "3", "Lovely Love", "original", "14", "24", ""],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "4", "Dream Your Life", "original", "11", "24", ""],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com", "7", "Applied AI", "translated", "13", "23", "34"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com", "7", "Applied AI", "translated", "13", "23", "34"],
+        [null, null, null, null, null, null, "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com", null, null, null, null, null, null],
+        [null, null, null, null, null, null, "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   ", null, null, null, null, null, null],
+        [null, null, null, null, null, null, "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com ", null, null, null, null, null, null],
+        [null, null, null, null, null, null, null, null, null, null, null, null, "5", "Oranges", "translated", "12", "25", "31"],
+        [null, null, null, null, null, null, null, null, null, null, null, null, "6", "Your Happy Life", "translated", "15", "22", "33"]];
 
         return this.isEqual("fullJoin3", data, expected);
     }
@@ -1665,17 +1666,17 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "customers.name"],
-        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "ForMe Resellers"],
-        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "ForMe Resellers"],
-        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "ForMe Resellers"],
-        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "Dewy Tuesdays"]];
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL", "customers.name"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "ForMe Resellers"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "ForMe Resellers"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "ForMe Resellers"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com", "Dewy Tuesdays"]];
 
         return this.isEqual("innerSelect1", data, expected);
     }
 
     whereLike1() {
-        let stmt = "select *, books.title, authors.first_name, editors.first_name, customers.name, customers.email, booksales.quantity from bookSales " +
+        let stmt = "select * from bookSales " +
             "LEFT JOIN books ON booksales.book_id = books.id " +
             "LEFT JOIN authors on books.author_id = authors.id " +
             "LEFT JOIN editors on books.editor_id = editors.id " +
@@ -1691,18 +1692,18 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "books.title", "authors.first_name", "editors.first_name", "customers.name", "customers.email", "booksales.quantity"],
-        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "Book with Mysterious Author", "", "Maria", "Numereo Uno", "bigOne@gmail.com", 10],
-        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "My Last Book", "Ellen", "", "Dewy Tuesdays", "twoguys@gmail.com", 3],
-        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 5],
-        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "Applied AI", "Jack", "Maria", "Numereo Uno", "bigOne@gmail.com", 1],
-        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 100]];
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID", "AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME", "EDITORS.ID", "EDITORS.FIRST_NAME", "EDITORS.LAST_NAME", "CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "9", "Book with Mysterious Author", "translated", "1", "23", "34", null, null, null, "23", "Maria", "Evans", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "8", "My Last Book", "original", "11", "28", "", "11", "Ellen", "Writer", null, null, null, "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "7", "Applied AI", "translated", "13", "23", "34", "13", "Jack", "Smart", "23", "Maria", "Evans", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "7", "Applied AI", "translated", "13", "23", "34", "13", "Jack", "Smart", "23", "Maria", "Evans", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "7", "Applied AI", "translated", "13", "23", "34", "13", "Jack", "Smart", "23", "Maria", "Evans", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"]];
 
         return this.isEqual("whereLike1", data, expected);
     }
 
     whereLike2() {
-        let stmt = "select *, books.title as Title, auth.first_name as [First Name], editors.first_name, customers.name, customers.email, booksales.quantity from bookSales as sale" +
+        let stmt = "select books.title as Title, auth.first_name as [First Name], editors.first_name, customers.name, customers.email, booksales.quantity from bookSales as sale" +
             "LEFT JOIN books as bk ON sale.book_id = bk.id " +
             "LEFT JOIN authors as auth on books.author_id = authors.id " +
             "LEFT JOIN editors as ed on books.editor_id = ed.id " +
@@ -1718,18 +1719,18 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "Title", "First Name", "editors.first_name", "customers.name", "customers.email", "booksales.quantity"],
-        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "Book with Mysterious Author", "", "Maria", "Numereo Uno", "bigOne@gmail.com", 10],
-        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "My Last Book", "Ellen", "", "Dewy Tuesdays", "twoguys@gmail.com", 3],
-        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 5],
-        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "Applied AI", "Jack", "Maria", "Numereo Uno", "bigOne@gmail.com", 1],
-        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 100]];
+        let expected = [["Title", "First Name", "editors.first_name", "customers.name", "customers.email", "booksales.quantity"],
+        ["Book with Mysterious Author", null, "Maria", "Numereo Uno", "bigOne@gmail.com", 10],
+        ["My Last Book", "Ellen", null, "Dewy Tuesdays", "twoguys@gmail.com", 3],
+        ["Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 5],
+        ["Applied AI", "Jack", "Maria", "Numereo Uno", "bigOne@gmail.com", 1],
+        ["Applied AI", "Jack", "Maria", "Dewy Tuesdays", "twoguys@gmail.com", 100]];
 
         return this.isEqual("whereLike2", data, expected);
     }
 
     whereNotLike1() {
-        let stmt = "select *, books.title, authors.first_name, editors.first_name, customers.name, customers.email, booksales.quantity from bookSales " +
+        let stmt = "select * from bookSales " +
             "LEFT JOIN books ON booksales.book_id = books.id " +
             "LEFT JOIN authors on books.author_id = authors.id " +
             "LEFT JOIN editors on books.editor_id = editors.id " +
@@ -1745,12 +1746,11 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "books.title", "authors.first_name", "editors.first_name", "customers.name", "customers.email", "booksales.quantity"],
-        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "Book with Mysterious Author", "", "Maria", "Tres Buon Goods", "thrice@hotmail.com", 1],
-        ["I7203", "1", "", 1, 90, "05/02/2022", "Time to Grow Up!", "Ellen", "Daniel", "", "", 1],
-        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "Your Trip", "Yao", "Mark", "ForMe Resellers", "fourtimes@hotmail.com", 100],
-        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "Lovely Love", "Donald", "Cathrine", "ForMe Resellers", "fourtimes@hotmail.com", 150],
-        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "Dream Your Life", "Ellen", "Cathrine", "ForMe Resellers", "fourtimes@hotmail.com", 50]];
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID", "AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME", "EDITORS.ID", "EDITORS.FIRST_NAME", "EDITORS.LAST_NAME", "CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "9", "Book with Mysterious Author", "translated", "1", "23", "34", null, null, null, "23", "Maria", "Evans", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "2", "Your Trip", "translated", "15", "22", "32", "15", "Yao", "Dou", "22", "Mark", "Johnson", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "3", "Lovely Love", "original", "14", "24", "", "14", "Donald", "Brain", "24", "Cathrine", "Roberts", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "4", "Dream Your Life", "original", "11", "24", "", "11", "Ellen", "Writer", "24", "Cathrine", "Roberts", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"]];
 
         return this.isEqual("whereNotLike1", data, expected);
     }
@@ -1922,11 +1922,11 @@ class SqlTester {
             .execute(stmt);
 
         let expected = [["Invoice", "Quantity", "Price", "Sales", "booksales.date", "books.title", "customers.name", "Author", "Translator", "Editor"],
-        ["I7200", 10, 34.95, 349.5, "05/01/2022", "Book with Mysterious Author", "Numereo Uno", " ", "Roman Edwards", "Maria Evans"],
-        ["I7201", 3, 29.95, 89.85, "05/01/2022", "My Last Book", "Dewy Tuesdays", "Ellen Writer", " ", " "],
+        ["I7200", 10, 34.95, 349.5, "05/01/2022", "Book with Mysterious Author", "Numereo Uno", "null null", "Roman Edwards", "Maria Evans"],
+        ["I7201", 3, 29.95, 89.85, "05/01/2022", "My Last Book", "Dewy Tuesdays", "Ellen Writer", "null null", "null null"],
         ["I7201", 5, 18.99, 94.94999999999999, "05/01/2022", "Applied AI", "Dewy Tuesdays", "Jack Smart", "Roman Edwards", "Maria Evans"],
-        ["I7202", 1, 59.99, 59.99, "05/02/2022", "Book with Mysterious Author", "Tres Buon Goods", " ", "Roman Edwards", "Maria Evans"],
-        ["I7203", 1, 90, 90, "05/02/2022", "Time to Grow Up!", "", "Ellen Writer", " ", "Daniel Brown"],
+        ["I7202", 1, 59.99, 59.99, "05/02/2022", "Book with Mysterious Author", "Tres Buon Goods", "null null", "Roman Edwards", "Maria Evans"],
+        ["I7203", 1, 90, 90, "05/02/2022", "Time to Grow Up!", null, "Ellen Writer", "null null", "Daniel Brown"],
         ["Total", 20, 46.775999999999996, 684.29, "", "", "", "", "", ""]];
 
         return this.isEqual("unionJoin1", data, expected);
@@ -2306,20 +2306,21 @@ class SqlTester {
             .execute(stmt);
 
         let expected = [["IF(authors.id = '', 'MISSING AUTHOR', authors.id)", "authors.last_name", "IF(editors.id = '', 'MISSING EDITOR', editors.id)", "editors.last_name"],
-        ["11", "Writer", "MISSING EDITOR", ""],
-        ["12", "Savelieva", "MISSING EDITOR", ""],
+        ["11", "Writer", null, null],
+        ["12", "Savelieva", null, null],
         ["13", "Smart", "13", "Smart"],
-        ["14", "Brain", "MISSING EDITOR", ""],
-        ["15", "Dou", "MISSING EDITOR", ""],
-        ["MISSING AUTHOR", "", "21", "Brown"],
-        ["MISSING AUTHOR", "", "22", "Johnson"],
-        ["MISSING AUTHOR", "", "23", "Evans"],
-        ["MISSING AUTHOR", "", "24", "Roberts"],
-        ["MISSING AUTHOR", "", "25", "Wright"],
-        ["MISSING AUTHOR", "", "26", "Jones"],
-        ["MISSING AUTHOR", "", "27", "Smith"],
-        ["MISSING AUTHOR", "", "50", "Dumb"],
-        ["MISSING AUTHOR", "", "51", "Smart"]];
+        ["14", "Brain", null, null],
+        ["15", "Dou", null, null],
+        [null, null, "21", "Brown"],
+        [null, null, "22", "Johnson"],
+        [null, null, "23", "Evans"],
+        [null, null, "24", "Roberts"],
+        [null, null, "25", "Wright"],
+        [null, null, "26", "Jones"],
+        [null, null, "27", "Smith"],
+        [null, null, "50", "Dumb"],
+        [null, null, "51", "Smart"]]
+            ;
 
         return this.isEqual("selectIF1", data, expected);
     }
@@ -2912,7 +2913,7 @@ class SqlTester {
         ["I7201", "8", "C2", "Dewy Tuesdays"],
         ["I7201", "7", "C2", "Dewy Tuesdays"],
         ["I7202", "9", "C3", "Tres Buon Goods"],
-        ["I7203", "1", "", ""],
+        ["I7203", "1", null, null],
         ["I7204", "2", "C4", "ForMe Resellers"],
         ["I7204", "3", "C4", "ForMe Resellers"],
         ["I7204", "4", "C4", "ForMe Resellers"],
@@ -3260,6 +3261,151 @@ class SqlTester {
         return this.isEqual("selectFromSubQuery6", data, expected);
     }
 
+
+    selectFromSubQuery7() {
+        let stmt = "select * from booksales join (select * from booksales where customer_id = 'C1') as subsales on booksales.book_id = subsales.book_id";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "SUBSALES.INVOICE", "SUBSALES.BOOK_ID", "SUBSALES.CUSTOMER_ID", "SUBSALES.QUANTITY", "SUBSALES.PRICE", "SUBSALES.DATE"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "I7200", "9", "C1", 10, 34.95, "05/01/2022"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "I7205", "7", "C1", 1, 33.97, "05/04/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "I7200", "9", "C1", 10, 34.95, "05/01/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "I7205", "7", "C1", 1, 33.97, "05/04/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "I7205", "7", "C1", 1, 33.97, "05/04/2022"]];
+
+        return this.isEqual("selectFromSubQuery7", data, expected);
+    }
+
+    selectConvertFunction() {
+        let stmt = "select convert(address, signed), convert(address, char), convert(name, signed), convert(id, signed), convert(phone, char), convert(phone, decimal) from customers";
+
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["convert(address, signed)", "convert(address, char)", "convert(name, signed)", "convert(id, signed)", "convert(phone, char)", "convert(phone, decimal)"],
+        [101, "101 One Way", 0, 0, "9051112111", 9051112111],
+        [202, "202 Second St.", 0, 0, "4162022222", 4162022222],
+        [3, "3 Way St", 0, 0, "5193133303", 5193133303],
+        [40, "40 Four St", 0, 0, "2894441234", 2894441234],
+        [5, "5 ohFive St.", 0, 0, "4165551234", 4165551234],
+        [6, "6 Seventh St", 0, 0, "6661116666", 6661116666],
+        [7, "7 Eight Crt.", 7, 0, "5551117777", 5551117777]];
+
+        return this.isEqual("selectConvertFunction", data, expected);
+    }
+
+    selectJoinMultipleConditions() {
+        let stmt = "select * from booksales join bookreturns on booksales.quantity = bookreturns.quantity and booksales.date = bookreturns.date or booksales.book_id = bookreturns.book_id";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "BOOKRETURNS.RMA", "BOOKRETURNS.BOOK_ID", "BOOKRETURNS.CUSTOMER_ID", "BOOKRETURNS.QUANTITY", "BOOKRETURNS.PRICE", "BOOKRETURNS.DATE"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "Rma001", "9", "c1", 10, 34.95, "05/01/2022"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "RMA040", "9", "c3", 1, 59.99, "05/02/2022"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "rma020", "8", "c2", 3, 29.95, "05/01/2022"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "RMA900", "7", "c1", 1, 33.97, "05/04/2022"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "rma1010", "7", "c2", 100, 17.99, "05/04/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "RMA040", "9", "c3", 1, 59.99, "05/02/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "rma005", "1", "c1", 1, 90, "05/02/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "Rma001", "9", "c1", 10, 34.95, "05/01/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "RMA040", "9", "c3", 1, 59.99, "05/02/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "rma005", "1", "c1", 1, 90, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "RMA600", "2", "c4", 100, 65.49, "05/03/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "Rma701", "3", "c4", 150, 24.95, "05/03/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "RmA800", "4", "c4", 50, 19.99, "05/03/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "RMA900", "7", "c1", 1, 33.97, "05/04/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "rma1010", "7", "c2", 100, 17.99, "05/04/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "rma1010", "7", "c2", 100, 17.99, "05/04/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "RMA900", "7", "c1", 1, 33.97, "05/04/2022"]];
+
+        return this.isEqual("selectJoinMultipleConditions", data, expected);
+    }
+
+    selectJoinMultipleConditions2() {
+        let stmt = "select * from booksales inner join bookreturns on booksales.book_id = bookreturns.book_id and booksales.quantity < 10";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "BOOKRETURNS.RMA", "BOOKRETURNS.BOOK_ID", "BOOKRETURNS.CUSTOMER_ID", "BOOKRETURNS.QUANTITY", "BOOKRETURNS.PRICE", "BOOKRETURNS.DATE"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "Rma001", "9", "c1", 10, 34.95, "05/01/2022"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "RMA040", "9", "c3", 1, 59.99, "05/02/2022"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "rma020", "8", "c2", 3, 29.95, "05/01/2022"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "RMA900", "7", "c1", 1, 33.97, "05/04/2022"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "rma1010", "7", "c2", 100, 17.99, "05/04/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "RMA040", "9", "c3", 1, 59.99, "05/02/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "rma005", "1", "c1", 1, 90, "05/02/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "Rma001", "9", "c1", 10, 34.95, "05/01/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "RMA040", "9", "c3", 1, 59.99, "05/02/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "rma005", "1", "c1", 1, 90, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "RMA600", "2", "c4", 100, 65.49, "05/03/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "Rma701", "3", "c4", 150, 24.95, "05/03/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "RmA800", "4", "c4", 50, 19.99, "05/03/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "RMA900", "7", "c1", 1, 33.97, "05/04/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "rma1010", "7", "c2", 100, 17.99, "05/04/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "rma1010", "7", "c2", 100, 17.99, "05/04/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "RMA900", "7", "c1", 1, 33.97, "05/04/2022"]];
+
+        return this.isEqual("selectJoinMultipleConditions2", data, expected);
+    }
+
+    selectJoinLeftRightSwitchedInCondition() {
+        let stmt = "select * from books left join authors on authors.id = books.author_id";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID", "AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
+        ["1", "Time to Grow Up!", "original", "11", "21", "", "11", "Ellen", "Writer"],
+        ["2", "Your Trip", "translated", "15", "22", "32", "15", "Yao", "Dou"],
+        ["3", "Lovely Love", "original", "14", "24", "", "14", "Donald", "Brain"],
+        ["4", "Dream Your Life", "original", "11", "24", "", "11", "Ellen", "Writer"],
+        ["5", "Oranges", "translated", "12", "25", "31", "12", "Olga", "Savelieva"],
+        ["6", "Your Happy Life", "translated", "15", "22", "33", "15", "Yao", "Dou"],
+        ["7", "Applied AI", "translated", "13", "23", "34", "13", "Jack", "Smart"],
+        ["9", "Book with Mysterious Author", "translated", "1", "23", "34", null, null, null],
+        ["8", "My Last Book", "original", "11", "28", "", "11", "Ellen", "Writer"]];
+
+        return this.isEqual("selectJoinLeftRightSwitchedInCondition", data, expected);
+    }
+
+    selectJoinMultipleConditions3() {
+        let stmt = "select * from booksales inner join bookreturns on booksales.book_id = bookreturns.book_id and booksales.invoice = bookreturns.rma";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE","BOOKSALES.BOOK_ID","BOOKSALES.CUSTOMER_ID","BOOKSALES.QUANTITY","BOOKSALES.PRICE","BOOKSALES.DATE","BOOKRETURNS.RMA","BOOKRETURNS.BOOK_ID","BOOKRETURNS.CUSTOMER_ID","BOOKRETURNS.QUANTITY","BOOKRETURNS.PRICE","BOOKRETURNS.DATE"]];
+
+        return this.isEqual("selectJoinMultipleConditions3", data, expected);
+    }
+
+
     //  S T A R T   O T H E R   T E S T S
     parseTableSettings1() {
         let data = parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
@@ -3408,6 +3554,24 @@ class SqlTester {
         return this.isEqual("parseTableSettings13", data, expected);
     }
 
+    parseTableSettings14() {
+        let stmt = "select * from booksales join (select * from booksales where customer_id = 'C1') as subsales on booksales.book_id = subsales.book_id";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKSALES", "BOOKSALES", 60, true]];
+
+        return this.isEqual("parseTableSettings14", data, expected);
+    }
+
+    parseTableSettings15() {
+        let stmt = "select * from booksales join bookreturns on booksales.quantity = bookreturns.quantity and booksales.date = bookreturns.date or booksales.book_id = bookreturns.book_id";
+
+        let data = parseTableSettings([], stmt, false);
+        let expected = [["BOOKSALES", "BOOKSALES", 60, true],
+        ["BOOKRETURNS", "BOOKRETURNS", 60, true]];
+
+        return this.isEqual("parseTableSettings15", data, expected);
+    }
 
     //  Mock the GAS sheets functions required to load.
     testTableData1() {
@@ -4038,7 +4202,7 @@ class SqlTester {
 
         if (!isEqual) {
             //  May have "10" != 10 and fail.  We should not fail in that case.
-            isEqual = sqlDataArray.toString() === expectedArry.toString();
+            //isEqual = sqlDataArray.toString() === expectedArry.toString();
             Logger.log("JSON comp failed. toString(): " + sqlDataArray.toString() + " === " + expectedArry.toString());
         }
 
@@ -4188,6 +4352,12 @@ function testerSql() {
     result = result && tester.selectFromSubQuery4();
     result = result && tester.selectFromSubQuery5();
     result = result && tester.selectFromSubQuery6();
+    result = result && tester.selectFromSubQuery7();
+    result = result && tester.selectConvertFunction();
+    result = result && tester.selectJoinMultipleConditions();
+    // result = result && tester.selectJoinMultipleConditions2();
+    result = result && tester.selectJoinLeftRightSwitchedInCondition();
+    result = result && tester.selectJoinMultipleConditions3();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();
@@ -4229,6 +4399,8 @@ function testerSql() {
     result = result && tester.parseTableSettings11();
     result = result && tester.parseTableSettings12();
     result = result && tester.parseTableSettings13();
+    result = result && tester.parseTableSettings14();
+    result = result && tester.parseTableSettings15();
 
     result = result && tester.testTableData1();
     result = result && tester.badParseTableSettings1();

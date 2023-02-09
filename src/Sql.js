@@ -185,7 +185,7 @@ class Sql {
      * @param {String} replacementTableName - derived table name to replace original table name.  To disable, set to null.
      * @returns {Sql}
      */
-    replaceColumnTableNameWith(replacementTableName){
+    replaceColumnTableNameWith(replacementTableName) {
         this.columnTableNameReplacement = replacementTableName;
         return this;
     }
@@ -292,7 +292,7 @@ class Sql {
         //  Sub query data is loaded and given the name 'derivedtable'
         //  The AST.FROM is updated from the sub-query to the new derived table name. 
         this.selectFromSubQuery();
-
+        this.selectJoinSubQuery();
         Sql.setTableAlias(this.tables, this.ast);
         Sql.loadSchema(this.tables);
 
@@ -385,6 +385,30 @@ class Sql {
             }
 
             this.ast.FROM.as = '';
+        }
+    }
+
+    selectJoinSubQuery() {
+        if (typeof this.ast.JOIN !== 'undefined') {
+            for (const joinAst of this.ast.JOIN) {
+                if (typeof joinAst.table !== 'string') {
+                    const data = new Sql()
+                        .setTables(this.tables)
+                        .enableColumnTitle(true)
+                        .replaceColumnTableNameWith(joinAst.as)
+                        .execute(joinAst.table);
+
+                    if (typeof joinAst.as !== 'undefined') {
+                        this.addTableData(joinAst.as, data);
+                    }
+
+                    if (joinAst.as === '') {
+                        throw new Error("Every derived table must have its own alias");
+                    }
+                    joinAst.table = joinAst.as;
+                    joinAst.as = '';
+                }
+            }
         }
     }
 
@@ -554,7 +578,12 @@ class Sql {
             return;
 
         for (const astItem of ast.JOIN) {
-            tableSet.set(astItem.table.toUpperCase(), typeof astItem.as === 'undefined' ? '' : astItem.as.toUpperCase());
+            if (typeof astItem.table === 'string') {
+                tableSet.set(astItem.table.toUpperCase(), typeof astItem.as === 'undefined' ? '' : astItem.as.toUpperCase());
+            }
+            else {
+                Sql.extractAstTables(astItem.table, tableSet);
+            }
         }
     }
 
@@ -671,7 +700,7 @@ class Sql {
         }
 
         for (const astItem of block) {
-            if (tableName === astItem.table.toUpperCase() && astItem.as !== "") {
+            if (typeof astItem.table === 'string' && tableName === astItem.table.toUpperCase() && astItem.as !== "") {
                 return astItem.as;
             }
         }
@@ -705,6 +734,8 @@ class Sql {
 
         //  JOIN tables to create a derived table.
         view.join(ast);                 // skipcq: JS-D008
+
+        view.updateSelectedFields(ast);
 
         //  Get the record ID's of all records matching WHERE condition.
         recordIDs = view.whereCondition(ast);

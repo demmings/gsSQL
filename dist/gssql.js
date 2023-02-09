@@ -185,7 +185,7 @@ class Sql {
      * @param {String} replacementTableName - derived table name to replace original table name.  To disable, set to null.
      * @returns {Sql}
      */
-    replaceColumnTableNameWith(replacementTableName){
+    replaceColumnTableNameWith(replacementTableName) {
         this.columnTableNameReplacement = replacementTableName;
         return this;
     }
@@ -292,7 +292,7 @@ class Sql {
         //  Sub query data is loaded and given the name 'derivedtable'
         //  The AST.FROM is updated from the sub-query to the new derived table name. 
         this.selectFromSubQuery();
-
+        this.selectJoinSubQuery();
         Sql.setTableAlias(this.tables, this.ast);
         Sql.loadSchema(this.tables);
 
@@ -385,6 +385,30 @@ class Sql {
             }
 
             this.ast.FROM.as = '';
+        }
+    }
+
+    selectJoinSubQuery() {
+        if (typeof this.ast.JOIN !== 'undefined') {
+            for (const joinAst of this.ast.JOIN) {
+                if (typeof joinAst.table !== 'string') {
+                    const data = new Sql()
+                        .setTables(this.tables)
+                        .enableColumnTitle(true)
+                        .replaceColumnTableNameWith(joinAst.as)
+                        .execute(joinAst.table);
+
+                    if (typeof joinAst.as !== 'undefined') {
+                        this.addTableData(joinAst.as, data);
+                    }
+
+                    if (joinAst.as === '') {
+                        throw new Error("Every derived table must have its own alias");
+                    }
+                    joinAst.table = joinAst.as;
+                    joinAst.as = '';
+                }
+            }
         }
     }
 
@@ -554,7 +578,12 @@ class Sql {
             return;
 
         for (const astItem of ast.JOIN) {
-            tableSet.set(astItem.table.toUpperCase(), typeof astItem.as === 'undefined' ? '' : astItem.as.toUpperCase());
+            if (typeof astItem.table === 'string') {
+                tableSet.set(astItem.table.toUpperCase(), typeof astItem.as === 'undefined' ? '' : astItem.as.toUpperCase());
+            }
+            else {
+                Sql.extractAstTables(astItem.table, tableSet);
+            }
         }
     }
 
@@ -671,7 +700,7 @@ class Sql {
         }
 
         for (const astItem of block) {
-            if (tableName === astItem.table.toUpperCase() && astItem.as !== "") {
+            if (typeof astItem.table === 'string' && tableName === astItem.table.toUpperCase() && astItem.as !== "") {
                 return astItem.as;
             }
         }
@@ -705,6 +734,8 @@ class Sql {
 
         //  JOIN tables to create a derived table.
         view.join(ast);                 // skipcq: JS-D008
+
+        view.updateSelectedFields(ast);
 
         //  Get the record ID's of all records matching WHERE condition.
         recordIDs = view.whereCondition(ast);
@@ -1299,7 +1330,10 @@ class Table {       //  skipcq: JS-0128
 
         const fieldIndex = this.schema.getFieldColumn(indexedFieldName);
         for (let i = 1; i < this.tableData.length; i++) {
-            const value = this.tableData[i][fieldIndex];
+            let value = this.tableData[i][fieldIndex];
+            if (value !== null) {
+                value = value.toString();
+            }
 
             if (value !== "") {
                 let rowNumbers = [];
@@ -1610,7 +1644,7 @@ class SelectTables {
         this.bindVariables = bindVariables;
 
         /** @property {JoinTables} - Join table object. */
-        this.dataJoin = new JoinTables([]);
+        this.dataJoin = new JoinTables();
 
         /** @property {TableFields} */
         this.tableFields = new TableFields();
@@ -1623,12 +1657,18 @@ class SelectTables {
 
         //  Keep a list of all possible fields from all tables.
         this.tableFields.loadVirtualFields(this.primaryTable, tableInfo);
+    }
+
+    updateSelectedFields(ast) {
+        let astFields = ast.SELECT;
+
+        let tableInfo = !this.dataJoin.isDerivedTable() ? this.primaryTableInfo : this.dataJoin.derivedTable.tableInfo;
 
         //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
-        this.astFields = VirtualFields.expandWildcardFields(this.primaryTableInfo, this.astFields);
+        astFields = VirtualFields.expandWildcardFields(tableInfo, astFields);
 
         //  Define the data source of each field in SELECT field list.
-        this.tableFields.updateSelectFieldList(this.astFields);
+        this.tableFields.updateSelectFieldList(astFields);
 
         //  These are fields REFERENCED, but not actually in the SELECT FIELDS.
         //  So columns referenced by GROUP BY, ORDER BY and not in SELECT.
@@ -1643,7 +1683,7 @@ class SelectTables {
      */
     join(ast) {
         if (typeof ast.JOIN !== 'undefined')
-            this.dataJoin = new JoinTables(ast.JOIN, this.tableFields);
+            this.dataJoin.load(ast.JOIN, this.tableFields);
     }
 
     /**
@@ -1814,7 +1854,7 @@ class SelectTables {
                 break;
 
             case "NOT LIKE":
-                keep = !(SelectTables.likeCondition(leftValue, rightValue));
+                keep = SelectTables.notLikeCondition(leftValue, rightValue);
                 break;
 
             case "IN":
@@ -2222,7 +2262,7 @@ class SelectTables {
         let calculatedField = "";
         /** @type {CorrelatedSubQuery} */
         let subQuery = null;
-       
+
         if (typeof fieldCondition.SELECT !== 'undefined') {
             //  Maybe a SELECT within...
             [subQuery, constantData] = this.resolveSubQuery(fieldCondition);
@@ -2406,11 +2446,27 @@ class SelectTables {
      * @returns {Boolean} - Do strings match?
      */
     static likeCondition(leftValue, rightValue) {
+        if (leftValue === null || rightValue === null && !(leftValue === null && rightValue === null)) {
+            return false;
+        }
+
         // @ts-ignore
         const expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
 
         const result = leftValue.search(expanded);
         return result !== -1;
+    }
+
+    static notLikeCondition(leftValue, rightValue) {
+        if (leftValue === null || rightValue === null && !(leftValue === null && rightValue === null)) {
+            return false;
+        }
+
+        // @ts-ignore
+        const expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
+
+        const result = leftValue.search(expanded);
+        return result === -1;
     }
 
     /**
@@ -2803,29 +2859,204 @@ class JoinTables {
      * @param {any[]} astJoin - AST list of tables to join.
      * @param {TableFields} tableFields
      */
-    constructor(astJoin, tableFields = null) {
+    load(astJoin, tableFields) {
         /** @property {DerivedTable} - result table after tables are joined */
         this.derivedTable = new DerivedTable();
+        this.tableFields = tableFields;
 
         for (const joinTable of astJoin) {
-            /** @type {TableField} */
-            let leftFieldInfo = null;
-            /** @type {TableField} */
-            let rightFieldInfo = null;
-            if (tableFields !== null) {
-                if (typeof joinTable.cond.left === 'undefined' || typeof joinTable.cond.right === 'undefined') {
-                    throw new Error("Invalid JOIN TABLE ON syntax");
-                }
-                leftFieldInfo = tableFields.getFieldInfo(joinTable.cond.left);
-                rightFieldInfo = tableFields.getFieldInfo(joinTable.cond.right);
+            this.joinNextTable(joinTable);
+        }
+    }
+
+    /**
+     * Updates derived table with join to new table.
+     * @param {Object} astJoin 
+     */
+    joinNextTable(astJoin) {
+        this.leftRightFieldInfo = null;
+        let recIds = this.joinCondition(astJoin);
+
+        this.derivedTable = JoinTables.joinTables(this.leftRightFieldInfo, astJoin, recIds);
+
+        //  Field locations have changed to the derived table, so update our
+        //  virtual field list with proper settings.
+        this.tableFields.updateDerivedTableVirtualFields(this.derivedTable);
+    }
+
+    /**
+     * 
+     * @param {Object} conditions 
+     * @returns {Number[][][]}
+     */
+    joinCondition(conditions) {
+        let recIds = [];
+        const rightTable = conditions.table;
+        const joinType = conditions.type;
+
+        if (typeof conditions.cond.logic === 'undefined')
+            recIds = this.resolveCondition("OR", [conditions], joinType, rightTable);
+        else
+            recIds = this.resolveCondition(conditions.cond.logic, conditions.cond.terms, joinType, rightTable);
+
+        return recIds;
+    }
+
+    /**
+     * 
+     * @param {String} logic - AND, OR 
+     * @param {Object} astConditions 
+     * @param {String} joinType - inner, full, left, right
+     * @param {*} rightTable - join table.
+     * @returns 
+     */
+    resolveCondition(logic, astConditions, joinType, rightTable) {
+        let leftIds = [];
+        let rightIds = [];
+        let resultsLeft = [];
+        let resultsRight = [];
+
+        for (const cond of astConditions) {
+            if (typeof cond.logic === 'undefined') {
+                [leftIds, rightIds] = this.getRecordIDs(cond, joinType, rightTable);
+                resultsLeft.push(leftIds);
+                resultsRight.push(rightIds);
+            }
+            else {
+                [leftIds, rightIds] = this.resolveCondition(cond.logic, cond.terms, joinType, rightTable);
+                resultsLeft.push(leftIds);
+                resultsRight.push(rightIds);
+            }
+        }
+
+        if (logic === "AND") {
+            resultsLeft = JoinTables.andJoinIds(resultsLeft);
+            resultsRight = JoinTables.andJoinIds(resultsRight);
+        }
+        if (logic === "OR") {
+            resultsLeft = JoinTables.orJoinIds(resultsLeft);
+            resultsRight = JoinTables.orJoinIds(resultsRight);
+        }
+
+        return [resultsLeft, resultsRight];
+    }
+
+    static andJoinIds(recIds) {
+        let result = [];
+
+        for (let i = 0; i < recIds[0].length; i++) {
+            let temp = [];
+
+            for (let j = 0; j < recIds.length; j++) {
+                temp.push(typeof recIds[j][i] === 'undefined' ? [] : recIds[j][i]);
+            }
+            const row = temp.reduce((a, b) => a.filter(c => b.includes(c)));
+
+            if (row.length > 0) {
+                result[i] = row;
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * OR logic applied to the record ID's
+     * @param {Number[][]} recIds 
+     * @returns {Number[][]}
+     */
+    static orJoinIds(recIds) {
+        let result = [];
+
+        for (let i = 0; i < recIds[0].length; i++) {
+            let temp = [];
+
+            for (let j = 0; j < recIds.length; j++) {
+                temp = temp.concat(recIds[j][i]);
             }
 
-            this.derivedTable = JoinTables.joinTables(leftFieldInfo, rightFieldInfo, joinTable);
-
-            //  Field locations have changed to the derived table, so update our
-            //  virtual field list with proper settings.
-            tableFields.updateDerivedTableVirtualFields(this.derivedTable);
+            if (typeof temp[0] !== 'undefined') {
+                result[i] = Array.from(new Set(temp));
+            }
         }
+
+        return result;
+    }
+
+    /**
+     * 
+     * @param {Object} conditionAst 
+     * @param {String} joinType - left, right, inner, full
+     * @param {String} rightTable 
+     * @returns {Number[][][]}
+     */
+    getRecordIDs(conditionAst, joinType, rightTable) {
+        this.leftRightFieldInfo = JoinTables.getLeftRightFieldInfo(conditionAst, this.tableFields, rightTable);
+        const recIds = JoinTables.getMatchedRecordIds(joinType, this.leftRightFieldInfo);
+
+        return recIds;
+    }
+
+    /**
+     * 
+     * @param {Object} astJoin 
+     * @param {TableFields} tableFields 
+     * @returns {TableField[]}
+     */
+    static getLeftRightFieldInfo(astJoin, tableFields, joinedTable) {
+        /** @type {TableField} */
+        let leftFieldInfo = null;
+        /** @type {TableField} */
+        let rightFieldInfo = null;
+
+        const left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
+        const right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
+
+        leftFieldInfo = tableFields.getFieldInfo(left);
+        rightFieldInfo = tableFields.getFieldInfo(right);
+        //  joinTable.table is the RIGHT table, so switch if equal to condition left.
+        if (joinedTable === leftFieldInfo.originalTable) {
+            leftFieldInfo = tableFields.getFieldInfo(right);
+            rightFieldInfo = tableFields.getFieldInfo(left);
+        }
+
+        return [leftFieldInfo, rightFieldInfo];
+    }
+
+    /**
+     * 
+     * @param {String} type 
+     * @param {TableField[]} leftRightFieldInfo 
+     * @returns {Number[][][]}
+     */
+    static getMatchedRecordIds(type, leftRightFieldInfo) {
+        /** @type {Number[][]} */
+        let matchedRecordIDs = [];
+        let rightJoinRecordIDs = [];
+        /** @type {TableField} */
+        let leftFieldInfo = null;
+        /** @type {TableField} */
+        let rightFieldInfo = null;
+
+        [leftFieldInfo, rightFieldInfo] = leftRightFieldInfo;
+
+        switch (type) {
+            case "left":
+                matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, type);
+                break;
+            case "inner":
+                matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, type);
+                break;
+            case "right":
+                matchedRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, type);
+                break;
+            case "full":
+                matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, type);
+                rightJoinRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
+                break;
+        }
+
+        return [matchedRecordIDs, rightJoinRecordIDs];
     }
 
     /**
@@ -2833,6 +3064,10 @@ class JoinTables {
      * @returns {Boolean}
      */
     isDerivedTable() {
+        if (typeof this.derivedTable === 'undefined') {
+            return false;
+        }
+
         return this.derivedTable.isDerivedTable();
     }
 
@@ -2846,21 +3081,20 @@ class JoinTables {
 
     /**
     * Join two tables and create a derived table that contains all data from both tables.
-    * @param {TableField} leftFieldInfo - left table field of join
-    * @param {TableField} rightFieldInfo - right table field of join
+    * @param {TableField[]} leftRightFieldInfo - left table field of join
     * @param {Object} joinTable - AST that contains join type.
+    * @param {Number[][][]} recIds
     * @returns {DerivedTable} - new derived table after join of left and right tables.
     */
-    static joinTables(leftFieldInfo, rightFieldInfo, joinTable) {
-        let matchedRecordIDs = [];
-        let leftJoinRecordIDs = [];
-        let rightJoinRecordIDs = [];
+    static joinTables(leftRightFieldInfo, joinTable, recIds) {
         let derivedTable = null;
         let rightDerivedTable = null;
 
+        const [leftFieldInfo, rightFieldInfo] = leftRightFieldInfo;
+        const [matchedRecordIDs, rightJoinRecordIDs] = recIds;
+
         switch (joinTable.type) {
             case "left":
-                matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(leftFieldInfo)
                     .setRightField(rightFieldInfo)
@@ -2870,7 +3104,6 @@ class JoinTables {
                 break;
 
             case "inner":
-                matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(leftFieldInfo)
                     .setRightField(rightFieldInfo)
@@ -2880,7 +3113,6 @@ class JoinTables {
                 break;
 
             case "right":
-                matchedRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(rightFieldInfo)
                     .setRightField(leftFieldInfo)
@@ -2891,15 +3123,13 @@ class JoinTables {
                 break;
 
             case "full":
-                leftJoinRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, joinTable.type);
                 derivedTable = new DerivedTable()
                     .setLeftField(leftFieldInfo)
                     .setRightField(rightFieldInfo)
-                    .setLeftRecords(leftJoinRecordIDs)
+                    .setLeftRecords(matchedRecordIDs)
                     .setIsOuterJoin(true)
                     .createTable();
 
-                rightJoinRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
                 rightDerivedTable = new DerivedTable()
                     .setLeftField(rightFieldInfo)
                     .setRightField(leftFieldInfo)
@@ -2938,7 +3168,10 @@ class JoinTables {
         rightField.tableInfo.addIndex(rightField.fieldName);
 
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
-            const keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
+            let keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
+            if (keyMasterJoinField !== null) {
+                keyMasterJoinField = keyMasterJoinField.toString();
+            }
             const joinRows = rightField.tableInfo.search(rightField.fieldName, keyMasterJoinField);
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
@@ -3022,7 +3255,7 @@ class DerivedTable {
      */
     createTable() {
         const columnCount = this.rightField.tableInfo.getColumnCount();
-        const emptyRightRow = Array(columnCount).fill("");
+        const emptyRightRow = Array(columnCount).fill(null);
 
         const joinedData = [DerivedTable.getCombinedColumnTitles(this.leftField, this.rightField)];
 
@@ -3031,7 +3264,7 @@ class DerivedTable {
                 if (typeof this.rightField.tableInfo.tableData[this.leftRecords[i][0]] === "undefined")
                     joinedData.push(this.leftField.tableInfo.tableData[i].concat(emptyRightRow));
                 else {
-                    const maxJoin = this.isOuterJoin ? this.leftRecords[i].length : 1;
+                    const maxJoin = this.leftRecords[i].length;
                     for (let j = 0; j < maxJoin; j++) {
                         joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[this.leftRecords[i][j]]));
                     }
@@ -3082,9 +3315,9 @@ class SqlServerFunctions {
      * @returns {String} - javascript code
      */
     convertToJs(calculatedFormula, masterFields) {
-        const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT_WS", "DAY", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+        const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT_WS", "CONVERT", "DAY", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
-            "SPACE", "STUFF", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
+            "SPACE", "STUFF", "SUBSTR", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
         /** @property {String} - regex to find components of CASE statement. */
         this.matchCaseWhenThenStr = /WHEN(.*?)THEN(.*?)(?=WHEN|ELSE|$)|ELSE(.*?)(?=$)/;
         /** @property {String} - Original CASE statement. */
@@ -3124,6 +3357,9 @@ class SqlServerFunctions {
                         break;
                     case "CONCAT_WS":
                         replacement = SqlServerFunctions.concat_ws(parms, masterFields);
+                        break;
+                    case "CONVERT":
+                        replacement = SqlServerFunctions.convert(parms);
                         break;
                     case "DAY":
                         replacement = `new Date(${parms[0]}).getDate()`;
@@ -3169,37 +3405,38 @@ class SqlServerFunctions {
                         replacement = "Math.random()";
                         break;
                     case "REPLICATE":
-                        replacement = `${parms[0]}.repeat(${parms[1]})`;
+                        replacement = `${parms[0]}.toString().repeat(${parms[1]})`;
                         break;
                     case "REVERSE":
-                        replacement = `${parms[0]}.split("").reverse().join("")`;
+                        replacement = `${parms[0]}.toString().split("").reverse().join("")`;
                         break;
                     case "RIGHT":
-                        replacement = `${parms[0]}.slice(${parms[0]}.length - ${parms[1]})`;
+                        replacement = `${parms[0]}.toString().slice(${parms[0]}.length - ${parms[1]})`;
                         break;
                     case "ROUND":
                         replacement = `Math.round(${parms[0]})`;
                         break;
                     case "RTRIM":
-                        replacement = `${parms[0]}.trimEnd()`;
+                        replacement = `${parms[0]}.toString().trimEnd()`;
                         break;
                     case "SPACE":
                         replacement = `' '.repeat(${parms[0]})`;
                         break;
                     case "STUFF":
-                        replacement = `${parms[0]}.substring(0,${parms[1]}-1) + ${parms[3]} + ${parms[0]}.substring(${parms[1]} + ${parms[2]} - 1)`;
+                        replacement = `${parms[0]}.toString().substring(0,${parms[1]}-1) + ${parms[3]} + ${parms[0]}.toString().substring(${parms[1]} + ${parms[2]} - 1)`;
                         break;
+                    case "SUBSTR":
                     case "SUBSTRING":
-                        replacement = `${parms[0]}.substring(${parms[1]} - 1, ${parms[1]} + ${parms[2]} - 1)`;
+                        replacement = `${parms[0]}.toString().substring(${parms[1]} - 1, ${parms[1]} + ${parms[2]} - 1)`;
                         break;
                     case "SQRT":
                         replacement = `Math.sqrt(${parms[0]})`;
                         break;
                     case "TRIM":
-                        replacement = `${parms[0]}.trim()`;
+                        replacement = `${parms[0]}.toString().trim()`;
                         break;
                     case "UPPER":
-                        replacement = `${parms[0]}.toUpperCase()`;
+                        replacement = `${parms[0]}.toString().toUpperCase()`;
                         break;
                     case "YEAR":
                         replacement = `new Date(${parms[0]}).getFullYear()`;
@@ -3248,9 +3485,9 @@ class SqlServerFunctions {
         let replacement = "";
 
         if (typeof parms[2] === 'undefined')
-            replacement = `${parms[1]}.indexOf(${parms[0]}) + 1`;
+            replacement = `${parms[1]}.toString().indexOf(${parms[0]}) + 1`;
         else
-            replacement = `${parms[1]}.indexOf(${parms[0]},${parms[2]} -1) + 1`;
+            replacement = `${parms[1]}.toString().indexOf(${parms[0]},${parms[2]} -1) + 1`;
 
         return replacement;
     }
@@ -3304,6 +3541,35 @@ class SqlServerFunctions {
             }
 
             replacement += `${field}`;
+        }
+
+        return replacement;
+    }
+
+    /**
+     * Convert data to another type.
+     * @param {any[]} parms - 
+     * * parm[0] - value to convert
+     * * parms[1] -  data type.
+     * @returns {String} - javascript to convert data to specified type.
+     */
+    static convert(parms) {
+        let replacement = "";
+
+        const dataType = parms[1].toUpperCase().trim();
+        switch (dataType) {
+            case "SIGNED":
+                replacement = `isNaN(parseInt(${parms[0]}, 10))?0:parseInt(${parms[0]}, 10)`;
+                break;
+            case "DECIMAL":
+                replacement = `isNaN(parseFloat(${parms[0]}))?0:parseFloat(${parms[0]})`;
+                break;
+            case "CHAR":
+                replacement = `${parms[0]}.toString()`;
+                break;
+            default:
+                throw new Error(`Unrecognized data type ${dataType} in CONVERT`);
+                break;
         }
 
         return replacement;
@@ -3435,8 +3701,14 @@ class ConglomerateRecord {
             if (groupRow[columnIndex] === 'null')
                 continue;
 
-            let numericData = parseFloat(groupRow[columnIndex]);
-            numericData = (isNaN(numericData)) ? 0 : numericData;
+            let numericData = 0;
+            if (groupRow[columnIndex] instanceof Date) {
+                numericData = groupRow[columnIndex];
+            }
+            else {
+                numericData = parseFloat(groupRow[columnIndex]);
+                numericData = (isNaN(numericData)) ? 0 : numericData;
+            }
 
             switch (field.aggregateFunction) {
                 case "SUM":
@@ -5103,10 +5375,12 @@ class SelectKeywordAnalysis {
     }
 
     static allJoins(str) {
+        const subqueryAst = this.parseForCorrelatedSubQuery(str);
+        
         const strParts = str.toUpperCase().split(' ON ');
         const table = strParts[0].split(' AS ');
         const joinResult = {};
-        joinResult.table = SelectKeywordAnalysis.trim(table[0]);
+        joinResult.table = subqueryAst !== null ? subqueryAst : SelectKeywordAnalysis.trim(table[0]);
         joinResult.as = SelectKeywordAnalysis.trim(table[1]) || '';
         joinResult.cond = SelectKeywordAnalysis.trim(strParts[1]);
 

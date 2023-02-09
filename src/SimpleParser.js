@@ -942,10 +942,12 @@ class SelectKeywordAnalysis {
     }
 
     static allJoins(str) {
+        const subqueryAst = this.parseForCorrelatedSubQuery(str);
+        
         const strParts = str.toUpperCase().split(' ON ');
         const table = strParts[0].split(' AS ');
         const joinResult = {};
-        joinResult.table = SelectKeywordAnalysis.trim(table[0]);
+        joinResult.table = subqueryAst !== null ? subqueryAst : SelectKeywordAnalysis.trim(table[0]);
         joinResult.as = SelectKeywordAnalysis.trim(table[1]) || '';
         joinResult.cond = SelectKeywordAnalysis.trim(strParts[1]);
 
