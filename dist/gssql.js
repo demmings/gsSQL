@@ -2446,7 +2446,7 @@ class SelectTables {
      * @returns {Boolean} - Do strings match?
      */
     static likeCondition(leftValue, rightValue) {
-        if (leftValue === null || rightValue === null && !(leftValue === null && rightValue === null)) {
+        if ((leftValue === null || rightValue === null) && !(leftValue === null && rightValue === null)) {
             return false;
         }
 
@@ -2458,7 +2458,7 @@ class SelectTables {
     }
 
     static notLikeCondition(leftValue, rightValue) {
-        if (leftValue === null || rightValue === null && !(leftValue === null && rightValue === null)) {
+        if ((leftValue === null || rightValue === null) && !(leftValue === null && rightValue === null)) {
             return false;
         }
 
@@ -2887,7 +2887,7 @@ class JoinTables {
     /**
      * 
      * @param {Object} conditions 
-     * @returns {Number[][][]}
+     * @returns {Array}
      */
     joinCondition(conditions) {
         let recIds = [];
@@ -2908,7 +2908,7 @@ class JoinTables {
      * @param {Object} astConditions 
      * @param {String} joinType - inner, full, left, right
      * @param {*} rightTable - join table.
-     * @returns 
+     * @returns {Array}
      */
     resolveCondition(logic, astConditions, joinType, rightTable) {
         let leftIds = [];
@@ -2941,6 +2941,11 @@ class JoinTables {
         return [resultsLeft, resultsRight];
     }
 
+    /**
+     * AND logic applied to the record ID's
+     * @param {Array} recIds 
+     * @returns {Array}
+     */
     static andJoinIds(recIds) {
         const result = [];
 
@@ -2962,8 +2967,8 @@ class JoinTables {
 
     /**
      * OR logic applied to the record ID's
-     * @param {Number[][]} recIds 
-     * @returns {Number[][]}
+     * @param {Array} recIds 
+     * @returns {Array}
      */
     static orJoinIds(recIds) {
         const result = [];
@@ -2988,7 +2993,7 @@ class JoinTables {
      * @param {Object} conditionAst 
      * @param {String} joinType - left, right, inner, full
      * @param {String} rightTable 
-     * @returns {Number[][][]}
+     * @returns {Array}
      */
     getRecordIDs(conditionAst, joinType, rightTable) {
         this.leftRightFieldInfo = JoinTables.getLeftRightFieldInfo(conditionAst, this.tableFields, rightTable);
@@ -3027,7 +3032,7 @@ class JoinTables {
      * 
      * @param {String} type 
      * @param {TableField[]} leftRightFieldInfo 
-     * @returns {Number[][][]}
+     * @returns {Array}
      */
     static getMatchedRecordIds(type, leftRightFieldInfo) {
         /** @type {Number[][]} */
@@ -3085,7 +3090,7 @@ class JoinTables {
     * Join two tables and create a derived table that contains all data from both tables.
     * @param {TableField[]} leftRightFieldInfo - left table field of join
     * @param {Object} joinTable - AST that contains join type.
-    * @param {Number[][][]} recIds
+    * @param {Array} recIds
     * @returns {DerivedTable} - new derived table after join of left and right tables.
     */
     static joinTables(leftRightFieldInfo, joinTable, recIds) {
