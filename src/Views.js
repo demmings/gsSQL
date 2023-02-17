@@ -995,7 +995,11 @@ class CalculatedField {
             //  Get the DATA from this field.  We then build a series of LET statments
             //  and we assign that data to the field name that might be found in a calculated field.
             let varData = vField.getData(masterRecordID);
-            if (typeof varData === "string" || varData instanceof Date) {
+            if (varData instanceof Date) {
+                varData = `'${varData}'`;
+            }
+            else if (typeof varData === "string") {
+                varData = varData.replace(/'/g, "\\'");
                 varData = `'${varData}'`;
             }
 

@@ -2,7 +2,7 @@
 //
 /*  *** DEBUG START ***
 export { TableData };
-import { CacheService, LockService, SpreadsheetApp, Utilities } from "./SqlTest.js"; 
+import { CacheService, LockService, SpreadsheetApp, Utilities } from "./SqlTest.js";
 import { ScriptSettings } from "./ScriptSettings.js";
 
 class Logger {
@@ -303,9 +303,18 @@ class TableData {       //  skipcq: JS-0128
                 if (tableNamedRange.startsWith("'") && tableNamedRange.endsWith("'")) {
                     tableNamedRange = tableNamedRange.substring(1, tableNamedRange.length - 1);
                 }
-                const sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
-                if (sheetHandle === null)
+                let sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
+
+                //  Actual sheet may have spaces in name.  The SQL must reference that table with
+                //  underscores replacing those spaces.
+                if (sheetHandle === null && tableNamedRange.indexOf("_") !== -1) {
+                    tableNamedRange = tableNamedRange.replace(/_/g, " ");
+                    sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
+                }
+
+                if (sheetHandle === null) {
                     throw new Error(`Invalid table range specified:  ${tableNamedRange}`);
+                }
 
                 const lastColumn = sheetHandle.getLastColumn();
                 const lastRow = sheetHandle.getLastRow();

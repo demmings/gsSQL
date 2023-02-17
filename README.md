@@ -11,6 +11,7 @@
 [![GitHub Super-Linter](https://github.com/demmings/gsSQL/workflows/Lint%20Code%20Base/badge.svg)](https://github.com/marketplace/actions/super-linter)
 [![Coverage Status](https://coveralls.io/repos/github/demmings/gsSQL/badge.svg)](https://coveralls.io/github/demmings/gsSQL)
 [![CodeFactor](https://www.codefactor.io/repository/github/demmings/gssql/badge)](https://www.codefactor.io/repository/github/demmings/gssql)
+[![DeepScan grade](https://deepscan.io/api/teams/20362/projects/23822/branches/727858/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=20362&pid=23822&bid=727858)
 
 [![NPM](https://nodei.co/npm/@demmings/gssql.png?compact=true)](https://npmjs.org/package/@demmings/gssql)
 [![npm version](https://badge.fury.io/js/@demmings%2Fgssql.png)](https://badge.fury.io/js/@demmings%2Fgssql)
@@ -295,8 +296,9 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
     * The first row of the table MUST contain unique column titles (for field names).
       * To reference a field where the title contains spaces, just use the underscore in place of the space.
         * e.g.  Title = "Transaction Date", SELECT=```"SELECT transaction_date from master_transactions"```
-    * If parameter 2 is to be omitted, the table must be a sheet name.  If the sheet name contains spaces, you must use single quotes around the table name within the select.
-      * e.g.  ```select * from 'master transactions' where account = 'bank'```
+    * If parameter 2 is to be omitted, the table must be a sheet name.  If the sheet name contains spaces, you must use the underscore in place of the space in the table name within the select.
+      * e.g.  Sheet name is "Master Transactions".  
+        ```select * from master_transactions where account = 'bank'```
     * Bind variables use the question mark as a placeholder.  There must be matching question marks to bind variable data - which is specified starting in parameter 4.  
     * Each bind placeholder must reference a specific bind data point by its position in the bind data list.  For example:
       * ?1 - references first bind data in list.
@@ -305,7 +307,7 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
     * The PIVOT command is also supported.  The 'PIVOT field' if used is the last part of the statement.  It must be used in conjunction with 'group by'.
       * e.g.  ```select transaction_date, sum(gross), sum(amount) from mastertransactions where transaction_date >=  '01/01/2022' and transaction_date <= '05/19/2022' and expense_category in (select income from budgetCategories where income <> '') group by transaction_date pivot account```
 
-2. **TableDefinitions**  (Optional) 
+1. **TableDefinitions**  (Optional) 
    * Defines each table referenced in **SELECT** statement.
    * If a table does not encompass an entire sheet or you need to specify a range for the data, a table definition is required.
    * The table definition is an Array of arrays.  Each inner array defines ONE table.
@@ -318,7 +320,7 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
         * e.g. ```gsSQL("select transaction_date, sum(gross), sum(amount) from mastertransactions where transaction_date >= '01/01/2022' and transaction_date <= '05/19/2022' and expense_category in (select income from budgetCategories where income <> '') group by transaction_date pivot account", {{"mastertransactions", "Master Transactions!$A$1:$I", 60};{"budgetCategories","budgetIncomeCategories", 3600}})```
 
     
-3.  **ColumnOutputFlag**  (Optional)
+2.  **ColumnOutputFlag**  (Optional)
     * Include column title in output or not. (true adds column titles, false omits the title row).
       * This example will include the title row on output.
 

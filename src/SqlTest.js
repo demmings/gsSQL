@@ -218,6 +218,7 @@ class Range {
                 return '6/7/2019';
             case 'ENDINCOMEDATE':
                 return '6/20/2019';
+            case "MASTER_TRANSACTIONS":
             case "MASTER TRANSACTIONS!$A$1:$I":
             case "MASTER TRANSACTIONS!$A$1:$I30":
                 return tester.masterTransactionsTable();
@@ -3400,9 +3401,23 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE","BOOKSALES.BOOK_ID","BOOKSALES.CUSTOMER_ID","BOOKSALES.QUANTITY","BOOKSALES.PRICE","BOOKSALES.DATE","BOOKRETURNS.RMA","BOOKRETURNS.BOOK_ID","BOOKRETURNS.CUSTOMER_ID","BOOKRETURNS.QUANTITY","BOOKRETURNS.PRICE","BOOKRETURNS.DATE"]];
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "BOOKRETURNS.RMA", "BOOKRETURNS.BOOK_ID", "BOOKRETURNS.CUSTOMER_ID", "BOOKRETURNS.QUANTITY", "BOOKRETURNS.PRICE", "BOOKRETURNS.DATE"]];
 
         return this.isEqual("selectJoinMultipleConditions3", data, expected);
+    }
+
+    selectSingleQuoteDataWithCalculation() {
+        let stmt = "select sum(amount), avg(amount), max(transaction_date), min(transaction_date) from master";
+
+        let data = new TestSql()
+            .addTableData("master", this.masterTransactionsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["sum(amount)", "avg(amount)", "max(transaction_date)", "min(transaction_date)"],
+        [12399.19, 516.6329166666667, "2019-06-20T04:00:00.000Z", "2019-06-07T04:00:00.000Z"]];
+
+        return this.isEqual("selectSingleQuoteDataWithCalculation", data, expected);
     }
 
 
@@ -4358,6 +4373,7 @@ function testerSql() {
     // result = result && tester.selectJoinMultipleConditions2();
     result = result && tester.selectJoinLeftRightSwitchedInCondition();
     result = result && tester.selectJoinMultipleConditions3();
+    result = result && tester.selectSingleQuoteDataWithCalculation();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();

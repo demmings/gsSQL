@@ -2610,7 +2610,11 @@ class CalculatedField {
             //  Get the DATA from this field.  We then build a series of LET statments
             //  and we assign that data to the field name that might be found in a calculated field.
             let varData = vField.getData(masterRecordID);
-            if (typeof varData === "string" || varData instanceof Date) {
+            if (varData instanceof Date) {
+                varData = `'${varData}'`;
+            }
+            else if (typeof varData === "string") {
+                varData = varData.replace(/'/g, "\\'");
                 varData = `'${varData}'`;
             }
 
@@ -5608,7 +5612,7 @@ class SelectKeywordAnalysis {
 //
 /*  *** DEBUG START ***
 export { TableData };
-import { CacheService, LockService, SpreadsheetApp, Utilities } from "./SqlTest.js"; 
+import { CacheService, LockService, SpreadsheetApp, Utilities } from "./SqlTest.js";
 import { ScriptSettings } from "./ScriptSettings.js";
 
 class Logger {
@@ -5909,9 +5913,18 @@ class TableData {       //  skipcq: JS-0128
                 if (tableNamedRange.startsWith("'") && tableNamedRange.endsWith("'")) {
                     tableNamedRange = tableNamedRange.substring(1, tableNamedRange.length - 1);
                 }
-                const sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
-                if (sheetHandle === null)
+                let sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
+
+                //  Actual sheet may have spaces in name.  The SQL must reference that table with
+                //  underscores replacing those spaces.
+                if (sheetHandle === null && tableNamedRange.indexOf("_") !== -1) {
+                    tableNamedRange = tableNamedRange.replace(/_/g, " ");
+                    sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
+                }
+
+                if (sheetHandle === null) {
                     throw new Error(`Invalid table range specified:  ${tableNamedRange}`);
+                }
 
                 const lastColumn = sheetHandle.getLastColumn();
                 const lastRow = sheetHandle.getLastRow();
