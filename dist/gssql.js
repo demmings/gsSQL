@@ -793,7 +793,7 @@ class Sql {
                     const groupBy = [];
 
                     for (const astItem of astFields) {
-                        groupBy.push({ column: astItem.name });
+                        groupBy.push({ name: astItem.name, as: '' });
                     }
 
                     ast["GROUP BY"] = groupBy;
@@ -1668,7 +1668,11 @@ class SelectTables {
         astFields = VirtualFields.expandWildcardFields(tableInfo, astFields);
 
         //  Define the data source of each field in SELECT field list.
-        this.tableFields.updateSelectFieldList(astFields);
+        this.tableFields.updateSelectFieldList(astFields, 0, false);
+
+        if (typeof ast["GROUP BY"] !== 'undefined') {
+            this.tableFields.updateSelectFieldList(ast["GROUP BY"], this.tableFields.getNextSelectColumnNumber(), true);
+        }
 
         //  These are fields REFERENCED, but not actually in the SELECT FIELDS.
         //  So columns referenced by GROUP BY, ORDER BY and not in SELECT.
@@ -2060,7 +2064,7 @@ class SelectTables {
         astGroupBy.reverse();
 
         for (const orderField of astGroupBy) {
-            const selectColumn = this.tableFields.getSelectFieldColumn(orderField.column);
+            const selectColumn = this.tableFields.getSelectFieldColumn(orderField.name);
             if (selectColumn !== -1) {
                 SelectTables.sortByColumnASC(selectedData, selectColumn);
             }
@@ -2098,7 +2102,7 @@ class SelectTables {
         let key = "";
 
         for (const orderField of astGroupBy) {
-            const selectColumn = this.tableFields.getSelectFieldColumn(orderField.column);
+            const selectColumn = this.tableFields.getSelectFieldColumn(orderField.name);
             if (selectColumn !== -1)
                 key += row[selectColumn].toString();
         }
@@ -2150,10 +2154,10 @@ class SelectTables {
         const reverseOrderBy = astOrderby.reverse();
 
         for (const orderField of reverseOrderBy) {
-            const selectColumn = this.tableFields.getSelectFieldColumn(orderField.column);
+            const selectColumn = this.tableFields.getSelectFieldColumn(orderField.name);
 
             if (selectColumn === -1) {
-                throw new Error(`Invalid ORDER BY: ${orderField.column}`);
+                throw new Error(`Invalid ORDER BY: ${orderField.name}`);
             }
 
             if (orderField.order.toUpperCase() === "DESC") {
@@ -2956,8 +2960,8 @@ class JoinTables {
         for (let i = 0; i < recIds[0].length; i++) {
             const temp = [];
 
-            for (let j = 0; j < recIds.length; j++) {
-                temp.push(typeof recIds[j][i] === 'undefined' ? [] : recIds[j][i]);
+            for (let rec of recIds) {
+                temp.push(typeof rec[i] === 'undefined' ? [] : rec[i]);
             }
             const row = temp.reduce((a, b) => a.filter(c => b.includes(c)));
 
@@ -2980,8 +2984,8 @@ class JoinTables {
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            for (let j = 0; j < recIds.length; j++) {
-                temp = temp.concat(recIds[j][i]);
+            for (let rec of recIds) {
+                temp = temp.concat(rec[i]);
             }
 
             if (typeof temp[0] !== 'undefined') {
@@ -3326,7 +3330,7 @@ class SqlServerFunctions {
      * @returns {String} - javascript code
      */
     convertToJs(calculatedFormula, masterFields) {
-        const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT_WS", "CONVERT", "DAY", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+        const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "DAY", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTR", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
         /** @property {String} - regex to find components of CASE statement. */
@@ -3365,6 +3369,9 @@ class SqlServerFunctions {
                         break;
                     case "COALESCE":
                         replacement = SqlServerFunctions.coalesce(parms);
+                        break;
+                    case "CONCAT":
+                        replacement = SqlServerFunctions.concat(parms, masterFields);
                         break;
                     case "CONCAT_WS":
                         replacement = SqlServerFunctions.concat_ws(parms, masterFields);
@@ -3517,6 +3524,17 @@ class SqlServerFunctions {
         replacement += `''`;
 
         return replacement;
+    }
+
+    /**
+     * 
+     * @param {any[]} parms 
+     * @param {TableField[]} masterFields 
+     * @returns {String}
+     */
+    static concat(parms, masterFields) {
+        parms.unshift("''");
+        return SqlServerFunctions.concat_ws(parms, masterFields);
     }
 
     /**
@@ -3872,9 +3890,16 @@ class TableFields {
             }
         }
 
-        const key = `${field.originalTable}:${field.originalTableColumn}`;
-        if (!this.tableColumnMap.has(key))
-            this.tableColumnMap.set(key, field);
+        //  This is something referenced in GROUP BY but is NOT in the SELECTED fields list.
+        if (field.tempField && !this.fieldNameMap.has(field.columnName.toUpperCase())) {
+            this.fieldNameMap.set(field.columnName.toUpperCase(), field);
+        }
+
+        if (field.originalTableColumn !== -1) {
+            const key = `${field.originalTable}:${field.originalTableColumn}`;
+            if (!this.tableColumnMap.has(key))
+                this.tableColumnMap.set(key, field);
+        }
     }
 
     /**
@@ -3943,7 +3968,7 @@ class TableFields {
      */
     getSelectFieldColumn(field) {
         let fld = this.getFieldInfo(field);
-        if (fld !== null && fld.selectColumn !== -1) {
+        if (typeof fld !== 'undefined' && fld.selectColumn !== -1) {
             return fld.selectColumn;
         }
 
@@ -3959,15 +3984,21 @@ class TableFields {
     /**
      * Updates internal SELECTED (returned in data) field list.
      * @param {Object} astFields - AST from SELECT
+     * @param {Number} nextColumnPosition
+     * @param {Boolean} isTempField
      */
-    updateSelectFieldList(astFields) {
-        let i = 0;
+    updateSelectFieldList(astFields, nextColumnPosition, isTempField) {
         for (const selField of astFields) {
             const parsedField = this.parseAstSelectField(selField);
             const columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
             if (parsedField.calculatedField === null && this.hasField(parsedField.columnName)) {
                 let fieldInfo = this.getFieldInfo(parsedField.columnName);
+
+                //  If GROUP BY field is in our SELECT field list - we can ignore.
+                if (isTempField && fieldInfo.selectColumn !== -1)
+                    continue;
+                
                 if (parsedField.aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
                     //  A new SELECT field, not from existing.
                     const newFieldInfo = new TableField();
@@ -3982,7 +4013,8 @@ class TableFields {
                     .setColumnTitle(columnTitle)
                     .setColumnName(selField.name)
                     .setDistinctSetting(parsedField.fieldDistinct)
-                    .setSelectColumn(i);
+                    .setSelectColumn(nextColumnPosition)
+                    .setIsTempField(isTempField);
 
                 this.indexTableField(fieldInfo);
             }
@@ -3993,9 +4025,10 @@ class TableFields {
                 fieldInfo
                     .setColumnTitle(columnTitle)
                     .setColumnName(selField.name)
-                    .setSelectColumn(i)
+                    .setSelectColumn(nextColumnPosition)
                     .setCalculatedFormula(selField.name)
-                    .setSubQueryAst(selField.subQuery);
+                    .setSubQueryAst(selField.subQuery)
+                    .setIsTempField(isTempField);
 
                 this.indexTableField(fieldInfo);
             }
@@ -4006,13 +4039,15 @@ class TableFields {
                 fieldInfo
                     .setCalculatedFormula(parsedField.columnName)
                     .setAggregateFunction(parsedField.aggregateFunctionName)
-                    .setSelectColumn(i)
+                    .setSelectColumn(nextColumnPosition)
                     .setColumnName(selField.name)
-                    .setColumnTitle(columnTitle);
+                    .setColumnTitle(columnTitle)
+                    .setIsTempField(isTempField);;
 
                 this.indexTableField(fieldInfo);
             }
-            i++;
+
+            nextColumnPosition++;
         }
     }
 
@@ -4021,7 +4056,6 @@ class TableFields {
      * @param {Object} ast - AST to search for GROUP BY and ORDER BY.
      */
     addReferencedColumnstoSelectFieldList(ast) {
-        this.addTempMissingSelectedField(ast['GROUP BY']);
         this.addTempMissingSelectedField(ast['ORDER BY']);
     }
 
@@ -4032,8 +4066,8 @@ class TableFields {
     addTempMissingSelectedField(astColumns) {
         if (typeof astColumns !== 'undefined') {
             for (const order of astColumns) {
-                if (this.getSelectFieldColumn(order.column) === -1) {
-                    const fieldInfo = this.getFieldInfo(order.column);
+                if (this.getSelectFieldColumn(order.name) === -1) {
+                    const fieldInfo = this.getFieldInfo(order.name);
 
                     //  A new SELECT field, not from existing.
                     const newFieldInfo = new TableField();
@@ -5386,7 +5420,7 @@ class SelectKeywordAnalysis {
 
     static allJoins(str) {
         const subqueryAst = this.parseForCorrelatedSubQuery(str);
-        
+
         const strParts = str.toUpperCase().split(' ON ');
         const table = strParts[0].split(' AS ');
         const joinResult = {};
@@ -5409,7 +5443,8 @@ class SelectKeywordAnalysis {
             const orderData = order_by.exec(item);
             if (orderData !== null) {
                 const tmp = {};
-                tmp.column = SelectKeywordAnalysis.trim(orderData[1]);
+                tmp.name = SelectKeywordAnalysis.trim(orderData[1]);
+                tmp.as = '';
                 tmp.order = SelectKeywordAnalysis.trim(orderData[2]);
                 if (typeof orderData[2] === 'undefined') {
                     const orderParts = item.trim().split(" ");
@@ -5424,18 +5459,7 @@ class SelectKeywordAnalysis {
     }
 
     static GROUP_BY(str) {
-        const strParts = str.split(',');
-        const groupByResult = [];
-        strParts.forEach(function (item, _key) {
-            const group_by = /([\w.]+)/gi;
-            const groupData = group_by.exec(item);
-            if (groupData !== null) {
-                const tmp = {};
-                tmp.column = SelectKeywordAnalysis.trim(groupData[1]);
-                groupByResult.push(tmp);
-            }
-        });
-        return groupByResult;
+        return SelectKeywordAnalysis.SELECT(str);
     }
 
     static PIVOT(str) {

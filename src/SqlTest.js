@@ -3420,6 +3420,60 @@ class SqlTester {
         return this.isEqual("selectSingleQuoteDataWithCalculation", data, expected);
     }
 
+    selectGroupByCalculatedField() {
+        let stmt = "select convert(day(date), char) + convert(year(date), char),  count(*) from booksales group by convert(day(date), char) + convert(year(date), char)";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["convert(day(date), char) + convert(year(date), char)", "count(*)"],
+        ["12022", 3],
+        ["22022", 2],
+        ["32022", 3],
+        ["42022", 2]];
+
+        return this.isEqual("selectGroupByCalculatedField", data, expected);
+    }
+
+    selectGroupByCalculatedFieldNotInSelectFieldList() {
+        let stmt = "select count(*) from booksales group by convert(day(date), char) + convert(year(date), char)";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["count(*)"],
+        [3],
+        [2],
+        [3],
+        [2]];
+
+        return this.isEqual("selectGroupByCalculatedFieldNotInSelectFieldList", data, expected);
+    }
+
+
+    selectGroupByCalculatedField2() {
+        let stmt = "select concat(convert(substr(customers.phone,1,3),char), booksales.date), count(*)from booksales join customers on booksales.customer_id = customers.id group by concat(convert(substr(customers.phone,1,3),char), booksales.date)";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["concat(convert(substr(customers.phone,1,3),char), booksales.date)", "count(*)"],
+        ["28905/03/2022", 3],
+        ["41605/01/2022", 2],
+        ["41605/04/2022", 1],
+        ["51905/02/2022", 1],
+        ["90505/01/2022", 1],
+        ["90505/04/2022", 1]];
+
+        return this.isEqual("selectGroupByCalculatedField2", data, expected);
+    }
 
     //  S T A R T   O T H E R   T E S T S
     parseTableSettings1() {
@@ -4374,6 +4428,9 @@ function testerSql() {
     result = result && tester.selectJoinLeftRightSwitchedInCondition();
     result = result && tester.selectJoinMultipleConditions3();
     result = result && tester.selectSingleQuoteDataWithCalculation();
+    result = result && tester.selectGroupByCalculatedField();
+    result = result && tester.selectGroupByCalculatedFieldNotInSelectFieldList();
+    result = result && tester.selectGroupByCalculatedField2();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();

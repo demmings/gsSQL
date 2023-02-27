@@ -943,7 +943,7 @@ class SelectKeywordAnalysis {
 
     static allJoins(str) {
         const subqueryAst = this.parseForCorrelatedSubQuery(str);
-        
+
         const strParts = str.toUpperCase().split(' ON ');
         const table = strParts[0].split(' AS ');
         const joinResult = {};
@@ -966,7 +966,8 @@ class SelectKeywordAnalysis {
             const orderData = order_by.exec(item);
             if (orderData !== null) {
                 const tmp = {};
-                tmp.column = SelectKeywordAnalysis.trim(orderData[1]);
+                tmp.name = SelectKeywordAnalysis.trim(orderData[1]);
+                tmp.as = '';
                 tmp.order = SelectKeywordAnalysis.trim(orderData[2]);
                 if (typeof orderData[2] === 'undefined') {
                     const orderParts = item.trim().split(" ");
@@ -981,18 +982,7 @@ class SelectKeywordAnalysis {
     }
 
     static GROUP_BY(str) {
-        const strParts = str.split(',');
-        const groupByResult = [];
-        strParts.forEach(function (item, _key) {
-            const group_by = /([\w.]+)/gi;
-            const groupData = group_by.exec(item);
-            if (groupData !== null) {
-                const tmp = {};
-                tmp.column = SelectKeywordAnalysis.trim(groupData[1]);
-                groupByResult.push(tmp);
-            }
-        });
-        return groupByResult;
+        return SelectKeywordAnalysis.SELECT(str);
     }
 
     static PIVOT(str) {

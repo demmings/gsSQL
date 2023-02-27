@@ -793,7 +793,7 @@ class Sql {
                     const groupBy = [];
 
                     for (const astItem of astFields) {
-                        groupBy.push({ column: astItem.name });
+                        groupBy.push({ name: astItem.name, as: '' });
                     }
 
                     ast["GROUP BY"] = groupBy;
