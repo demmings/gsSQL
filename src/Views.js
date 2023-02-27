@@ -1345,7 +1345,7 @@ class JoinTables {
         for (let i = 0; i < recIds[0].length; i++) {
             const temp = [];
 
-            for (let rec of recIds) {
+            for (const rec of recIds) {
                 temp.push(typeof rec[i] === 'undefined' ? [] : rec[i]);
             }
             const row = temp.reduce((a, b) => a.filter(c => b.includes(c)));
@@ -1369,7 +1369,7 @@ class JoinTables {
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            for (let rec of recIds) {
+            for (const rec of recIds) {
                 temp = temp.concat(rec[i]);
             }
 
@@ -2377,63 +2377,79 @@ class TableFields {
             const parsedField = this.parseAstSelectField(selField);
             const columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
+            let selectedFieldParms = {
+                selField, parsedField, columnTitle, nextColumnPosition, isTempField
+            };
+
             if (parsedField.calculatedField === null && this.hasField(parsedField.columnName)) {
-                let fieldInfo = this.getFieldInfo(parsedField.columnName);
-
-                //  If GROUP BY field is in our SELECT field list - we can ignore.
-                if (isTempField && fieldInfo.selectColumn !== -1)
-                    continue;
-                
-                if (parsedField.aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
-                    //  A new SELECT field, not from existing.
-                    const newFieldInfo = new TableField();
-                    Object.assign(newFieldInfo, fieldInfo);
-                    fieldInfo = newFieldInfo;
-
-                    this.allFields.push(fieldInfo);
-                }
-
-                fieldInfo
-                    .setAggregateFunction(parsedField.aggregateFunctionName)
-                    .setColumnTitle(columnTitle)
-                    .setColumnName(selField.name)
-                    .setDistinctSetting(parsedField.fieldDistinct)
-                    .setSelectColumn(nextColumnPosition)
-                    .setIsTempField(isTempField);
-
-                this.indexTableField(fieldInfo);
+                this.updateColumnAsSelected(selectedFieldParms);
             }
             else if (parsedField.calculatedField !== null) {
-                const fieldInfo = new TableField();
-                this.allFields.push(fieldInfo);
-
-                fieldInfo
-                    .setColumnTitle(columnTitle)
-                    .setColumnName(selField.name)
-                    .setSelectColumn(nextColumnPosition)
-                    .setCalculatedFormula(selField.name)
-                    .setSubQueryAst(selField.subQuery)
-                    .setIsTempField(isTempField);
-
-                this.indexTableField(fieldInfo);
+                this.updateCalculatedAsSelected(selectedFieldParms);
             }
             else {
-                const fieldInfo = new TableField();
-                this.allFields.push(fieldInfo);
-
-                fieldInfo
-                    .setCalculatedFormula(parsedField.columnName)
-                    .setAggregateFunction(parsedField.aggregateFunctionName)
-                    .setSelectColumn(nextColumnPosition)
-                    .setColumnName(selField.name)
-                    .setColumnTitle(columnTitle)
-                    .setIsTempField(isTempField);;
-
-                this.indexTableField(fieldInfo);
+                this.updateConstantAsSelected(selectedFieldParms);
             }
 
             nextColumnPosition++;
         }
+    }
+
+    updateColumnAsSelected(selectedFieldParms) {
+        let fieldInfo = this.getFieldInfo(selectedFieldParms.parsedField.columnName);
+
+        //  If GROUP BY field is in our SELECT field list - we can ignore.
+        if (selectedFieldParms.isTempField && fieldInfo.selectColumn !== -1)
+            return;
+        
+        if (selectedFieldParms.parsedField.aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
+            //  A new SELECT field, not from existing.
+            const newFieldInfo = new TableField();
+            Object.assign(newFieldInfo, fieldInfo);
+            fieldInfo = newFieldInfo;
+
+            this.allFields.push(fieldInfo);
+        }
+
+        fieldInfo
+            .setAggregateFunction(selectedFieldParms.parsedField.aggregateFunctionName)
+            .setColumnTitle(selectedFieldParms.columnTitle)
+            .setColumnName(selectedFieldParms.selField.name)
+            .setDistinctSetting(selectedFieldParms.parsedField.fieldDistinct)
+            .setSelectColumn(selectedFieldParms.nextColumnPosition)
+            .setIsTempField(selectedFieldParms.isTempField);
+
+        this.indexTableField(fieldInfo);
+    }
+
+    updateCalculatedAsSelected(selectedFieldParms) {
+        const fieldInfo = new TableField();
+        this.allFields.push(fieldInfo);
+
+        fieldInfo
+            .setColumnTitle(selectedFieldParms.columnTitle)
+            .setColumnName(selectedFieldParms.selField.name)
+            .setSelectColumn(selectedFieldParms.nextColumnPosition)
+            .setCalculatedFormula(selectedFieldParms.selField.name)
+            .setSubQueryAst(selectedFieldParms.selField.subQuery)
+            .setIsTempField(selectedFieldParms.isTempField);
+
+        this.indexTableField(fieldInfo);
+    }
+
+    updateConstantAsSelected(selectedFieldParms) {
+        const fieldInfo = new TableField();
+        this.allFields.push(fieldInfo);
+
+        fieldInfo
+            .setCalculatedFormula(selectedFieldParms.parsedField.columnName)
+            .setAggregateFunction(selectedFieldParms.parsedField.aggregateFunctionName)
+            .setSelectColumn(selectedFieldParms.nextColumnPosition)
+            .setColumnName(selectedFieldParms.selField.name)
+            .setColumnTitle(selectedFieldParms.columnTitle)
+            .setIsTempField(selectedFieldParms.isTempField);;
+
+        this.indexTableField(fieldInfo);
     }
 
     /**

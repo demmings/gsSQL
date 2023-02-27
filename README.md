@@ -462,6 +462,7 @@ let data = new Sql()
   * "CEILING", 
   * "CHARINDEX",
   * "COALESCE",
+  * "CONCAT"
   * "CONCAT_WS", 
   * "DAY",
   * "FLOOR", 
