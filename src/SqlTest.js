@@ -3454,7 +3454,6 @@ class SqlTester {
         return this.isEqual("selectGroupByCalculatedFieldNotInSelectFieldList", data, expected);
     }
 
-
     selectGroupByCalculatedField2() {
         let stmt = "select concat(convert(substr(customers.phone,1,3),char), booksales.date), count(*)from booksales join customers on booksales.customer_id = customers.id group by concat(convert(substr(customers.phone,1,3),char), booksales.date)";
 
@@ -3474,6 +3473,54 @@ class SqlTester {
 
         return this.isEqual("selectGroupByCalculatedField2", data, expected);
     }
+
+    selectOrderByCalculated() {
+        let stmt = "select * from booksales order by customer_id asc, convert(day(date), char) + convert(year(date), char) desc";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7203", "1", "", 1, 90, "05/02/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022"]];
+
+        return this.isEqual("selectOrderByCalculated", data, expected);
+    }
+
+    selectOrderByCalculated2() {
+        let stmt = "select *, quantity*price from booksales order by convert(day(date), char) + convert(year(date), char) desc, quantity*price asc";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "quantity*price"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", 33.97],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", 1798.9999999999998],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", 999.4999999999999],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", 3742.5],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", 6548.999999999999],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", 59.99],
+        ["I7203", "1", "", 1, 90, "05/02/2022", 90],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", 89.85],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", 94.94999999999999],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", 349.5]];
+
+        return this.isEqual("selectOrderByCalculated2", data, expected);
+    }
+
+
 
     //  S T A R T   O T H E R   T E S T S
     parseTableSettings1() {
@@ -4431,6 +4478,8 @@ function testerSql() {
     result = result && tester.selectGroupByCalculatedField();
     result = result && tester.selectGroupByCalculatedFieldNotInSelectFieldList();
     result = result && tester.selectGroupByCalculatedField2();
+    result = result && tester.selectOrderByCalculated();
+    result = result && tester.selectOrderByCalculated2();
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();

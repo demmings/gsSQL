@@ -55,14 +55,16 @@ class SelectTables {
         //  Define the data source of each field in SELECT field list.
         this.tableFields.updateSelectFieldList(astFields, 0, false);
 
+        //  These are fields REFERENCED, but not actually in the SELECT FIELDS.
+        //  So columns referenced by GROUP BY, ORDER BY and not in SELECT.
+        //  These temp columns need to be removed after processing.
         if (typeof ast["GROUP BY"] !== 'undefined') {
             this.tableFields.updateSelectFieldList(ast["GROUP BY"], this.tableFields.getNextSelectColumnNumber(), true);
         }
 
-        //  These are fields REFERENCED, but not actually in the SELECT FIELDS.
-        //  So columns referenced by GROUP BY, ORDER BY and not in SELECT.
-        //  These temp columns need to be removed after processing.
-        this.tableFields.addReferencedColumnstoSelectFieldList(ast);
+        if (typeof ast["ORDER BY"] !== 'undefined') {
+            this.tableFields.updateSelectFieldList(ast["ORDER BY"], this.tableFields.getNextSelectColumnNumber(), true);
+        }
     }
 
     /**
@@ -2383,15 +2385,16 @@ class TableFields {
 
             if (parsedField.calculatedField === null && this.hasField(parsedField.columnName)) {
                 this.updateColumnAsSelected(selectedFieldParms);
+                nextColumnPosition = selectedFieldParms.nextColumnPosition;
             }
             else if (parsedField.calculatedField !== null) {
                 this.updateCalculatedAsSelected(selectedFieldParms);
+                nextColumnPosition++;
             }
             else {
                 this.updateConstantAsSelected(selectedFieldParms);
-            }
-
-            nextColumnPosition++;
+                nextColumnPosition++;
+            }           
         }
     }
 
@@ -2418,6 +2421,8 @@ class TableFields {
             .setDistinctSetting(selectedFieldParms.parsedField.fieldDistinct)
             .setSelectColumn(selectedFieldParms.nextColumnPosition)
             .setIsTempField(selectedFieldParms.isTempField);
+
+        selectedFieldParms.nextColumnPosition++;
 
         this.indexTableField(fieldInfo);
     }

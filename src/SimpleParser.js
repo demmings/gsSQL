@@ -876,11 +876,21 @@ class SelectKeywordAnalysis {
         return SelectKeywordAnalysis[keyWord](part);
     }
 
-    static SELECT(str) {
+    static SELECT(str, isOrderBy = false) {
         const selectParts = SelectKeywordAnalysis.protect_split(',', str);
         const selectResult = selectParts.filter(function (item) {
             return item !== '';
         }).map(function (item) {
+            let order = "";
+            if (isOrderBy) {
+                const order_by = /^(.+?)(\s+ASC|DESC)?$/gi;
+                const orderData = order_by.exec(item);
+                if (orderData !== null) {
+                    order = typeof orderData[2] === 'undefined' ? "ASC" : SelectKeywordAnalysis.trim(orderData[2]);
+                    item = orderData[1].trim();
+                }
+            }
+
             //  Is there a column alias?
             const [name, as] = SelectKeywordAnalysis.getNameAndAlias(item);
 
@@ -893,9 +903,10 @@ class SelectKeywordAnalysis {
             }
             if (name !== "*" && terms !== null && terms.length > 1) {
                 const subQuery = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
-                return { name, terms, as, subQuery };
+                return { name, terms, as, subQuery, order };
             }
-            return { name, as };
+
+            return { name, as, order };
         });
 
         return selectResult;
@@ -959,26 +970,7 @@ class SelectKeywordAnalysis {
     }
 
     static ORDER_BY(str) {
-        const strParts = str.split(',');
-        const orderByResult = [];
-        strParts.forEach(function (item, _key) {
-            const order_by = /([\w.]+)\s*(ASC|DESC)?/gi;
-            const orderData = order_by.exec(item);
-            if (orderData !== null) {
-                const tmp = {};
-                tmp.name = SelectKeywordAnalysis.trim(orderData[1]);
-                tmp.as = '';
-                tmp.order = SelectKeywordAnalysis.trim(orderData[2]);
-                if (typeof orderData[2] === 'undefined') {
-                    const orderParts = item.trim().split(" ");
-                    if (orderParts.length > 1)
-                        throw new Error(`Invalid ORDER BY:  ${item}`);
-                    tmp.order = "ASC";
-                }
-                orderByResult.push(tmp);
-            }
-        });
-        return orderByResult;
+        return SelectKeywordAnalysis.SELECT(str, true);
     }
 
     static GROUP_BY(str) {
