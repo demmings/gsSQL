@@ -538,3 +538,14 @@ Most all SELECT functionality is implemented, however if you want to do anything
 
 ```=gsSQL("select a, B, C, D, E, F from invoice where c = 'C4'", {{"invoice", "BookSales", 0, false}}, true )```
 
+5)  No automatic re-execute of function when the data changes.  Normally the gsSQL() **SELECT** will only be re-run when 
+    1)  Sheet is re-loaded.
+    2)  One of the function parameter inputs is changed.
+        1)  If you use BIND variables like a START/END date that is pointing to a CELL for input - like a named variable or A1 notation, when you change your bind data - the select will re-run.
+        2)  If you do NOT used bind variables, you can add a CELL reference in the gsSQL() parameter list somewhere AFTER the bind variables.  I use a CHECK-BOX reference so that I just toggle the check-box in my spreadsheet and any gsSQL() functions that has a reference to that check-box, will be re-executed.
+        3)  In the following example, the last parameter **refreshGsSQL** (after all bind data) is a named variable that is pointing to a check-box on my sheet.  Toggling the check-box from its previous state will force the custom function to run.
+
+```
+=gsSQL("SELECT books.id, books.title, books.type, authors.last_name, translators.last_name FROM books INNER JOIN authors ON books.author_id = authors.id INNER JOIN translators ON books.translator_id = translators.id ORDER BY books.id",,true,refreshGsSQL)
+```
+
