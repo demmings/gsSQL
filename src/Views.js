@@ -44,6 +44,11 @@ class SelectTables {
         this.tableFields.loadVirtualFields(this.primaryTable, tableInfo);
     }
 
+    /**
+     * Update internal FIELDS list to indicate those fields that are in the SELECT fields - that will be returned in data.
+     * @param {Object} ast
+     * @returns {void} 
+     */
     updateSelectedFields(ast) {
         let astFields = ast.SELECT;
 
@@ -2379,7 +2384,7 @@ class TableFields {
             const parsedField = this.parseAstSelectField(selField);
             const columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
-            let selectedFieldParms = {
+            const selectedFieldParms = {
                 selField, parsedField, columnTitle, nextColumnPosition, isTempField
             };
 

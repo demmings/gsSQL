@@ -14,46 +14,67 @@ class Logger {
 //  *** DEBUG END  ***/
 
 /**
- * @description
- * **CUSTOM FUNCTION**  
- * * Available as a custom function within your sheet.
- * * Query any sheet range using standard SQL SELECT syntax.
- * ### Parameters.
- * * Parameter 1.  SELECT statement.  All regular syntax is supported including JOIN. 
- *   * note i)  Bind variables (?) are replaced by bind data specified later.
- *   * note ii)  PIVOT field supported.  Similar to QUERY. e.g.  "SELECT date, sum(quantity) from sales group by date pivot customer_id".
- *   * note iii) If parm 2 not used and sheet name contains a space, use single quotes around table name.
- * * Parameter 2. (optional. referenced tables assumed to be SHEET NAME with column titles).  Define all tables referenced in SELECT. This is a DOUBLE ARRAY and is done using the curly bracket {{a,b,c}; {a,b,c}} syntax.
- *   * a)  table name - the table name referenced in SELECT for indicated range.
- *   * b)  sheet range - (optional) either NAMED RANGE, A1 notation range, SHEET NAME or empty (table name used as sheet name).  This input is a string.  The first row of each range MUST be unique column titles.
- *   * c)  cache seconds - (optional) time loaded range held in cache.  default=60.   
- *   * d)  has column title - (optional) first row of data is a title (for field name).  default=true 
- * * Parameter 3. (optional) Output result column title (true/false). default=true.   
- * * Parameter 4... (optional) Bind variables.  List as many as required to match '?' in SELECT statement.
- * <br>
- * * **Example** use inside Google Sheet Cell.
- * ```
- * =gsSQL("select title, (select count(*)  from Booksales where books.id = BookSales.book_id) as 'Quantity Sold' from books", {{"booksales","booksales", 60};{"books", "books", 60}})
- * ```
- * @param {String} statement - SQL (e.g.:  'select * from expenses')
- * @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds, hasColumnTitle}; {"name","range",cache,true};...}"
- * @param {Boolean} columnTitle - TRUE will add column title to output (default=TRUE)
- * @param {...any} bindings - Bind variables to match '?' in SQL statement.
+ * Query any sheet range using standard SQL SELECT syntax.
+ * EXAMPLE :  gsSQL("select * from expenses where type = ?1", "expenses", A1:B, true, "travel")
+ * 
+ * @param {String} statement - SQL string 
+ * @param {...any} parms - "table name",  SheetRange, [..."table name", SheetRange], OutputTitles (true/false), [...Bind Variable] 
  * @returns {any[][]} - Double array of selected data.  First index ROW, Second index COLUMN.
  * @customfunction
  */
-function gsSQL(statement, tableArr = [], columnTitle = true, ...bindings) {     //  skipcq: JS-0128
-    const tableList = parseTableSettings(tableArr, statement);
+function gsSQL(statement, ...parms) {     //  skipcq: JS-0128
+    const sqlCmd = new Sql();
+    let columnTitle = true;
+    let bindings = [];
 
-    Logger.log(`gsSQL: tableList=${tableList}.  Statement=${statement}. List Len=${tableList.length}`);
+    if (parms.length === 0 || (parms.length > 0 && (Array.isArray(parms[0]) || parms[0] === ''))) {
+        //  If first item of parms is an array, the parms are assumed to be:
+        // @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds, hasColumnTitle}; {"name","range",cache,true};...}"
+        // @param {Boolean} columnTitle - TRUE will add column title to output (default=TRUE)
+        // @param {...any} bindings - Bind variables to match '?' in SQL statement.
+        const tableArr = parms.length > 0 ? parms[0] : [];
 
-    const sqlCmd = new Sql().enableColumnTitle(columnTitle);
+        const tableList = parseTableSettings(tableArr, statement);
+        Logger.log(`gsSQL: tableList=${tableList}.  Statement=${statement}. List Len=${tableList.length}`);
+
+        for (const tableDef of tableList) {
+            sqlCmd.addTableData(tableDef[0], tableDef[1], tableDef[2], tableDef[3]);
+        }
+        columnTitle = parms.length > 1 ? parms[1] : true;
+
+        for (let i = 2; i < parms.length; i++) {
+            bindings.push(parms[i]);
+        }
+    }
+    else if (parms.length > 0 && typeof parms[0] === 'string') {
+        //  We expect:  "tableName", tableData[], ...["tableName", tableData[]], includeColumnOutput, ...bindings
+        let i = 0;
+        while (i+1 < parms.length && typeof parms[i] !== 'boolean') {
+            Logger.log(`Add Table: ${parms[i]}. Items=${parms[i + 1].length}`);
+            sqlCmd.addTableData(parms[i], parms[i+1], 0, true);
+            i += 2;
+        }
+        if (i < parms.length && typeof parms[i] === 'boolean') {
+            columnTitle = parms[i];
+            i++
+        }
+        Logger.log(`Column Titles: ${columnTitle}`);
+        while (i < parms.length) {
+            Logger.log(`Add BIND Variable: ${parms[i]}`);
+            bindings.push(parms[i]);
+            i++
+        }
+    }
+    else {
+        throw new Error("Invalid gsSQL() parameter list.");
+    }
+
+    sqlCmd.enableColumnTitle(columnTitle);
+
     for (const bind of bindings) {
         sqlCmd.addBindParameter(bind);
     }
-    for (const tableDef of tableList) {
-        sqlCmd.addTableData(tableDef[0], tableDef[1], tableDef[2], tableDef[3]);
-    }
+
     return sqlCmd.execute(statement);
 }
 
@@ -281,18 +302,18 @@ class Sql {
     execute(statement) {
         let sqlData = [];
 
-        if (typeof statement === 'string') {
-            this.ast = SqlParse.sql2ast(statement);
-        }
-        else {
-            this.ast = statement;
-        }
+        this.ast = (typeof statement === 'string') ? SqlParse.sql2ast(statement) : statement;
 
         //  "SELECT * from (select a,b,c from table) as derivedtable"
-        //  Sub query data is loaded and given the name 'derivedtable'
+        //  Sub query data is loaded and given the name 'derivedtable' (using ALIAS from AS)
         //  The AST.FROM is updated from the sub-query to the new derived table name. 
         this.selectFromSubQuery();
+
+        //  A JOIN table can a sub-query.  When this is the case, the sub-query SELECT is
+        //  evaluated and the return data is given the ALIAS (as) name.  The AST is then
+        //  updated to use the new table.
         this.selectJoinSubQuery();
+
         Sql.setTableAlias(this.tables, this.ast);
         Sql.loadSchema(this.tables);
 
@@ -388,6 +409,12 @@ class Sql {
         }
     }
 
+    /**
+     * Checks if the JOINed table is a sub-query.  
+     * The sub-query is evaluated and assigned the alias name.
+     * The AST is adjusted to use the new JOIN TABLE.
+     * @returns {void}
+     */
     selectJoinSubQuery() {
         if (typeof this.ast.JOIN !== 'undefined') {
             for (const joinAst of this.ast.JOIN) {
@@ -1659,6 +1686,11 @@ class SelectTables {
         this.tableFields.loadVirtualFields(this.primaryTable, tableInfo);
     }
 
+    /**
+     * Update internal FIELDS list to indicate those fields that are in the SELECT fields - that will be returned in data.
+     * @param {Object} ast
+     * @returns {void} 
+     */
     updateSelectedFields(ast) {
         let astFields = ast.SELECT;
 
@@ -3994,7 +4026,7 @@ class TableFields {
             const parsedField = this.parseAstSelectField(selField);
             const columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
-            let selectedFieldParms = {
+            const selectedFieldParms = {
                 selField, parsedField, columnTitle, nextColumnPosition, isTempField
             };
 

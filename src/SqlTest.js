@@ -3728,6 +3728,13 @@ class SqlTester {
         return result;
     }
 
+    testTableData2() {
+        let data = gsSQL("select * from authors", "authors", this.authorsTable(), "editors", this.editorsTable(), true);
+        data = gsSQL("select * from authors", "authors", this.authorsTable(), "editors", this.editorsTable());
+
+        return true;
+    }
+
     testTableData() {
         //  Hey CJD, remember to set the startIncomeDate and endIncomeDate - June 7 to June 20 2019
         const itemData = new TestSql()
@@ -4525,6 +4532,7 @@ function testerSql() {
     result = result && tester.parseTableSettings15();
 
     result = result && tester.testTableData1();
+    result = result && tester.testTableData2();
     result = result && tester.badParseTableSettings1();
 
     tester.isEqual("===  E N D   O F   T E S T S  ===", true, result);

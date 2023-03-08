@@ -57,6 +57,7 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
 # Example Data
 - See table data that was used below.
 - Each table is in its own sheet, where the sheet name is the table name.
+- [Example Data Used](readmeExampleData.md)
 
 ---
 
@@ -193,96 +194,6 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
 * We could go on with more examples, but in general, using **gsSQL** is easier.
 * You can see that most standard SELECT syntax is supported.
 
----
-
-<br/>
-
-# Example Source Table Data
-
-## Authors
-| id | first_name | last_name |
-|---|---|---|
-| 11 | Ellen | Writer |
-| 12 | Olga | Savelieva |
-| 13 | Jack | Smart |
-| 14 | Donald | Brain |
-| 15 | Yao | Dou |
----
-## BookReturns
-| RMA | Book Id | Customer ID | Quantity | Price | Date |
-|---|---|---|---|---|---|
-| Rma001 | 9 | c1 | 10 | 34.95 | 05/01/2022 |
-| rma020 | 8 | c2 | 3 | 29.95 | 05/01/2022 |
-| rmA030 | 7 | c2 | 5 | 18.99 | 05/01/2022 |
-| RMA040 | 9 | c3 | 1 | 59.99 | 05/02/2022 |
-| rma005 | 1 | c1 | 1 | 90 | 05/02/2022 |
-| RMA600 | 2 | c4 | 100 | 65.49 | 05/03/2022 |
-| Rma701 | 3 | c4 | 150 | 24.95 | 05/03/2022 |
-| RmA800 | 4 | c4 | 50 | 19.99 | 05/03/2022 |
-| RMA900 | 7 | c1 | 1 | 33.97 | 05/04/2022 |
-| rma1010 | 7 | c2 | 100 | 17.99 | 05/04/2022 |
----
-## BookSales
-| Invoice | Book Id | Customer ID | Quantity | Price | Date |
-|---|---|---|---|---|---|
-| I7200 | 9 | C1 | 10 | 34.95 | 05/01/2022 |
-| I7201 | 8 | C2 | 3 | 29.95 | 05/01/2022 |
-| I7201 | 7 | C2 | 5 | 18.99 | 05/01/2022 |
-| I7202 | 9 | C3 | 1 | 59.99 | 05/02/2022 |
-| I7203 | 1 |  | 1 | 90 | 05/02/2022 |
-| I7204 | 2 | C4 | 100 | 65.49 | 05/03/2022 |
-| I7204 | 3 | C4 | 150 | 24.95 | 05/03/2022 |
-| I7204 | 4 | C4 | 50 | 19.99 | 05/03/2022 |
-| I7205 | 7 | C1 | 1 | 33.97 | 05/04/2022 |
-| I7206 | 7 | C2 | 100 | 17.99 | 05/04/2022 |
----
-## Books
-| id | title | type | author id | editor id | translator id |
-|---|---|---|---|---|---|
-| 1 | Time to Grow Up! | original | 11 | 21 |  |
-| 2 | Your Trip | translated | 15 | 22 | 32 |
-| 3 | Lovely Love | original | 14 | 24 |  |
-| 4 | Dream Your Life | original | 11 | 24 |  |
-| 5 | Oranges | translated | 12 | 25 | 31 |
-| 6 | Your Happy Life | translated | 15 | 22 | 33 |
-| 7 | Applied AI | translated | 13 | 23 | 34 |
-| 9 | Book with Mysterious Author | translated | 1 | 23 | 34 |
-| 8 | My Last Book | original | 11 | 28 |  |
----
-## Customer
-| ID | Name | Address | City | Phone | eMail |
-|---|---|---|---|---|---|
-| C1 | Numereo Uno | 101 One Way | One Point City | 9051112111 | bigOne@gmail.com |
-| C2 | Dewy Tuesdays | 202 Second St. | Second City | 4162022222 | twoguys@gmail.com |
-| C3 | Tres Buon Goods | 3 Way St | Tres City | 5193133303 | thrice@hotmail.com |
-| C4 | ForMe Resellers | 40 Four St | FourtNight City | 2894441234 | fourtimes@hotmail.com |
-| C5 | Fe Fi Fo Giant Tiger | 5 ohFive St. | FifthDom | 4165551234 |    fiver@gmail.com |
-| C6 | Sx in Cars | 6 Seventh St | Sx City | 6661116666 | gotyourSix@hotmail.com    |
-| C7 | 7th Heaven | 7 Eight Crt. | Lucky City | 5551117777 |  timesAcharm@gmail.com  |
----
-## Editors
-| id | first name | last name |
-|---|---|---|
-| 13 | Jack | Smart |
-| 21 | Daniel | Brown |
-| 22 | Mark | Johnson |
-| 23 | Maria | Evans |
-| 24 | Cathrine | Roberts |
-| 25 | Sebastian | Wright |
-| 26 | Barbara | Jones |
-| 27 | Matthew | Smith |
-| 50 | Jack | Dumb |
-| 51 | Daniel | Smart |
----
-## Translators
-| id | first_name | last_name |
-|---|---|---|
-| 31 | Ira | Davies |
-| 32 | Ling | Weng |
-| 33 | Kristian | Green |
-| 34 | Roman | Edwards |
-
-<br/>
 
 ---
 
@@ -309,18 +220,39 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
 
 1. **TableDefinitions**  (Optional) 
    * Defines each table referenced in **SELECT** statement.
+   * If not specified, the SELECT statement is parsed to determine the sheet(s) to use for the table data.
+     * The **TABLE** name in the SELECT will read from the Google Sheet TAB name with the same name.
+     * Excluding table definitions means that the custom function will not automatically re-run if the table data changes.
    * If a table does not encompass an entire sheet or you need to specify a range for the data, a table definition is required.
-   * The table definition is an Array of arrays.  Each inner array defines ONE table.
-     * a) Table name - this is the table name referenced in the select. This is a logical table name which will associated with the data range.  It does not have to be the sheet name (string).
-     * b) Range of data - the google range that contains the data with the first row containing titles (used as field names).  This is any valid Google Sheet range name (i.e. Sheet Name, A1 notation or named range), but it must be passed in as a **STRING** (string)
-     * c) Cache seconds - (integer) number of seconds that data loaded from range is held in cache memory before another select of the same range would load again. (default=60)
-     * d) Has Column Title - (boolean) set to **false** if no column title in first row of data.  Columns are then referenced as column letter.  The first column of DATA is column **A**.  (default=true)
-    * Use the CURLY bracket notations to create the double array of table definitions.  If two separate tables are used within your SELECT, the table specifications would be entered as follows.
-        * **{{a, b, c}; {a, b, c}}**
-        * e.g. ```gsSQL("select transaction_date, sum(gross), sum(amount) from mastertransactions where transaction_date >= '01/01/2022' and transaction_date <= '05/19/2022' and expense_category in (select income from budgetCategories where income <> '') group by transaction_date pivot account", {{"mastertransactions", "Master Transactions!$A$1:$I", 60};{"budgetCategories","budgetIncomeCategories", 3600}})```
+   * The **Table Definition** syntax supports two different ways to define a table.  If used, you cannot mix the definition syntaxes.
+     * **Original syntax.**  
+       * This syntax will NOT cause the custom function to re-run if table data changes.
+       * The table definition is an Array of arrays.  Each inner array defines ONE table.
+         * a) Table name - this is the table name referenced in the select. This is a logical table name which will be associated with the data range.  It does not have to be the sheet name (string).
+         * b) Range of data - the google range that contains the data with the first row containing titles (used as field names).  This is any valid Google Sheet range name (i.e. Sheet Name, A1 notation or named range), but it must be passed in as a **STRING** (string)
+         * c) Cache seconds - (integer) number of seconds that data loaded from range is held in cache memory before another select of the same range would load again. (default=60)
+         * d) Has Column Title - (boolean) set to **false** if no column title in first row of data.  Columns are then referenced as column letter.  The first column of DATA is column **A**.  (default=true)
+        * Use the CURLY bracket notations to create the double array of table definitions.  If two separate tables are used within your SELECT, the table specifications would be entered as follows.
+          * **{{a, b, c}; {a, b, c}}**
+          * e.g. ```
+    gsSQL("select transaction_date, sum(gross), sum(amount) 
+    from mastertransactions 
+    where transaction_date >= '01/01/2022' and transaction_date <= '05/19/2022' and expense_category in 
+        (select income from budgetCategories where income <> '') 
+    group by transaction_date pivot account",
+     {{"mastertransactions", "Master Transactions!$A$1:$I", 60};{"budgetCategories","budgetIncomeCategories", 3600}}, true)```
+      * **New syntax.**.  Recommended format.
+        * This syntax WILL cause the custom function to re-run if table data changes (which keeps results up to date).
+        * Unique Column titles are REQUIRED in the data.
+          * The first row of data in the Sheets Range MUST contain titles that will be used as the field name. 
+        * Each table requires two entries. This is repeated for each table referenced in the SQL.
+          * a) Table name - this is the table name referenced in the select. This is a logical table name which will be associated with the data range.  It does not have to be the sheet name (string).
+          * b) Range of data - the google range that contains the data with the first row containing titles (used as field names).  This is any valid Google Sheet range name (i.e. Sheet Name, A1 notation or named range).
+          *  e.g. ```
+gsSQL("select transaction_date, sum(gross), sum(amount) from mastertransactions where transaction_date >= '01/01/2022' and transaction_date <= '05/19/2022' and expense_category in (select income from budgetCategories where income <> '') group by transaction_date pivot account", "mastertransactions", 'Master Transactions'!$A$1:$I, "budgetCategories",budgetIncomeCategories, true)```
 
     
-2.  **ColumnOutputFlag**  (Optional)
+1.  **ColumnOutputFlag**  (Optional)
     * Include column title in output or not. (true adds column titles, false omits the title row).
       * This example will include the title row on output.
 
@@ -537,15 +469,4 @@ Most all SELECT functionality is implemented, however if you want to do anything
 4)  If no column titles are available and the column is referenced by letter, the first column in the data is column **A**.  So if the table is defined by a range, and the range does not start in column A, **gsSQL()** still references the first column as **A**.  This is different from **QUERY()**, as the absolute column letter is always used.  Also **QUERY()** requires references to the column to be upper case, this is not required by **gsSQL()**.  For example:
 
 ```=gsSQL("select a, B, C, D, E, F from invoice where c = 'C4'", {{"invoice", "BookSales", 0, false}}, true )```
-
-5)  No automatic re-execute of function when the data changes.  Normally the gsSQL() **SELECT** will only be re-run when 
-    1)  Sheet is re-loaded.
-    2)  One of the function parameter inputs is changed.
-        1)  If you use BIND variables like a START/END date that is pointing to a CELL for input - like a named variable or A1 notation, when you change your bind data - the select will re-run.
-        2)  If you do NOT used bind variables, you can add a CELL reference in the gsSQL() parameter list somewhere AFTER the bind variables.  I use a CHECK-BOX reference so that I just toggle the check-box in my spreadsheet and any gsSQL() functions that has a reference to that check-box, will be re-executed.
-        3)  In the following example, the last parameter **refreshGsSQL** (after all bind data) is a named variable that is pointing to a check-box on my sheet.  Toggling the check-box from its previous state will force the custom function to run.
-
-```
-=gsSQL("SELECT books.id, books.title, books.type, authors.last_name, translators.last_name FROM books INNER JOIN authors ON books.author_id = authors.id INNER JOIN translators ON books.translator_id = translators.id ORDER BY books.id",,true,refreshGsSQL)
-```
 
