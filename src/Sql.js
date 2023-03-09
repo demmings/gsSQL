@@ -37,7 +37,7 @@ function gsSQL(statement, ...parms) {     //  skipcq: JS-0128
 function executeSqlv1(statement, parms) {
     const sqlCmd = new Sql();
     let columnTitle = true;
-    let bindings = [];
+    const bindings = [];
 
     //  If first item of parms is an array, the parms are assumed to be:
     // @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds, hasColumnTitle}; {"name","range",cache,true};...}"
@@ -69,7 +69,7 @@ function executeSqlv1(statement, parms) {
 function executeSqlv2(statement, parms) {
     const sqlCmd = new Sql();
     let columnTitle = true;
-    let bindings = [];
+    const bindings = [];
 
     //  We expect:  "tableName", tableData[], ...["tableName", tableData[]], includeColumnOutput, ...bindings
     let i = 0;
@@ -1049,7 +1049,7 @@ class Sql {
             }
         }
 
-        removeRowNum.sort(function (a, b) { return b - a });
+        removeRowNum.sort((a,b) => b - a);
         for (rowNum of removeRowNum) {
             srcData.splice(rowNum, 1);
         }

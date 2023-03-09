@@ -52,9 +52,7 @@ class SqlParse {
 
         // Generate protected word list to reverse the use of protect()
         let words = parts_name_escaped.slice(0);
-        words = words.map(function (item) {
-            return SqlParse.protect(item);
-        });
+        words = words.map(item => SqlParse.protect(item));
 
         // Split parts
         const parts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
@@ -143,15 +141,9 @@ class SqlParse {
      * @returns {String[][]}
      */
     static generateSqlSeparatorWords(keywords) {
-        let parts_name = keywords.map(function (item) {
-            return `${item} `;
-        });
-        parts_name = parts_name.concat(keywords.map(function (item) {
-            return `${item}(`;
-        }));
-        const parts_name_escaped = parts_name.map(function (item) {
-            return item.replace('(', '[\\(]');
-        });
+        let parts_name = keywords.map(item => `${item} `);
+        parts_name = parts_name.concat(keywords.map(item => `${item}(`));
+        const parts_name_escaped = parts_name.map(item => item.replace('(', '[\\(]'));
 
         return [parts_name, parts_name_escaped];
     }
@@ -204,18 +196,10 @@ class SqlParse {
      */
     static makeSqlPartsSplitterRegEx(keywords) {
         // Define which words can act as separator
-        let parts_name = keywords.map(function (item) {
-            return `${item} `;
-        });
-        parts_name = parts_name.concat(keywords.map(function (item) {
-            return `${item}(`;
-        }));
-        parts_name = parts_name.concat(parts_name.map(function (item) {
-            return item.toLowerCase();
-        }));
-        const parts_name_escaped = parts_name.map(function (item) {
-            return item.replace('(', '[\\(]');
-        });
+        let parts_name = keywords.map(item => `${item} `);
+        parts_name = parts_name.concat(keywords.map(item => `${item}(`));
+        parts_name = parts_name.concat(parts_name.map(item => item.toLowerCase()));
+        const parts_name_escaped = parts_name.map(item => item.replace('(', '[\\(]'));
 
         return new RegExp(parts_name_escaped.join('|'), 'gi');
     }
@@ -372,9 +356,7 @@ class SqlParse {
         SqlParse.reorganizeJoins(result);
 
         if (typeof result.JOIN !== 'undefined') {
-            result.JOIN.forEach(function (item, key) {
-                result.JOIN[key].cond = CondParser.parse(item.cond);
-            });
+            result.JOIN.forEach((item, key) => result.JOIN[key].cond = CondParser.parse(item.cond));
         }
 
         SqlParse.reorganizeUnions(result);
@@ -926,10 +908,9 @@ class SelectKeywordAnalysis {
         }
 
         let fromResult = str.split(',');
-        fromResult = fromResult.map(function (item) {
-            return SelectKeywordAnalysis.trim(item);
-        });
-        fromResult = fromResult.map(function (item) {
+
+        fromResult = fromResult.map(item => SelectKeywordAnalysis.trim(item));
+        fromResult = fromResult.map(item => {
             const [table, as] = SelectKeywordAnalysis.getNameAndAlias(item);
             return { table, as };
         });
@@ -980,7 +961,8 @@ class SelectKeywordAnalysis {
     static PIVOT(str) {
         const strParts = str.split(',');
         const pivotResult = [];
-        strParts.forEach(function (item, _key) {
+
+        strParts.forEach((item, _key) => {
             const pivotOn = /([\w.]+)/gi;
             const pivotData = pivotOn.exec(item);
             if (pivotData !== null) {
@@ -990,6 +972,7 @@ class SelectKeywordAnalysis {
                 pivotResult.push(tmp);
             }
         });
+
         return pivotResult;
     }
 
@@ -1076,9 +1059,7 @@ class SelectKeywordAnalysis {
         }
 
         let strParts = newStr.split(separator);
-        strParts = strParts.map(function (item) {
-            return SelectKeywordAnalysis.trim(item.replace(new RegExp(sep, 'g'), separator));
-        });
+        strParts = strParts.map(item => SelectKeywordAnalysis.trim(item.replace(new RegExp(sep, 'g'), separator)));
 
         return strParts;
     }
