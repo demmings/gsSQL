@@ -32,8 +32,6 @@ function gsSQL(statement, ...parms) {     //  skipcq: JS-0128
     else {
         throw new Error("Invalid gsSQL() parameter list.");
     }
-
-    return [];
 }
 
 function executeSqlv1(statement, parms) {
