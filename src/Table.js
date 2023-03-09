@@ -96,7 +96,7 @@ class Table {       //  skipcq: JS-0128
             this.addColumnLetters(tableData);
         }
 
-        this.tableData = tableData;
+        this.tableData = tableData.filter(e => e.join().replace(/,/g, "").length);
         this.loadSchema();
 
         return this;

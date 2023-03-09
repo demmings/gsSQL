@@ -23,50 +23,72 @@ class Logger {
  * @customfunction
  */
 function gsSQL(statement, ...parms) {     //  skipcq: JS-0128
+    if (parms.length === 0 || (parms.length > 0 && (Array.isArray(parms[0]) || parms[0] === ''))) {
+        return executeSqlv1(statement, parms);
+    }
+    else if (parms.length > 0 && typeof parms[0] === 'string') {
+        return executeSqlv2(statement, parms);
+    }
+    else {
+        throw new Error("Invalid gsSQL() parameter list.");
+    }
+
+    return [];
+}
+
+function executeSqlv1(statement, parms) {
     const sqlCmd = new Sql();
     let columnTitle = true;
     let bindings = [];
 
-    if (parms.length === 0 || (parms.length > 0 && (Array.isArray(parms[0]) || parms[0] === ''))) {
-        //  If first item of parms is an array, the parms are assumed to be:
-        // @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds, hasColumnTitle}; {"name","range",cache,true};...}"
-        // @param {Boolean} columnTitle - TRUE will add column title to output (default=TRUE)
-        // @param {...any} bindings - Bind variables to match '?' in SQL statement.
-        const tableArr = parms.length > 0 ? parms[0] : [];
+    //  If first item of parms is an array, the parms are assumed to be:
+    // @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds, hasColumnTitle}; {"name","range",cache,true};...}"
+    // @param {Boolean} columnTitle - TRUE will add column title to output (default=TRUE)
+    // @param {...any} bindings - Bind variables to match '?' in SQL statement.
+    const tableArr = parms.length > 0 ? parms[0] : [];
 
-        const tableList = parseTableSettings(tableArr, statement);
-        Logger.log(`gsSQL: tableList=${tableList}.  Statement=${statement}. List Len=${tableList.length}`);
+    const tableList = parseTableSettings(tableArr, statement);
+    Logger.log(`gsSQL: tableList=${tableList}.  Statement=${statement}. List Len=${tableList.length}`);
 
-        for (const tableDef of tableList) {
-            sqlCmd.addTableData(tableDef[0], tableDef[1], tableDef[2], tableDef[3]);
-        }
-        columnTitle = parms.length > 1 ? parms[1] : true;
-
-        for (let i = 2; i < parms.length; i++) {
-            bindings.push(parms[i]);
-        }
+    for (const tableDef of tableList) {
+        sqlCmd.addTableData(tableDef[0], tableDef[1], tableDef[2], tableDef[3]);
     }
-    else if (parms.length > 0 && typeof parms[0] === 'string') {
-        //  We expect:  "tableName", tableData[], ...["tableName", tableData[]], includeColumnOutput, ...bindings
-        let i = 0;
-        while (i+1 < parms.length && typeof parms[i] !== 'boolean') {
-            Logger.log(`Add Table: ${parms[i]}. Items=${parms[i + 1].length}`);
-            sqlCmd.addTableData(parms[i], parms[i+1], 0, true);
-            i += 2;
-        }
-        if (i < parms.length && typeof parms[i] === 'boolean') {
-            columnTitle = parms[i];
-            i++
-        }
-        Logger.log(`Column Titles: ${columnTitle}`);
-        while (i < parms.length) {
-            Logger.log(`Add BIND Variable: ${parms[i]}`);
-            bindings.push(parms[i]);
-            i++
-        }
+    columnTitle = parms.length > 1 ? parms[1] : true;
+
+    for (let i = 2; i < parms.length; i++) {
+        bindings.push(parms[i]);
     }
-    else {
-        throw new Error("Invalid gsSQL() parameter list.");
+
+    sqlCmd.enableColumnTitle(columnTitle);
+
+    for (const bind of bindings) {
+        sqlCmd.addBindParameter(bind);
+    }
+
+    return sqlCmd.execute(statement);
+}
+
+function executeSqlv2(statement, parms) {
+    const sqlCmd = new Sql();
+    let columnTitle = true;
+    let bindings = [];
+
+    //  We expect:  "tableName", tableData[], ...["tableName", tableData[]], includeColumnOutput, ...bindings
+    let i = 0;
+    while (i + 1 < parms.length && typeof parms[i] !== 'boolean') {
+        Logger.log(`Add Table: ${parms[i]}. Items=${parms[i + 1].length}`);
+        sqlCmd.addTableData(parms[i], parms[i + 1], 0, true);
+        i += 2;
+    }
+    if (i < parms.length && typeof parms[i] === 'boolean') {
+        columnTitle = parms[i];
+        i++
+    }
+    Logger.log(`Column Titles: ${columnTitle}`);
+    while (i < parms.length) {
+        Logger.log(`Add BIND Variable: ${parms[i]}`);
+        bindings.push(parms[i]);
+        i++
     }
 
     sqlCmd.enableColumnTitle(columnTitle);
@@ -1196,7 +1218,7 @@ class Table {       //  skipcq: JS-0128
             this.addColumnLetters(tableData);
         }
 
-        this.tableData = tableData;
+        this.tableData = tableData.filter(e => e.join().replace(/,/g, "").length);
         this.loadSchema();
 
         return this;
