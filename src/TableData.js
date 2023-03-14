@@ -4,6 +4,7 @@
 export { TableData };
 import { CacheService, LockService, SpreadsheetApp, Utilities } from "./SqlTest.js";
 import { ScriptSettings } from "./ScriptSettings.js";
+import { Table } from "./Table.js";
 
 class Logger {
     static log(msg) {
@@ -40,9 +41,7 @@ class TableData {       //  skipcq: JS-0128
 
         Logger.log(`loadTableData: ${namedRange}. Seconds=${cacheSeconds}`);
 
-        let tempData = TableData.getValuesCached(namedRange, cacheSeconds)
-
-        tempData = tempData.filter(e => e.join().replace(/,/g, "").length);
+        let tempData = Table.removeEmptyRecordsAtEndOfTable(TableData.getValuesCached(namedRange, cacheSeconds));
 
         return tempData;
     }
@@ -395,7 +394,7 @@ class TableData {       //  skipcq: JS-0128
 
         const blockStr = cacheStatus.substring(cacheStatus.indexOf(TABLE.BLOCKS) + TABLE.BLOCKS.length);
         if (blockStr !== "") {
-            const blocks = parseInt(blockStr, 10);
+            const blocks = Number(blockStr);
             for (let i = 1; i <= blocks; i++) {
                 const blockName = `${namedRange}:${i.toString()}`;
                 const jsonData = cache.get(blockName);

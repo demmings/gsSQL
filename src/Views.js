@@ -825,9 +825,9 @@ class SelectTables {
         else if (typeof value === "string") {
             const dateParts = value.split("/");
             if (dateParts.length === 3) {
-                year = parseInt(dateParts[2], 10);
-                month = parseInt(dateParts[0], 10) - 1;
-                dayNum = parseInt(dateParts[1], 10);
+                year = Number(dateParts[2]);
+                month = Number(dateParts[0]) - 1;
+                dayNum = Number(dateParts[1]);
             }
         }
 
@@ -1573,13 +1573,15 @@ class JoinTables {
         const leftTableCol = leftField.tableColumn;
 
         rightField.tableInfo.addIndex(rightField.fieldName);
+        const searchFieldCol = rightField.tableInfo.getFieldColumn(rightField.fieldName);
+        const searchName = rightField.fieldName.trim().toUpperCase();
 
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
             let keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
             if (keyMasterJoinField !== null) {
                 keyMasterJoinField = keyMasterJoinField.toString();
             }
-            const joinRows = rightField.tableInfo.search(rightField.fieldName, keyMasterJoinField);
+            const joinRows =  searchFieldCol === -1 ? [] : rightField.tableInfo.search(searchName, keyMasterJoinField);
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
             if (joinRows.length === 0) {
@@ -2126,7 +2128,7 @@ class ConglomerateRecord {
                 numericData = groupRow[columnIndex];
             }
             else {
-                numericData = parseFloat(groupRow[columnIndex]);
+                numericData = Number(groupRow[columnIndex]);
                 numericData = (isNaN(numericData)) ? 0 : numericData;
             }
 

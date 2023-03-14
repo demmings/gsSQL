@@ -88,6 +88,7 @@ class Table {       //  skipcq: JS-0128
      * @param {any[]} tableData - Loaded table data with first row titles included.
      * @returns {Table}
      */
+
     loadArrayData(tableData) {
         if (typeof tableData === 'undefined' || tableData.length === 0)
             return this;
@@ -96,10 +97,28 @@ class Table {       //  skipcq: JS-0128
             this.addColumnLetters(tableData);
         }
 
-        this.tableData = tableData.filter(e => e.join().replace(/,/g, "").length);
+        this.tableData = Table.removeEmptyRecordsAtEndOfTable(tableData);
+
         this.loadSchema();
 
         return this;
+    }
+
+    /**
+     * It is common to have extra empty records loaded at end of table.
+     * Remove those empty records at END of table only.
+     * @param {any[][]} tableData 
+     * @returns {any[][]}
+     */
+    static removeEmptyRecordsAtEndOfTable(tableData) {
+        let blankLines = 0;
+        for (let i = tableData.length-1; i > 0; i--) {
+            if (tableData[i].join().replace(/,/g, "").length > 0)
+                break;
+            blankLines++;
+        }
+
+        return tableData.slice(0, tableData.length-blankLines);
     }
 
     /**
@@ -277,19 +296,14 @@ class Table {       //  skipcq: JS-0128
 
     /**
      * Return all row ID's where FIELD = SEARCH VALUE.
-     * @param {String} fieldName - table column name
+     * @param {String} fieldName - table column name (must be upper case and trimmed)
      * @param {any} searchValue - value to search for in index
      * @returns {Number[]} - all matching row numbers.
      */
     search(fieldName, searchValue) {
         const rows = [];
-        const searchName = fieldName.trim().toUpperCase();
 
-        const searchFieldCol = this.schema.getFieldColumn(searchName);
-        if (searchFieldCol === -1)
-            return rows;
-
-        const fieldValuesMap = this.indexes.get(searchName);
+        const fieldValuesMap = this.indexes.get(fieldName);
         if (fieldValuesMap.has(searchValue))
             return fieldValuesMap.get(searchValue);
         return rows;

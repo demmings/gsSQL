@@ -1,6 +1,6 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***
-export { Sql, gsSQL, parseTableSettings, BindData };
+export { Sql, gsSQL, gasSQL, BindData };
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
 import { SqlParse } from './SimpleParser.js';
@@ -23,136 +23,142 @@ class Logger {
  * @customfunction
  */
 function gsSQL(statement, ...parms) {     //  skipcq: JS-0128
-    if (parms.length === 0 || (parms.length > 0 && (Array.isArray(parms[0]) || parms[0] === ''))) {
-        return executeSqlv1(statement, parms);
-    }
-    else if (parms.length > 0 && typeof parms[0] === 'string') {
-        return executeSqlv2(statement, parms);
-    }
-    else {
-        throw new Error("Invalid gsSQL() parameter list.");
-    }
+    return gasSQL.execute(statement, parms);
 }
 
-function executeSqlv1(statement, parms) {
-    const sqlCmd = new Sql();
-    let columnTitle = true;
-    const bindings = [];
-
-    //  If first item of parms is an array, the parms are assumed to be:
-    // @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds, hasColumnTitle}; {"name","range",cache,true};...}"
-    // @param {Boolean} columnTitle - TRUE will add column title to output (default=TRUE)
-    // @param {...any} bindings - Bind variables to match '?' in SQL statement.
-    const tableArr = parms.length > 0 ? parms[0] : [];
-
-    const tableList = parseTableSettings(tableArr, statement);
-    Logger.log(`gsSQL: tableList=${tableList}.  Statement=${statement}. List Len=${tableList.length}`);
-
-    for (const tableDef of tableList) {
-        sqlCmd.addTableData(tableDef[0], tableDef[1], tableDef[2], tableDef[3]);
-    }
-    columnTitle = parms.length > 1 ? parms[1] : true;
-
-    for (let i = 2; i < parms.length; i++) {
-        bindings.push(parms[i]);
+class gasSQL {
+    static execute(statement, parms) {
+        if (parms.length === 0 || (parms.length > 0 && (Array.isArray(parms[0]) || parms[0] === ''))) {
+            return gasSQL.executeSqlv1(statement, parms);
+        }
+        else if (parms.length > 0 && typeof parms[0] === 'string') {
+            return gasSQL.executeSqlv2(statement, parms);
+        }
+        else {
+            throw new Error("Invalid gsSQL() parameter list.");
+        }
     }
 
-    sqlCmd.enableColumnTitle(columnTitle);
+    static executeSqlv1(statement, parms) {
+        const sqlCmd = new Sql();
+        let columnTitle = true;
+        const bindings = [];
 
-    for (const bind of bindings) {
-        sqlCmd.addBindParameter(bind);
+        //  If first item of parms is an array, the parms are assumed to be:
+        // @param {any[][]} tableArr - {{"tableName", "sheetRange", cacheSeconds, hasColumnTitle}; {"name","range",cache,true};...}"
+        // @param {Boolean} columnTitle - TRUE will add column title to output (default=TRUE)
+        // @param {...any} bindings - Bind variables to match '?' in SQL statement.
+        const tableArr = parms.length > 0 ? parms[0] : [];
+
+        const tableList = gasSQL.parseTableSettings(tableArr, statement);
+        Logger.log(`gsSQL: tableList=${tableList}.  Statement=${statement}. List Len=${tableList.length}`);
+
+        for (const tableDef of tableList) {
+            sqlCmd.addTableData(tableDef[0], tableDef[1], tableDef[2], tableDef[3]);
+        }
+        columnTitle = parms.length > 1 ? parms[1] : true;
+
+        for (let i = 2; i < parms.length; i++) {
+            bindings.push(parms[i]);
+        }
+
+        sqlCmd.enableColumnTitle(columnTitle);
+
+        for (const bind of bindings) {
+            sqlCmd.addBindParameter(bind);
+        }
+
+        return sqlCmd.execute(statement);
     }
 
-    return sqlCmd.execute(statement);
-}
+    static executeSqlv2(statement, parms) {
+        const sqlCmd = new Sql();
+        let columnTitle = true;
+        const bindings = [];
 
-function executeSqlv2(statement, parms) {
-    const sqlCmd = new Sql();
-    let columnTitle = true;
-    const bindings = [];
+        //  We expect:  "tableName", tableData[], ...["tableName", tableData[]], includeColumnOutput, ...bindings
+        let i = 0;
+        while (i + 1 < parms.length && typeof parms[i] !== 'boolean') {
+            Logger.log(`Add Table: ${parms[i]}. Items=${parms[i + 1].length}`);
+            sqlCmd.addTableData(parms[i], parms[i + 1], 0, true);
+            i += 2;
+        }
+        if (i < parms.length && typeof parms[i] === 'boolean') {
+            columnTitle = parms[i];
+            i++
+        }
+        Logger.log(`Column Titles: ${columnTitle}`);
+        while (i < parms.length) {
+            Logger.log(`Add BIND Variable: ${parms[i]}`);
+            bindings.push(parms[i]);
+            i++
+        }
 
-    //  We expect:  "tableName", tableData[], ...["tableName", tableData[]], includeColumnOutput, ...bindings
-    let i = 0;
-    while (i + 1 < parms.length && typeof parms[i] !== 'boolean') {
-        Logger.log(`Add Table: ${parms[i]}. Items=${parms[i + 1].length}`);
-        sqlCmd.addTableData(parms[i], parms[i + 1], 0, true);
-        i += 2;
-    }
-    if (i < parms.length && typeof parms[i] === 'boolean') {
-        columnTitle = parms[i];
-        i++
-    }
-    Logger.log(`Column Titles: ${columnTitle}`);
-    while (i < parms.length) {
-        Logger.log(`Add BIND Variable: ${parms[i]}`);
-        bindings.push(parms[i]);
-        i++
-    }
+        sqlCmd.enableColumnTitle(columnTitle);
 
-    sqlCmd.enableColumnTitle(columnTitle);
+        for (const bind of bindings) {
+            sqlCmd.addBindParameter(bind);
+        }
 
-    for (const bind of bindings) {
-        sqlCmd.addBindParameter(bind);
-    }
-
-    return sqlCmd.execute(statement);
-}
-
-/**
- * 
- * @param {any[][]} tableArr - Referenced Table list.  This is normally the second parameter in gsSQL() custom function.  
- * It is a double array with first index for TABLE, and the second index are settings in the table. 
- * The setting index for each table is as follows:
- * * 0 - Table Name.
- * * 1 - Sheet Range.
- * * 2 - Cache seconds.
- * * 3 - First row contains title (for field name)
- * @param {String} statement - SQL SELECT statement.  If no data specified in 'tableArr', the SELECT is 
- * parsed and each referenced table is assumed to be a TAB name on the sheet.
- * @param {Boolean} randomOrder - Returned table list is randomized.
- * @returns {any[][]} - Data from 'tableArr' PLUS any extracted tables referenced from SELECT statement.
- * It is a double array with first index for TABLE, and the second index are settings in the table. 
- * The setting index for each table is as follows:
- * * 0 - Table Name.
- * * 1 - Sheet Range.
- * * 2 - Cache seconds.
- * * 3 - First row contains title (for field name)
- */
-function parseTableSettings(tableArr, statement = "", randomOrder = true) {
-    let tableList = [];
-    let referencedTableSettings = tableArr;
-
-    //  Get table names from the SELECT statement when no table range info is given.
-    if (tableArr.length === 0 && statement !== "") {
-        referencedTableSettings = Sql.getReferencedTableNames(statement);
+        return sqlCmd.execute(statement);
     }
 
-    if (referencedTableSettings.length === 0) {
-        throw new Error('Missing table definition {{"name","range",cache};{...}}');
+    /**
+     * 
+     * @param {any[][]} tableArr - Referenced Table list.  This is normally the second parameter in gsSQL() custom function.  
+     * It is a double array with first index for TABLE, and the second index are settings in the table. 
+     * The setting index for each table is as follows:
+     * * 0 - Table Name.
+     * * 1 - Sheet Range.
+     * * 2 - Cache seconds.
+     * * 3 - First row contains title (for field name)
+     * @param {String} statement - SQL SELECT statement.  If no data specified in 'tableArr', the SELECT is 
+     * parsed and each referenced table is assumed to be a TAB name on the sheet.
+     * @param {Boolean} randomOrder - Returned table list is randomized.
+     * @returns {any[][]} - Data from 'tableArr' PLUS any extracted tables referenced from SELECT statement.
+     * It is a double array with first index for TABLE, and the second index are settings in the table. 
+     * The setting index for each table is as follows:
+     * * 0 - Table Name.
+     * * 1 - Sheet Range.
+     * * 2 - Cache seconds.
+     * * 3 - First row contains title (for field name)
+     */
+    static parseTableSettings(tableArr, statement = "", randomOrder = true) {
+        let tableList = [];
+        let referencedTableSettings = tableArr;
+
+        //  Get table names from the SELECT statement when no table range info is given.
+        if (tableArr.length === 0 && statement !== "") {
+            referencedTableSettings = Sql.getReferencedTableNames(statement);
+        }
+
+        if (referencedTableSettings.length === 0) {
+            throw new Error('Missing table definition {{"name","range",cache};{...}}');
+        }
+
+        Logger.log(`tableArr = ${referencedTableSettings}`);
+        for (/** @type {any[]} */ const table of referencedTableSettings) {
+            if (table.length === 1)
+                table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
+            if (table.length === 2)
+                table.push(60);      //  default 0 second cache.
+            if (table.length === 3)
+                table.push(true);    //  default HAS column title row.
+            if (table[1] === "")
+                table[1] = table[0];    //  If empty range, assumes TABLE NAME is the SHEET NAME and loads entire sheet.
+            if (table.length !== 4)
+                throw new Error("Invalid table definition [name,range,cache,hasTitle]");
+
+            tableList.push(table);
+        }
+
+        //  If called at the same time, loading similar tables in similar order - all processes
+        //  just wait for table - but if loaded in different order, each process could be loading something.
+        if (randomOrder)
+            tableList = tableList.sort(() => Math.random() - 0.5);
+
+        return tableList;
     }
-
-    Logger.log(`tableArr = ${referencedTableSettings}`);
-    for (/** @type {any[]} */ const table of referencedTableSettings) {
-        if (table.length === 1)
-            table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
-        if (table.length === 2)
-            table.push(60);      //  default 0 second cache.
-        if (table.length === 3)
-            table.push(true);    //  default HAS column title row.
-        if (table[1] === "")
-            table[1] = table[0];    //  If empty range, assumes TABLE NAME is the SHEET NAME and loads entire sheet.
-        if (table.length !== 4)
-            throw new Error("Invalid table definition [name,range,cache,hasTitle]");
-
-        tableList.push(table);
-    }
-
-    //  If called at the same time, loading similar tables in similar order - all processes
-    //  just wait for table - but if loaded in different order, each process could be loading something.
-    if (randomOrder)
-        tableList = tableList.sort(() => Math.random() - 0.5);
-
-    return tableList;
 }
 
 /** Perform SQL SELECT using this class. */
@@ -337,8 +343,9 @@ class Sql {
         Sql.setTableAlias(this.tables, this.ast);
         Sql.loadSchema(this.tables);
 
-        if (typeof this.ast.SELECT !== 'undefined')
+        if (typeof this.ast.SELECT !== 'undefined') {
             sqlData = this.select(this.ast);
+        }
         else
             throw new Error("Only SELECT statements are supported.");
 
@@ -1049,7 +1056,7 @@ class Sql {
             }
         }
 
-        removeRowNum.sort((a,b) => b - a);
+        removeRowNum.sort((a, b) => b - a);
         for (rowNum of removeRowNum) {
             srcData.splice(rowNum, 1);
         }
@@ -1208,6 +1215,7 @@ class Table {       //  skipcq: JS-0128
      * @param {any[]} tableData - Loaded table data with first row titles included.
      * @returns {Table}
      */
+
     loadArrayData(tableData) {
         if (typeof tableData === 'undefined' || tableData.length === 0)
             return this;
@@ -1216,10 +1224,28 @@ class Table {       //  skipcq: JS-0128
             this.addColumnLetters(tableData);
         }
 
-        this.tableData = tableData.filter(e => e.join().replace(/,/g, "").length);
+        this.tableData = Table.removeEmptyRecordsAtEndOfTable(tableData);
+
         this.loadSchema();
 
         return this;
+    }
+
+    /**
+     * It is common to have extra empty records loaded at end of table.
+     * Remove those empty records at END of table only.
+     * @param {any[][]} tableData 
+     * @returns {any[][]}
+     */
+    static removeEmptyRecordsAtEndOfTable(tableData) {
+        let blankLines = 0;
+        for (let i = tableData.length-1; i > 0; i--) {
+            if (tableData[i].join().replace(/,/g, "").length > 0)
+                break;
+            blankLines++;
+        }
+
+        return tableData.slice(0, tableData.length-blankLines);
     }
 
     /**
@@ -1397,19 +1423,14 @@ class Table {       //  skipcq: JS-0128
 
     /**
      * Return all row ID's where FIELD = SEARCH VALUE.
-     * @param {String} fieldName - table column name
+     * @param {String} fieldName - table column name (must be upper case and trimmed)
      * @param {any} searchValue - value to search for in index
      * @returns {Number[]} - all matching row numbers.
      */
     search(fieldName, searchValue) {
         const rows = [];
-        const searchName = fieldName.trim().toUpperCase();
 
-        const searchFieldCol = this.schema.getFieldColumn(searchName);
-        if (searchFieldCol === -1)
-            return rows;
-
-        const fieldValuesMap = this.indexes.get(searchName);
+        const fieldValuesMap = this.indexes.get(fieldName);
         if (fieldValuesMap.has(searchValue))
             return fieldValuesMap.get(searchValue);
         return rows;
@@ -2487,9 +2508,9 @@ class SelectTables {
         else if (typeof value === "string") {
             const dateParts = value.split("/");
             if (dateParts.length === 3) {
-                year = parseInt(dateParts[2], 10);
-                month = parseInt(dateParts[0], 10) - 1;
-                dayNum = parseInt(dateParts[1], 10);
+                year = Number(dateParts[2]);
+                month = Number(dateParts[0]) - 1;
+                dayNum = Number(dateParts[1]);
             }
         }
 
@@ -3235,13 +3256,15 @@ class JoinTables {
         const leftTableCol = leftField.tableColumn;
 
         rightField.tableInfo.addIndex(rightField.fieldName);
+        const searchFieldCol = rightField.tableInfo.getFieldColumn(rightField.fieldName);
+        const searchName = rightField.fieldName.trim().toUpperCase();
 
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
             let keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
             if (keyMasterJoinField !== null) {
                 keyMasterJoinField = keyMasterJoinField.toString();
             }
-            const joinRows = rightField.tableInfo.search(rightField.fieldName, keyMasterJoinField);
+            const joinRows =  searchFieldCol === -1 ? [] : rightField.tableInfo.search(searchName, keyMasterJoinField);
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
             if (joinRows.length === 0) {
@@ -3788,7 +3811,7 @@ class ConglomerateRecord {
                 numericData = groupRow[columnIndex];
             }
             else {
-                numericData = parseFloat(groupRow[columnIndex]);
+                numericData = Number(groupRow[columnIndex]);
                 numericData = (isNaN(numericData)) ? 0 : numericData;
             }
 
@@ -5528,7 +5551,7 @@ class SelectKeywordAnalysis {
 
     static LIMIT(str) {
         const limitResult = {};
-        limitResult.nb = parseInt(str, 10);
+        limitResult.nb = Number(str);
         limitResult.from = 0;
         return limitResult;
     }
@@ -5684,6 +5707,7 @@ class SelectKeywordAnalysis {
 export { TableData };
 import { CacheService, LockService, SpreadsheetApp, Utilities } from "./SqlTest.js";
 import { ScriptSettings } from "./ScriptSettings.js";
+import { Table } from "./Table.js";
 
 class Logger {
     static log(msg) {
@@ -5720,9 +5744,7 @@ class TableData {       //  skipcq: JS-0128
 
         Logger.log(`loadTableData: ${namedRange}. Seconds=${cacheSeconds}`);
 
-        let tempData = TableData.getValuesCached(namedRange, cacheSeconds)
-
-        tempData = tempData.filter(e => e.join().replace(/,/g, "").length);
+        let tempData = Table.removeEmptyRecordsAtEndOfTable(TableData.getValuesCached(namedRange, cacheSeconds));
 
         return tempData;
     }
@@ -6075,7 +6097,7 @@ class TableData {       //  skipcq: JS-0128
 
         const blockStr = cacheStatus.substring(cacheStatus.indexOf(TABLE.BLOCKS) + TABLE.BLOCKS.length);
         if (blockStr !== "") {
-            const blocks = parseInt(blockStr, 10);
+            const blocks = Number(blockStr);
             for (let i = 1; i <= blocks; i++) {
                 const blockName = `${namedRange}:${i.toString()}`;
                 const jsonData = cache.get(blockName);

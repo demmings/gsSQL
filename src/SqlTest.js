@@ -1,6 +1,6 @@
 //  Remove comments for testing in NODE
 /*  *** DEBUG START ***  
-import { Sql, parseTableSettings, gsSQL } from './Sql.js';
+import { Sql, gasSQL, gsSQL } from './Sql.js';
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
 export { CacheService };
@@ -554,8 +554,8 @@ class SqlTester {
     /* CREATE TABLE books (id CHAR(6), title VARCHAR(200),
         type VARCHAR(20), author_id CHAR(6), editor_id CHAR(6), translator_id CHAR(6));
     */
-    bookTable() {
-        return [
+    bookTable(extraRecords = 0) {
+        let recs = [
             ["id", "title", "type", "author id", "editor id", "translator id"],
             ["1", "Time to Grow Up!", "original", "11", "21", ""],
             ["2", "Your Trip", "translated", "15", "22", "32"],
@@ -567,6 +567,21 @@ class SqlTester {
             ["9", "Book with Mysterious Author", "translated", "1", "23", "34"],
             ["8", "My Last Book", "original", "11", "28", ""]
         ];
+
+        for (let i = 0; i < extraRecords; i++) {
+            let newRecord = [];
+
+            newRecord.push((10 + i).toString());
+            newRecord.push("Great Boook volume " + (1 + i).toString());
+            newRecord.push(i % 2 === 0 ? "original" : "translated");
+            newRecord.push((11 + i).toString());
+            newRecord.push((12 + i).toString());
+            newRecord.push((13 + i).toString());
+
+            recs.push(newRecord);
+        }
+
+        return recs;
     }
 
     /*
@@ -583,8 +598,8 @@ class SqlTester {
     /* CREATE TABLE booksales (invoice CHAR(6), book_id CHAR(6),
         customer_id CHAR(6), quantity integer, price double, date date);
     */
-    bookSalesTable() {
-        return [
+    bookSalesTable(extraRecords = 0) {
+        let recs = [
             ["Invoice", "Book Id", "Customer ID", "Quantity", "Price", "Date"],
             ["I7200", "9", "C1", 10, 34.95, "05/01/2022"],
             ["I7201", "8", "C2", 3, 29.95, "05/01/2022"],
@@ -598,6 +613,20 @@ class SqlTester {
             ["I7206", "7", "C2", 100, 17.99, "05/04/2022"]
         ];
 
+        for (let i = 0; i < extraRecords; i++) {
+            let newRecord = [];
+
+            newRecord.push("I" + (707 + i).toString());
+            newRecord.push((10 + i).toString());
+            newRecord.push("C" + (5 + i).toString());
+            newRecord.push(i % 100);
+            newRecord.push(i % 100 + 1 / (i % 99 === 0 ? 99 : i % 99));
+            newRecord.push((1 + i % 12).toString() + "/" + (i % 28).toString() + "/" + (2022 + i % 50).toString());
+
+            recs.push(newRecord);
+        }
+
+        return recs;
     }
 
     /*
@@ -3521,10 +3550,54 @@ class SqlTester {
     }
 
 
+    joinBigTables1() {
+        let recCount = 100000;
+        let stmt = "select * from booksales join books on booksales.book_id = books.id order by booksales.invoice desc";
+
+        const bigBookSalesTable = this.bookSalesTable(recCount);
+        const bigBookTable = this.bookTable(recCount);
+
+        const startTime = performance.now();
+        let data = new TestSql()
+            .addTableData("booksales", bigBookSalesTable)
+            .addTableData("books", bigBookTable)
+            .enableColumnTitle(true)
+            .execute(stmt);
+        const endtime = performance.now();
+        Logger.log(`Big Table Join.  ms=${(endtime - startTime).toString()}`);
+
+        let expected = recCount + 11;
+
+        return this.isEqual("joinBigTables1", data.length, expected);
+    }
 
     //  S T A R T   O T H E R   T E S T S
+    removeTrailingEmptyRecords() {
+        let authors = this.authorsTable();
+
+        for (let i = 0; i < 10; i++) {
+            authors.push(["", "", ""]);
+        }
+
+        let stmt = "select * from authors";
+
+        let data = new TestSql()
+            .addTableData("authors", authors)
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
+        ["11", "Ellen", "Writer"],
+        ["12", "Olga", "Savelieva"],
+        ["13", "Jack", "Smart"],
+        ["14", "Donald", "Brain"],
+        ["15", "Yao", "Dou"]];
+
+        return this.isEqual("removeTrailingEmptyRecords", data, expected);
+    }
+
     parseTableSettings1() {
-        let data = parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
+        let data = gasSQL.parseTableSettings([['authors', 'authorsNamedRange', 60, false], ['editors', 'editorsRange', 30], ['people', 'peopleRange']], "", false);
         let expected = [["authors", "authorsNamedRange", 60, false],
         ["editors", "editorsRange", 30, true],
         ["people", "peopleRange", 60, true]];
@@ -3533,7 +3606,7 @@ class SqlTester {
     }
 
     parseTableSettings2() {
-        let data = parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people']], "", false);
+        let data = gasSQL.parseTableSettings([['authors', 'authorsNamedRange', 60], ['editors', 'editorsRange', 30], ['people']], "", false);
         let expected = [["authors", "authorsNamedRange", 60, true],
         ["editors", "editorsRange", 30, true],
         ["people", "people", 60, true]];
@@ -3549,7 +3622,7 @@ class SqlTester {
             "WHERE customers.email NOT LIKE '%gmail.com' " +
             "UNION select * from bookSales2";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKSALES", "BOOKSALES", 60, true],
         ["BOOKS", "BOOKS", 60, true],
         ["AUTHORS", "AUTHORS", 60, true],
@@ -3562,7 +3635,7 @@ class SqlTester {
     parseTableSettings4() {
         let stmt = "select * from 'master transactions' where account in (select account_name from accounts) ";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["'MASTER TRANSACTIONS'", "'MASTER TRANSACTIONS'", 60, true],
         ["ACCOUNTS", "ACCOUNTS", 60, true]];
         return this.isEqual("parseTableSettings4", data, expected);
@@ -3576,7 +3649,7 @@ class SqlTester {
             "or title = ? " +
             "ORDER BY title";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKS", "BOOKS", 60, true],
         ["AUTHORS", "AUTHORS", 60, true],
         ["EDITORS", "EDITORS", 60, true]];
@@ -3589,7 +3662,7 @@ class SqlTester {
             "WHERE books.author_id NOT IN (SELECT id from authors)" +
             "ORDER BY books.title";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKS", "BOOKS", 60, true],
         ["AUTHORS", "AUTHORS", 60, true]];
         return this.isEqual("parseTableSettings6", data, expected);
@@ -3599,7 +3672,7 @@ class SqlTester {
         let stmt = "SELECT booksales.A as 'Invoice', booksales.B as 'Book ID', CUST.A, CUST.B FROM booksales " +
             "LEFT JOIN customers as CUST on booksales.C = customers.A ";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKSALES", "BOOKSALES", 60, true],
         ["CUSTOMERS", "CUSTOMERS", 60, true]];
 
@@ -3609,7 +3682,7 @@ class SqlTester {
     parseTableSettings8() {
         let stmt = "select id, title, (select count(*) from booksales where books.id = booksales.book_id) from books";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKS", "BOOKS", 60, true],
         ["BOOKSALES", "BOOKSALES", 60, true]];
 
@@ -3619,7 +3692,7 @@ class SqlTester {
     parseTableSettings9() {
         let stmt = "select concat_ws('-', *) as Concatenated from booksales left join customers on booksales.customer_id = customers.id where concat_ws('-', *) like '%Way%'";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKSALES", "BOOKSALES", 60, true],
         ["CUSTOMERS", "CUSTOMERS", 60, true]];
 
@@ -3629,7 +3702,7 @@ class SqlTester {
     parseTableSettings10() {
         let stmt = "select * from customers where exists (SELECT * FROM booksales WHERE booksales.customer_id = customers.id) and email like '%gmail.com' ";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["CUSTOMERS", "CUSTOMERS", 60, true],
         ["BOOKSALES", "BOOKSALES", 60, true]];
 
@@ -3639,7 +3712,7 @@ class SqlTester {
     parseTableSettings11() {
         let stmt = "select customer_id, wins, loss, (wins / (wins+loss)) as rate from (select customer_id, sum(case when quantity < 100 then 1 else 0 end) as wins, sum(case when quantity >= 100 then 1 else 0 end) as loss from booksales group by customer_id) as score";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKSALES", "BOOKSALES", 60, true]];
 
         return this.isEqual("parseTableSettings11", data, expected);
@@ -3654,7 +3727,7 @@ class SqlTester {
             + "where customer_id = 'C1') as table2) "
             + "as table3";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKSALES", "BOOKSALES", 60, true]];
 
         return this.isEqual("parseTableSettings12", data, expected);
@@ -3663,7 +3736,7 @@ class SqlTester {
     parseTableSettings13() {
         let stmt = "select table3.invoice, table3.name from (select * from (select invoice, table1.QTY as quantity, customers.name from (select invoice, quantity as QTY, customer_id from booksales where quantity <= 10) as table1 join customers on table1.customer_id = customers.id where customer_id = 'C1') as table2) as table3";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKSALES", "BOOKSALES", 60, true],
         ["CUSTOMERS", "CUSTOMERS", 60, true]];
 
@@ -3673,7 +3746,7 @@ class SqlTester {
     parseTableSettings14() {
         let stmt = "select * from booksales join (select * from booksales where customer_id = 'C1') as subsales on booksales.book_id = subsales.book_id";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKSALES", "BOOKSALES", 60, true]];
 
         return this.isEqual("parseTableSettings14", data, expected);
@@ -3682,7 +3755,7 @@ class SqlTester {
     parseTableSettings15() {
         let stmt = "select * from booksales join bookreturns on booksales.quantity = bookreturns.quantity and booksales.date = bookreturns.date or booksales.book_id = bookreturns.book_id";
 
-        let data = parseTableSettings([], stmt, false);
+        let data = gasSQL.parseTableSettings([], stmt, false);
         let expected = [["BOOKSALES", "BOOKSALES", 60, true],
         ["BOOKRETURNS", "BOOKRETURNS", 60, true]];
 
@@ -4233,7 +4306,7 @@ class SqlTester {
     badParseTableSettings1() {
         let ex = "";
         try {
-            let data = parseTableSettings([['authors', 'authorsNamedRange', true, 60, true], ['editors', 'editorsRange', 30], ['people']], "", false);
+            let data = gasSQL.parseTableSettings([['authors', 'authorsNamedRange', true, 60, true], ['editors', 'editorsRange', 30], ['people']], "", false);
         }
         catch (exceptionErr) {
             ex = exceptionErr;
@@ -4487,6 +4560,10 @@ function testerSql() {
     result = result && tester.selectGroupByCalculatedField2();
     result = result && tester.selectOrderByCalculated();
     result = result && tester.selectOrderByCalculated2();
+    result = result && tester.joinBigTables1();
+    result = result && tester.removeTrailingEmptyRecords();
+
+    Logger.log("============================================================================");
 
     result = result && tester.selectBadTable1();
     result = result && tester.selectBadMath1();

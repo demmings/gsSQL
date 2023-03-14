@@ -978,7 +978,7 @@ class SelectKeywordAnalysis {
 
     static LIMIT(str) {
         const limitResult = {};
-        limitResult.nb = parseInt(str, 10);
+        limitResult.nb = Number(str);
         limitResult.from = 0;
         return limitResult;
     }
