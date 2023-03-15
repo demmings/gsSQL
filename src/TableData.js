@@ -1,6 +1,6 @@
-//  Remove comments for testing in NODE
-//
 /*  *** DEBUG START ***
+//  Remove comments for testing in NODE
+
 export { TableData };
 import { CacheService, LockService, SpreadsheetApp, Utilities } from "./SqlTest.js";
 import { ScriptSettings } from "./ScriptSettings.js";
@@ -11,7 +11,7 @@ class Logger {
         console.log(msg);
     }
 }
-//  *** DEBUG END  ***/
+//  *** DEBUG END ***/
 
 /** 
  * Interface for loading table data either from CACHE or SHEET. 

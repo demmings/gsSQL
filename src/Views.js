@@ -1,10 +1,11 @@
-//  Remove comments for testing in NODE
 /*  *** DEBUG START ***
+//  Remove comments for testing in NODE
+
 export { DERIVEDTABLE, VirtualFields, VirtualField, SelectTables };
 import { Table } from './Table.js';
 import { Sql, BindData } from './Sql.js';
 import { SqlParse } from './SimpleParser.js';
-//  *** DEBUG END  ***/
+//  *** DEBUG END ***/
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
 

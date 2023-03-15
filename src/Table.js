@@ -1,5 +1,6 @@
-//  Remove comments for testing in NODE
 /*  *** DEBUG START ***
+//  Remove comments for testing in NODE
+
 export { Table, Schema };
 import { DERIVEDTABLE, VirtualFields, VirtualField } from './Views.js';
 import { TableData } from './TableData.js';
@@ -10,7 +11,7 @@ class Logger {
     }
 }
 
-//  *** DEBUG END  ***/
+//  *** DEBUG END ***/
 
 /** Data and methods for each (logical) SQL table. */
 class Table {       //  skipcq: JS-0128

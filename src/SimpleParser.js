@@ -1,7 +1,7 @@
-//  Remove comments for testing in NODE
 /*  *** DEBUG START ***
+//  Remove comments for testing in NODE
 export { SqlParse };
-//  *** DEBUG END  ***/
+//  *** DEBUG END ***/
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 

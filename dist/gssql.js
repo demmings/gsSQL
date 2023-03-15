@@ -1,18 +1,4 @@
-//  Remove comments for testing in NODE
-/*  *** DEBUG START ***
-export { Sql, gsSQL, gasSQL, BindData };
-import { Table } from './Table.js';
-import { TableData } from './TableData.js';
-import { SqlParse } from './SimpleParser.js';
-import { SelectTables } from './Views.js';
-
-class Logger {
-    static log(msg) {
-        console.log(msg);
-    }
-}
-//  *** DEBUG END  ***/
-
+// @author Chris Demmings - https://demmings.github.io/
 /**
  * Query any sheet range using standard SQL SELECT syntax.
  * EXAMPLE :  gsSQL("select * from expenses where type = ?1", "expenses", A1:B, true, "travel")
@@ -23,16 +9,16 @@ class Logger {
  * @customfunction
  */
 function gsSQL(statement, ...parms) {     //  skipcq: JS-0128
-    return gasSQL.execute(statement, parms);
+    return GasSql.execute(statement, parms);
 }
 
-class gasSQL {
+class GasSql {
     static execute(statement, parms) {
         if (parms.length === 0 || (parms.length > 0 && (Array.isArray(parms[0]) || parms[0] === ''))) {
-            return gasSQL.executeSqlv1(statement, parms);
+            return GasSql.executeSqlv1(statement, parms);
         }
         else if (parms.length > 0 && typeof parms[0] === 'string') {
-            return gasSQL.executeSqlv2(statement, parms);
+            return GasSql.executeSqlv2(statement, parms);
         }
         else {
             throw new Error("Invalid gsSQL() parameter list.");
@@ -50,7 +36,7 @@ class gasSQL {
         // @param {...any} bindings - Bind variables to match '?' in SQL statement.
         const tableArr = parms.length > 0 ? parms[0] : [];
 
-        const tableList = gasSQL.parseTableSettings(tableArr, statement);
+        const tableList = GasSql.parseTableSettings(tableArr, statement);
         Logger.log(`gsSQL: tableList=${tableList}.  Statement=${statement}. List Len=${tableList.length}`);
 
         for (const tableDef of tableList) {
@@ -1125,19 +1111,7 @@ class BindData {
     }
 }
 
-//  Remove comments for testing in NODE
-/*  *** DEBUG START ***
-export { Table, Schema };
-import { DERIVEDTABLE, VirtualFields, VirtualField } from './Views.js';
-import { TableData } from './TableData.js';
 
-class Logger {
-    static log(msg) {
-        console.log(msg);
-    }
-}
-
-//  *** DEBUG END  ***/
 
 /** Data and methods for each (logical) SQL table. */
 class Table {       //  skipcq: JS-0128
@@ -1681,13 +1655,7 @@ class Schema {
             }
         }
     }
-}//  Remove comments for testing in NODE
-/*  *** DEBUG START ***
-export { DERIVEDTABLE, VirtualFields, VirtualField, SelectTables };
-import { Table } from './Table.js';
-import { Sql, BindData } from './Sql.js';
-import { SqlParse } from './SimpleParser.js';
-//  *** DEBUG END  ***/
+}
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
 
@@ -4571,10 +4539,7 @@ class TableField {
         return concatFields;
     }
 }
-//  Remove comments for testing in NODE
-/*  *** DEBUG START ***
-export { SqlParse };
-//  *** DEBUG END  ***/
+
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 
@@ -5701,20 +5666,7 @@ class SelectKeywordAnalysis {
         return index;
     }
 }
-//  Remove comments for testing in NODE
-//
-/*  *** DEBUG START ***
-export { TableData };
-import { CacheService, LockService, SpreadsheetApp, Utilities } from "./SqlTest.js";
-import { ScriptSettings } from "./ScriptSettings.js";
-import { Table } from "./Table.js";
 
-class Logger {
-    static log(msg) {
-        console.log(msg);
-    }
-}
-//  *** DEBUG END  ***/
 
 /** 
  * Interface for loading table data either from CACHE or SHEET. 
@@ -6160,11 +6112,7 @@ const TABLE = {
     BLOCKS: "BLOCKS="
 }
 
-//  Remove comments for testing in NODE
-/*  *** DEBUG START ***
-export { ScriptSettings };
-import { PropertiesService } from "./SqlTest.js";
-//  *** DEBUG END  ***/
+
 
 /** Stores settings for the SCRIPT.  Long term cache storage for small tables.  */
 class ScriptSettings {      //  skipcq: JS-0128
@@ -6299,3 +6247,4 @@ class PropertyData {
         return (expiryDate.getTime() < someDate.getTime())
     }
 }
+

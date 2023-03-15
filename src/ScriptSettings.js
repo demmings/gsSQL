@@ -1,8 +1,8 @@
-//  Remove comments for testing in NODE
 /*  *** DEBUG START ***
+//  Remove comments for testing in NODE
 export { ScriptSettings };
 import { PropertiesService } from "./SqlTest.js";
-//  *** DEBUG END  ***/
+//  *** DEBUG END ***/
 
 /** Stores settings for the SCRIPT.  Long term cache storage for small tables.  */
 class ScriptSettings {      //  skipcq: JS-0128
