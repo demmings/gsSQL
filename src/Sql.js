@@ -1,7 +1,7 @@
 // @author Chris Demmings - https://demmings.github.io/
 /*  *** DEBUG START ***
 //  Remove comments for testing in NODE
-export { Sql, gsSQL, GasSql as gasSQL, BindData };
+export { Sql, gsSQL, GasSql, BindData };
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
 import { SqlParse } from './SimpleParser.js';

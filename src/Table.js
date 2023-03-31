@@ -2,7 +2,7 @@
 //  Remove comments for testing in NODE
 
 export { Table, Schema };
-import { DERIVEDTABLE, VirtualFields, VirtualField } from './Views.js';
+import { DERIVEDTABLE, VirtualFields, VirtualField, CalculatedField } from './Views.js';
 import { TableData } from './TableData.js';
 
 class Logger {
@@ -113,13 +113,13 @@ class Table {       //  skipcq: JS-0128
      */
     static removeEmptyRecordsAtEndOfTable(tableData) {
         let blankLines = 0;
-        for (let i = tableData.length-1; i > 0; i--) {
+        for (let i = tableData.length - 1; i > 0; i--) {
             if (tableData[i].join().replace(/,/g, "").length > 0)
                 break;
             blankLines++;
         }
 
-        return tableData.slice(0, tableData.length-blankLines);
+        return tableData.slice(0, tableData.length - blankLines);
     }
 
     /**
@@ -269,15 +269,28 @@ class Table {       //  skipcq: JS-0128
      * The resulting map is stored with the table.
      * The Map<fieldDataItem, [rowNumbers]> is stored.
      * @param {String} fieldName - field name to index.
+     * @param {CalculatedField} calcSqlField
+     * @param {String} calcField
+     * @returns {Map<String,Number[]>}
      */
-    addIndex(fieldName) {
+    createKeyFieldRecordMap(fieldName, calcSqlField=null, calcField="") {
         const indexedFieldName = fieldName.trim().toUpperCase();
         /** @type {Map<String,Number[]>} */
         const fieldValuesMap = new Map();
 
-        const fieldIndex = this.schema.getFieldColumn(indexedFieldName);
+        let value = null;
+        let fieldIndex = null;
+        if (calcSqlField === null) {
+            fieldIndex = this.schema.getFieldColumn(indexedFieldName);
+        }
+
         for (let i = 1; i < this.tableData.length; i++) {
-            let value = this.tableData[i][fieldIndex];
+            if (calcSqlField === null) {
+                value = this.tableData[i][fieldIndex];
+            }
+            else {
+                value = calcSqlField.evaluateCalculatedField(calcField, i);
+            }
             if (value !== null) {
                 value = value.toString();
             }
@@ -292,7 +305,17 @@ class Table {       //  skipcq: JS-0128
             }
         }
 
-        this.indexes.set(indexedFieldName, fieldValuesMap);
+        return fieldValuesMap;
+    }
+
+    /**
+     * 
+     * @param {CalculatedField} calcSqlField 
+     * @param {String} calcField 
+     * @returns  {Map<String,Number[]>}
+     */
+    createCalcFieldRecordMap(calcSqlField, calcField) {
+        return this.createKeyFieldRecordMap("", calcSqlField, calcField);
     }
 
     /**
@@ -534,7 +557,7 @@ class Schema {
                 fullColumnAliasName = `${this.tableAlias}.${columnName}`;
         }
 
-        return {columnName, fullColumnName, fullColumnAliasName};
+        return { columnName, fullColumnName, fullColumnAliasName };
     }
 
     /**

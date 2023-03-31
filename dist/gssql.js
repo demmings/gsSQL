@@ -1213,13 +1213,13 @@ class Table {       //  skipcq: JS-0128
      */
     static removeEmptyRecordsAtEndOfTable(tableData) {
         let blankLines = 0;
-        for (let i = tableData.length-1; i > 0; i--) {
+        for (let i = tableData.length - 1; i > 0; i--) {
             if (tableData[i].join().replace(/,/g, "").length > 0)
                 break;
             blankLines++;
         }
 
-        return tableData.slice(0, tableData.length-blankLines);
+        return tableData.slice(0, tableData.length - blankLines);
     }
 
     /**
@@ -1369,15 +1369,28 @@ class Table {       //  skipcq: JS-0128
      * The resulting map is stored with the table.
      * The Map<fieldDataItem, [rowNumbers]> is stored.
      * @param {String} fieldName - field name to index.
+     * @param {CalculatedField} calcSqlField
+     * @param {String} calcField
+     * @returns {Map<String,Number[]>}
      */
-    addIndex(fieldName) {
+    createKeyFieldRecordMap(fieldName, calcSqlField=null, calcField="") {
         const indexedFieldName = fieldName.trim().toUpperCase();
         /** @type {Map<String,Number[]>} */
         const fieldValuesMap = new Map();
 
-        const fieldIndex = this.schema.getFieldColumn(indexedFieldName);
+        let value = null;
+        let fieldIndex = null;
+        if (calcSqlField === null) {
+            fieldIndex = this.schema.getFieldColumn(indexedFieldName);
+        }
+
         for (let i = 1; i < this.tableData.length; i++) {
-            let value = this.tableData[i][fieldIndex];
+            if (calcSqlField === null) {
+                value = this.tableData[i][fieldIndex];
+            }
+            else {
+                value = calcSqlField.evaluateCalculatedField(calcField, i);
+            }
             if (value !== null) {
                 value = value.toString();
             }
@@ -1392,7 +1405,17 @@ class Table {       //  skipcq: JS-0128
             }
         }
 
-        this.indexes.set(indexedFieldName, fieldValuesMap);
+        return fieldValuesMap;
+    }
+
+    /**
+     * 
+     * @param {CalculatedField} calcSqlField 
+     * @param {String} calcField 
+     * @returns  {Map<String,Number[]>}
+     */
+    createCalcFieldRecordMap(calcSqlField, calcField) {
+        return this.createKeyFieldRecordMap("", calcSqlField, calcField);
     }
 
     /**
@@ -1634,7 +1657,7 @@ class Schema {
                 fullColumnAliasName = `${this.tableAlias}.${columnName}`;
         }
 
-        return {columnName, fullColumnName, fullColumnAliasName};
+        return { columnName, fullColumnName, fullColumnAliasName };
     }
 
     /**
@@ -1679,17 +1702,21 @@ class SelectTables {
         /** @property {BindData} - Bind variable data. */
         this.bindVariables = bindVariables;
 
-        /** @property {JoinTables} - Join table object. */
-        this.dataJoin = new JoinTables();
-
         /** @property {TableFields} */
         this.tableFields = new TableFields();
 
-        if (!tableInfo.has(this.primaryTable.toUpperCase()))
-            throw new Error(`Invalid table name: ${this.primaryTable}`);
-
         /** @property {Table} - Primary table info. */
         this.primaryTableInfo = tableInfo.get(this.primaryTable.toUpperCase());
+
+        /** @property {JoinTables} - Join table object. */
+        this.dataJoin = new JoinTables()
+            .setTableFields(this.tableFields)
+            .setTableInfo(this.tableInfo)
+            .setBindVariables(bindVariables)
+            .setPrimaryTableInfo(this.primaryTableInfo);
+
+        if (!tableInfo.has(this.primaryTable.toUpperCase()))
+            throw new Error(`Invalid table name: ${this.primaryTable}`);
 
         //  Keep a list of all possible fields from all tables.
         this.tableFields.loadVirtualFields(this.primaryTable, tableInfo);
@@ -1730,7 +1757,7 @@ class SelectTables {
      */
     join(ast) {
         if (typeof ast.JOIN !== 'undefined')
-            this.dataJoin.load(ast.JOIN, this.tableFields);
+            this.dataJoin.load(ast);
     }
 
     /**
@@ -2903,357 +2930,6 @@ class VirtualField {                        //  skipcq: JS-0128
     }
 }
 
-/** Handle the various JOIN table types. */
-class JoinTables {
-    /**
-     * Join the tables and create a derived table with the combined data from all.
-     * @param {any[]} astJoin - AST list of tables to join.
-     * @param {TableFields} tableFields
-     */
-    load(astJoin, tableFields) {
-        /** @property {DerivedTable} - result table after tables are joined */
-        this.derivedTable = new DerivedTable();
-        this.tableFields = tableFields;
-
-        for (const joinTable of astJoin) {
-            this.joinNextTable(joinTable);
-        }
-    }
-
-    /**
-     * Updates derived table with join to new table.
-     * @param {Object} astJoin 
-     */
-    joinNextTable(astJoin) {
-        this.leftRightFieldInfo = null;
-        const recIds = this.joinCondition(astJoin);
-
-        this.derivedTable = JoinTables.joinTables(this.leftRightFieldInfo, astJoin, recIds);
-
-        //  Field locations have changed to the derived table, so update our
-        //  virtual field list with proper settings.
-        this.tableFields.updateDerivedTableVirtualFields(this.derivedTable);
-    }
-
-    /**
-     * 
-     * @param {Object} conditions 
-     * @returns {Array}
-     */
-    joinCondition(conditions) {
-        let recIds = [];
-        const rightTable = conditions.table;
-        const joinType = conditions.type;
-
-        if (typeof conditions.cond.logic === 'undefined')
-            recIds = this.resolveCondition("OR", [conditions], joinType, rightTable);
-        else
-            recIds = this.resolveCondition(conditions.cond.logic, conditions.cond.terms, joinType, rightTable);
-
-        return recIds;
-    }
-
-    /**
-     * 
-     * @param {String} logic - AND, OR 
-     * @param {Object} astConditions 
-     * @param {String} joinType - inner, full, left, right
-     * @param {*} rightTable - join table.
-     * @returns {Array}
-     */
-    resolveCondition(logic, astConditions, joinType, rightTable) {
-        let leftIds = [];
-        let rightIds = [];
-        let resultsLeft = [];
-        let resultsRight = [];
-
-        for (const cond of astConditions) {
-            if (typeof cond.logic === 'undefined') {
-                [leftIds, rightIds] = this.getRecordIDs(cond, joinType, rightTable);
-                resultsLeft.push(leftIds);
-                resultsRight.push(rightIds);
-            }
-            else {
-                [leftIds, rightIds] = this.resolveCondition(cond.logic, cond.terms, joinType, rightTable);
-                resultsLeft.push(leftIds);
-                resultsRight.push(rightIds);
-            }
-        }
-
-        if (logic === "AND") {
-            resultsLeft = JoinTables.andJoinIds(resultsLeft);
-            resultsRight = JoinTables.andJoinIds(resultsRight);
-        }
-        if (logic === "OR") {
-            resultsLeft = JoinTables.orJoinIds(resultsLeft);
-            resultsRight = JoinTables.orJoinIds(resultsRight);
-        }
-
-        return [resultsLeft, resultsRight];
-    }
-
-    /**
-     * AND logic applied to the record ID's
-     * @param {Array} recIds 
-     * @returns {Array}
-     */
-    static andJoinIds(recIds) {
-        const result = [];
-
-        for (let i = 0; i < recIds[0].length; i++) {
-            const temp = [];
-
-            for (const rec of recIds) {
-                temp.push(typeof rec[i] === 'undefined' ? [] : rec[i]);
-            }
-            const row = temp.reduce((a, b) => a.filter(c => b.includes(c)));
-
-            if (row.length > 0) {
-                result[i] = row;
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * OR logic applied to the record ID's
-     * @param {Array} recIds 
-     * @returns {Array}
-     */
-    static orJoinIds(recIds) {
-        const result = [];
-
-        for (let i = 0; i < recIds[0].length; i++) {
-            let temp = [];
-
-            for (const rec of recIds) {
-                temp = temp.concat(rec[i]);
-            }
-
-            if (typeof temp[0] !== 'undefined') {
-                result[i] = Array.from(new Set(temp));
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * 
-     * @param {Object} conditionAst 
-     * @param {String} joinType - left, right, inner, full
-     * @param {String} rightTable 
-     * @returns {Array}
-     */
-    getRecordIDs(conditionAst, joinType, rightTable) {
-        this.leftRightFieldInfo = JoinTables.getLeftRightFieldInfo(conditionAst, this.tableFields, rightTable);
-        const recIds = JoinTables.getMatchedRecordIds(joinType, this.leftRightFieldInfo);
-
-        return recIds;
-    }
-
-    /**
-     * 
-     * @param {Object} astJoin 
-     * @param {TableFields} tableFields 
-     * @returns {TableField[]}
-     */
-    static getLeftRightFieldInfo(astJoin, tableFields, joinedTable) {
-        /** @type {TableField} */
-        let leftFieldInfo = null;
-        /** @type {TableField} */
-        let rightFieldInfo = null;
-
-        const left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
-        const right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
-
-        leftFieldInfo = tableFields.getFieldInfo(left);
-        rightFieldInfo = tableFields.getFieldInfo(right);
-        //  joinTable.table is the RIGHT table, so switch if equal to condition left.
-        if (joinedTable === leftFieldInfo.originalTable) {
-            leftFieldInfo = tableFields.getFieldInfo(right);
-            rightFieldInfo = tableFields.getFieldInfo(left);
-        }
-
-        return [leftFieldInfo, rightFieldInfo];
-    }
-
-    /**
-     * 
-     * @param {String} type 
-     * @param {TableField[]} leftRightFieldInfo 
-     * @returns {Array}
-     */
-    static getMatchedRecordIds(type, leftRightFieldInfo) {
-        /** @type {Number[][]} */
-        let matchedRecordIDs = [];
-        let rightJoinRecordIDs = [];
-        /** @type {TableField} */
-        let leftFieldInfo = null;
-        /** @type {TableField} */
-        let rightFieldInfo = null;
-
-        [leftFieldInfo, rightFieldInfo] = leftRightFieldInfo;
-
-        switch (type) {
-            case "left":
-                matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, type);
-                break;
-            case "inner":
-                matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, type);
-                break;
-            case "right":
-                matchedRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, type);
-                break;
-            case "full":
-                matchedRecordIDs = JoinTables.leftRightJoin(leftFieldInfo, rightFieldInfo, type);
-                rightJoinRecordIDs = JoinTables.leftRightJoin(rightFieldInfo, leftFieldInfo, "outer");
-                break;
-            default:
-                throw new Error(`Invalid join type: ${type}`);
-        }
-
-        return [matchedRecordIDs, rightJoinRecordIDs];
-    }
-
-    /**
-     * Does this object contain a derived (joined) table.
-     * @returns {Boolean}
-     */
-    isDerivedTable() {
-        if (typeof this.derivedTable === 'undefined') {
-            return false;
-        }
-
-        return this.derivedTable.isDerivedTable();
-    }
-
-    /**
-     * Get derived table after tables are joined.
-     * @returns {Table}
-     */
-    getJoinedTableInfo() {
-        return this.derivedTable.getTableData();
-    }
-
-    /**
-    * Join two tables and create a derived table that contains all data from both tables.
-    * @param {TableField[]} leftRightFieldInfo - left table field of join
-    * @param {Object} joinTable - AST that contains join type.
-    * @param {Array} recIds
-    * @returns {DerivedTable} - new derived table after join of left and right tables.
-    */
-    static joinTables(leftRightFieldInfo, joinTable, recIds) {
-        let derivedTable = null;
-        let rightDerivedTable = null;
-
-        const [leftFieldInfo, rightFieldInfo] = leftRightFieldInfo;
-        const [matchedRecordIDs, rightJoinRecordIDs] = recIds;
-
-        switch (joinTable.type) {
-            case "left":
-                derivedTable = new DerivedTable()
-                    .setLeftField(leftFieldInfo)
-                    .setRightField(rightFieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
-                    .setIsOuterJoin(true)
-                    .createTable();
-                break;
-
-            case "inner":
-                derivedTable = new DerivedTable()
-                    .setLeftField(leftFieldInfo)
-                    .setRightField(rightFieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
-                    .setIsOuterJoin(false)
-                    .createTable();
-                break;
-
-            case "right":
-                derivedTable = new DerivedTable()
-                    .setLeftField(rightFieldInfo)
-                    .setRightField(leftFieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
-                    .setIsOuterJoin(true)
-                    .createTable();
-
-                break;
-
-            case "full":
-                derivedTable = new DerivedTable()
-                    .setLeftField(leftFieldInfo)
-                    .setRightField(rightFieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
-                    .setIsOuterJoin(true)
-                    .createTable();
-
-                rightDerivedTable = new DerivedTable()
-                    .setLeftField(rightFieldInfo)
-                    .setRightField(leftFieldInfo)
-                    .setLeftRecords(rightJoinRecordIDs)
-                    .setIsOuterJoin(true)
-                    .createTable();
-
-                derivedTable.tableInfo.concat(rightDerivedTable.tableInfo);         // skipcq: JS-D008
-
-                break;
-
-            default:
-                throw new Error(`Internal error.  No support for join type: ${joinTable.type}`);
-        }
-        return derivedTable;
-    }
-
-    /**
-     * Returns array of each matching record ID from right table for every record in left table.
-     * If the right table entry could NOT be found, -1 is set for that record index.
-     * @param {TableField} leftField - left table field
-     * @param {TableField} rightField - right table field
-     * @param {String} type - either 'inner' or 'outer'.
-     * @returns {Number[][]} - first index is record ID of left table, second index is a list of the matching record ID's in right table.
-     */
-    static leftRightJoin(leftField, rightField, type) {
-        const leftRecordsIDs = [];
-
-        //  First record is the column title.
-        leftRecordsIDs.push([0]);
-
-        /** @type {any[][]} */
-        const leftTableData = leftField.tableInfo.tableData;
-        const leftTableCol = leftField.tableColumn;
-
-        rightField.tableInfo.addIndex(rightField.fieldName);
-        const searchFieldCol = rightField.tableInfo.getFieldColumn(rightField.fieldName);
-        const searchName = rightField.fieldName.trim().toUpperCase();
-
-        for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
-            let keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
-            if (keyMasterJoinField !== null) {
-                keyMasterJoinField = keyMasterJoinField.toString();
-            }
-            const joinRows =  searchFieldCol === -1 ? [] : rightField.tableInfo.search(searchName, keyMasterJoinField);
-
-            //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
-            if (joinRows.length === 0) {
-                if (type === "inner")
-                    continue;
-
-                leftRecordsIDs[leftTableRecordNum] = [-1];
-            }
-            else {
-                //  Excludes all match recordgs (is outer the right word for this?)
-                if (type === "outer")
-                    continue;
-
-                leftRecordsIDs[leftTableRecordNum] = joinRows;
-            }
-        }
-
-        return leftRecordsIDs;
-    }
-}
-
 /**  The JOIN creates a new logical table. */
 class DerivedTable {
     constructor() {
@@ -3386,6 +3062,8 @@ class SqlServerFunctions {
         this.originalFunctionString = "";
         /** @property {Boolean} - when working on each WHEN/THEN in CASE, is this the first one encountered. */
         this.firstCase = true;
+        /** @type {String[]} */
+        this.referencedTableColumns = [];
 
         let functionString = SelectTables.toUpperCaseExceptQuoted(calculatedFormula);
 
@@ -3399,113 +3077,11 @@ class SqlServerFunctions {
                 const parms = typeof args[1] === 'undefined' ? [] : SelectTables.parseForParams(args[1]);
 
                 let replacement = "";
-                switch (func) {
-                    case "ABS":
-                        replacement = `Math.abs(${parms[0]})`;
-                        break;
-                    case "CASE":
-                        replacement = this.caseWhen(args);
-                        break;
-                    case "CEILING":
-                        replacement = `Math.ceil(${parms[0]})`;
-                        break;
-                    case "CHARINDEX":
-                        replacement = SqlServerFunctions.charIndex(parms);
-                        break;
-                    case "COALESCE":
-                        replacement = SqlServerFunctions.coalesce(parms);
-                        break;
-                    case "CONCAT":
-                        replacement = SqlServerFunctions.concat(parms, masterFields);
-                        break;
-                    case "CONCAT_WS":
-                        replacement = SqlServerFunctions.concat_ws(parms, masterFields);
-                        break;
-                    case "CONVERT":
-                        replacement = SqlServerFunctions.convert(parms);
-                        break;
-                    case "DAY":
-                        replacement = `new Date(${parms[0]}).getDate()`;
-                        break;
-                    case "FLOOR":
-                        replacement = `Math.floor(${parms[0]})`;
-                        break;
-                    case "IF":
-                        {
-                            const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
-                            replacement = `${ifCond} ? ${parms[1]} : ${parms[2]};`;
-                            break;
-                        }
-                    case "LEFT":
-                        replacement = `${parms[0]}.substring(0,${parms[1]})`;
-                        break;
-                    case "LEN":
-                    case "LENGTH":
-                        replacement = `${parms[0]}.length`;
-                        break;
-                    case "LOG":
-                        replacement = `Math.log2(${parms[0]})`;
-                        break;
-                    case "LOG10":
-                        replacement = `Math.log10(${parms[0]})`;
-                        break;
-                    case "LOWER":
-                        replacement = `${parms[0]}.toLowerCase()`;
-                        break;
-                    case "LTRIM":
-                        replacement = `${parms[0]}.trimStart()`;
-                        break;
-                    case "MONTH":
-                        replacement = `new Date(${parms[0]}).getMonth() + 1`;
-                        break;
-                    case "NOW":
-                        replacement = "new Date().toLocaleString()";
-                        break;
-                    case "POWER":
-                        replacement = `Math.pow(${parms[0]},${parms[1]})`;
-                        break;
-                    case "RAND":
-                        replacement = "Math.random()";
-                        break;
-                    case "REPLICATE":
-                        replacement = `${parms[0]}.toString().repeat(${parms[1]})`;
-                        break;
-                    case "REVERSE":
-                        replacement = `${parms[0]}.toString().split("").reverse().join("")`;
-                        break;
-                    case "RIGHT":
-                        replacement = `${parms[0]}.toString().slice(${parms[0]}.length - ${parms[1]})`;
-                        break;
-                    case "ROUND":
-                        replacement = `Math.round(${parms[0]})`;
-                        break;
-                    case "RTRIM":
-                        replacement = `${parms[0]}.toString().trimEnd()`;
-                        break;
-                    case "SPACE":
-                        replacement = `' '.repeat(${parms[0]})`;
-                        break;
-                    case "STUFF":
-                        replacement = `${parms[0]}.toString().substring(0,${parms[1]}-1) + ${parms[3]} + ${parms[0]}.toString().substring(${parms[1]} + ${parms[2]} - 1)`;
-                        break;
-                    case "SUBSTR":
-                    case "SUBSTRING":
-                        replacement = `${parms[0]}.toString().substring(${parms[1]} - 1, ${parms[1]} + ${parms[2]} - 1)`;
-                        break;
-                    case "SQRT":
-                        replacement = `Math.sqrt(${parms[0]})`;
-                        break;
-                    case "TRIM":
-                        replacement = `${parms[0]}.toString().trim()`;
-                        break;
-                    case "UPPER":
-                        replacement = `${parms[0]}.toString().toUpperCase()`;
-                        break;
-                    case "YEAR":
-                        replacement = `new Date(${parms[0]}).getFullYear()`;
-                        break;
-                    default:
-                        throw new Error(`Internal Error. Function is missing. ${func}`);
+                try {
+                    replacement = this[func.toLocaleLowerCase()](parms, args, masterFields);
+                }
+                catch(ex) {
+                    throw new Error(`Internal Error. Function is missing. ${func}`);
                 }
 
                 functionString = functionString.replace(args[0], replacement);
@@ -3518,6 +3094,146 @@ class SqlServerFunctions {
 
         return functionString;
     }
+
+    getReferencedColumns() {
+        return this.referencedTableColumns;
+    }
+
+    //  START SQL SUPPORTED FUNCTIONS
+    //  Supported SQL functions entered here!!.  If a new function is to be added, add a new function below
+    //  which returns a STRING that can be executed as a Javascript statement.
+    abs(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `Math.abs(${parms[0]})`;
+    }
+    case(parms, args) {
+        return this.caseWhen(args);
+    }
+    ceiling(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `Math.ceil(${parms[0]})`;
+    }
+    charindex(parms) {
+        return SqlServerFunctions.charIndex(parms);
+    }
+    coalesce(parms) {
+        return SqlServerFunctions.coalesce(parms);
+    }
+    concat(parms, args, masterFields) {
+        return SqlServerFunctions.concat(parms, masterFields);
+    }
+    concat_ws(parms, args, masterFields) {
+        return SqlServerFunctions.concat_ws(parms, masterFields);
+    }
+    convert(parms) {
+        return SqlServerFunctions.convert(parms);
+    }
+    day(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `new Date(${parms[0]}).getDate()`;
+    }
+    floor(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return`Math.floor(${parms[0]})`;
+    }
+    if(parms) 
+        {
+            const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
+            return `${ifCond} ? ${parms[1]} : ${parms[2]};`;
+        }
+    left(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.substring(0,${parms[1]})`;
+    }
+    len(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.length`;
+    }
+    length(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.length`;
+    }
+    log(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `Math.log2(${parms[0]})`;
+    }
+    log10(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `Math.log10(${parms[0]})`;
+    }
+    lower(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.toLowerCase()`;
+    }
+    ltrim(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.trimStart()`;
+    }
+    month(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `new Date(${parms[0]}).getMonth() + 1`;
+    }
+    now(parms) {
+        return "new Date().toLocaleString()";
+    }
+    power(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `Math.pow(${parms[0]},${parms[1]})`;
+    }
+    rand(parms) {
+        return "Math.random()";
+    }
+    replicate(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.toString().repeat(${parms[1]})`;
+    }
+    reverse(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.toString().split("").reverse().join("")`;
+    }
+    right(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return  `${parms[0]}.toString().slice(${parms[0]}.length - ${parms[1]})`;
+    }
+    round(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `Math.round(${parms[0]})`;
+    }
+    rtrim(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.toString().trimEnd()`;
+    }
+    space(parms) {
+        return `' '.repeat(${parms[0]})`;
+    }
+    stuff(parms) {
+        return `${parms[0]}.toString().substring(0,${parms[1]}-1) + ${parms[3]} + ${parms[0]}.toString().substring(${parms[1]} + ${parms[2]} - 1)`;
+    }
+    substr(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.toString().substring(${parms[1]} - 1, ${parms[1]} + ${parms[2]} - 1)`;
+    }
+    substring(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.toString().substring(${parms[1]} - 1, ${parms[1]} + ${parms[2]} - 1)`;
+    }
+    sqrt(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `Math.sqrt(${parms[0]})`;
+    }
+    trim(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.toString().trim()`;
+    }
+    upper(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `${parms[0]}.toString().toUpperCase()`;
+    }
+    year(parms) {
+        this.referencedTableColumns.push(parms[0]);
+        return `new Date(${parms[0]}).getFullYear()`;
+    }
+    //  END SQL SUPPORTED FUNCTIONS
 
     /**
      * Search for SELECT function arguments for specified 'func' only.  Special case for 'CASE'.  It breaks down one WHEN condition at a time.
@@ -4052,7 +3768,7 @@ class TableFields {
             else {
                 this.updateConstantAsSelected(selectedFieldParms);
                 nextColumnPosition++;
-            }           
+            }
         }
     }
 
@@ -4062,7 +3778,7 @@ class TableFields {
         //  If GROUP BY field is in our SELECT field list - we can ignore.
         if (selectedFieldParms.isTempField && fieldInfo.selectColumn !== -1)
             return;
-        
+
         if (selectedFieldParms.parsedField.aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
             //  A new SELECT field, not from existing.
             const newFieldInfo = new TableField();
@@ -4537,6 +4253,641 @@ class TableField {
         }
 
         return concatFields;
+    }
+}
+
+
+
+/** Handle the various JOIN table types. */
+class JoinTables {
+    constructor() {
+        this.joinTableIDs = new JoinTablesRecordIds(this);
+        this.tableFields = null;
+        this.bindVariables = null;
+        this.tableInfo = null;
+    }
+
+    /**
+     * 
+     * @param {Map<String,Table>} tableInfo - Map of table info.
+     * @returns {JoinTables}
+     */
+    setTableInfo(tableInfo) {
+        this.tableInfo = tableInfo;
+        this.joinTableIDs.setTableInfo(tableInfo);
+        return this;
+    }
+
+    /**
+     * 
+     * @param {TableFields} tableFields 
+     * @returns {JoinTables}
+     */
+    setTableFields(tableFields) {
+        this.tableFields = tableFields;
+        this.joinTableIDs.setTableFields(tableFields);
+        return this;
+    }
+
+    /**
+     * 
+     * @param {BindData} bindVariables - Bind variable data. 
+     * @returns {JoinTables}
+     */
+    setBindVariables(bindVariables) {
+        this.bindVariables = bindVariables;
+        this.joinTableIDs.setBindVariables(bindVariables);
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Table} primaryTableInfo 
+     * @returns {JoinTables}
+     */
+    setPrimaryTableInfo(primaryTableInfo) {
+        this.primaryTableInfo = primaryTableInfo;
+        this.joinTableIDs.setPrimaryTableInfo(primaryTableInfo);
+        return this;
+    }
+
+    /**
+     * Join the tables and create a derived table with the combined data from all.
+     * @param {Object} ast - AST list of tables to join.
+     */
+    load(ast) {
+        /** @property {DerivedTable} - result table after tables are joined */
+        this.derivedTable = new DerivedTable();
+
+        for (const joinTable of ast.JOIN) {
+            this.joinNextTable(joinTable, ast.FROM.table.toUpperCase());
+        }
+    }
+
+    /**
+     * Updates derived table with join to new table.
+     * @param {Object} astJoin
+     * @param {String} leftTableName
+     */
+    joinNextTable(astJoin, leftTableName) {
+        const recIds = this.joinCondition(astJoin, leftTableName);
+
+        const joinFieldsInfo = this.joinTableIDs.getJoinFieldsInfo();
+        this.derivedTable = JoinTables.joinTables(joinFieldsInfo, astJoin, recIds);
+
+        //  Field locations have changed to the derived table, so update our
+        //  virtual field list with proper settings.
+        this.tableFields.updateDerivedTableVirtualFields(this.derivedTable);
+    }
+
+    /**
+     *
+     * @param {Object} conditions
+     * @param {String} leftTableName
+     * @returns {Array}
+     */
+    joinCondition(conditions, leftTableName) {
+        let recIds = [];
+        const rightTableName = conditions.table;
+        const joinType = conditions.type;
+
+        if (typeof conditions.cond.logic === 'undefined')
+            recIds = this.resolveCondition("OR", [conditions], joinType, rightTableName, leftTableName);
+
+        else
+            recIds = this.resolveCondition(conditions.cond.logic, conditions.cond.terms, joinType, rightTableName, leftTableName);
+
+        return recIds;
+    }
+
+    /**
+     *
+     * @param {String} logic - AND, OR
+     * @param {Object} astConditions
+     * @param {String} joinType - inner, full, left, right
+     * @param {String} rightTableName - right join table.
+     * @param {String} leftTableName - left join table name
+     * @returns {Array}
+     */
+    resolveCondition(logic, astConditions, joinType, rightTableName, leftTableName) {
+        let leftIds = [];
+        let rightIds = [];
+        let resultsLeft = [];
+        let resultsRight = [];
+        this.joinTableIDs
+            .setLeftTableName(leftTableName)
+            .setRightTableName(rightTableName)
+            .setJoinType(joinType)
+            .setTableFields(this.tableFields);
+
+        for (const cond of astConditions) {
+            if (typeof cond.logic === 'undefined') {
+                [leftIds, rightIds] = this.joinTableIDs.getRecordIDs(cond);
+                resultsLeft.push(leftIds);
+                resultsRight.push(rightIds);
+            }
+            else {
+                [leftIds, rightIds] = this.resolveCondition(cond.logic, cond.terms, joinType, rightTableName, leftTableName);
+                resultsLeft.push(leftIds);
+                resultsRight.push(rightIds);
+            }
+        }
+
+        if (logic === "AND") {
+            resultsLeft = JoinTables.andJoinIds(resultsLeft);
+            resultsRight = JoinTables.andJoinIds(resultsRight);
+        }
+        if (logic === "OR") {
+            resultsLeft = JoinTables.orJoinIds(resultsLeft);
+            resultsRight = JoinTables.orJoinIds(resultsRight);
+        }
+
+        return [resultsLeft, resultsRight];
+    }
+
+    /**
+     * AND logic applied to the record ID's
+     * @param {Array} recIds
+     * @returns {Array}
+     */
+    static andJoinIds(recIds) {
+        const result = [];
+
+        for (let i = 0; i < recIds[0].length; i++) {
+            const temp = [];
+
+            for (const rec of recIds) {
+                temp.push(typeof rec[i] === 'undefined' ? [] : rec[i]);
+            }
+            const row = temp.reduce((a, b) => a.filter(c => b.includes(c)));
+
+            if (row.length > 0) {
+                result[i] = row;
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * OR logic applied to the record ID's
+     * @param {Array} recIds
+     * @returns {Array}
+     */
+    static orJoinIds(recIds) {
+        const result = [];
+
+        for (let i = 0; i < recIds[0].length; i++) {
+            let temp = [];
+
+            for (const rec of recIds) {
+                temp = temp.concat(rec[i]);
+            }
+
+            if (typeof temp[0] !== 'undefined') {
+                result[i] = Array.from(new Set(temp));
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Does this object contain a derived (joined) table.
+     * @returns {Boolean}
+     */
+    isDerivedTable() {
+        if (typeof this.derivedTable === 'undefined') {
+            return false;
+        }
+
+        return this.derivedTable.isDerivedTable();
+    }
+
+    /**
+     * Get derived table after tables are joined.
+     * @returns {Table}
+     */
+    getJoinedTableInfo() {
+        return this.derivedTable.getTableData();
+    }
+
+    /**
+    * Join two tables and create a derived table that contains all data from both tables.
+    * @param {LeftRightJoinFields} leftRightFieldInfo - left table field of join
+    * @param {Object} joinTable - AST that contains join type.
+    * @param {Array} recIds
+    * @returns {DerivedTable} - new derived table after join of left and right tables.
+    */
+    static joinTables(leftRightFieldInfo, joinTable, recIds) {
+        let derivedTable = null;
+        let rightDerivedTable = null;
+
+        const [matchedRecordIDs, rightJoinRecordIDs] = recIds;
+
+        switch (joinTable.type) {
+            case "left":
+                derivedTable = new DerivedTable()
+                    .setLeftField(leftRightFieldInfo.leftSideInfo.fieldInfo)
+                    .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
+                    .setLeftRecords(matchedRecordIDs)
+                    .setIsOuterJoin(true)
+                    .createTable();
+                break;
+
+            case "inner":
+                derivedTable = new DerivedTable()
+                    .setLeftField(leftRightFieldInfo.leftSideInfo.fieldInfo)
+                    .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
+                    .setLeftRecords(matchedRecordIDs)
+                    .setIsOuterJoin(false)
+                    .createTable();
+                break;
+
+            case "right":
+                derivedTable = new DerivedTable()
+                    .setLeftField(leftRightFieldInfo.rightSideInfo.fieldInfo)
+                    .setRightField(leftRightFieldInfo.leftSideInfo.fieldInfo)
+                    .setLeftRecords(matchedRecordIDs)
+                    .setIsOuterJoin(true)
+                    .createTable();
+
+                break;
+
+            case "full":
+                derivedTable = new DerivedTable()
+                    .setLeftField(leftRightFieldInfo.leftSideInfo.fieldInfo)
+                    .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
+                    .setLeftRecords(matchedRecordIDs)
+                    .setIsOuterJoin(true)
+                    .createTable();
+
+                rightDerivedTable = new DerivedTable()
+                    .setLeftField(leftRightFieldInfo.rightSideInfo.fieldInfo)
+                    .setRightField(leftRightFieldInfo.leftSideInfo.fieldInfo)
+                    .setLeftRecords(rightJoinRecordIDs)
+                    .setIsOuterJoin(true)
+                    .createTable();
+
+                derivedTable.tableInfo.concat(rightDerivedTable.tableInfo); // skipcq: JS-D008
+
+                break;
+
+            default:
+                throw new Error(`Internal error.  No support for join type: ${joinTable.type}`);
+        }
+        return derivedTable;
+    }
+}
+
+class JoinTablesRecordIds {
+    constructor(joinTables) {
+        this.dataJoin = joinTables;
+        this.tableFields = null;
+        /** @type {LeftRightJoinFields} */
+        this.joinFields = null;
+        this.tableFields = null;
+        this.tableInfo = null;
+        this.bindVariables = null;
+        this.primaryTableInfo = null
+        /** @type {Table} */
+        this.masterTable = null;
+        this.rightTableName = "";
+        this.leftTableName = "";
+        this.joinType = "";
+    }
+
+    /**
+     *
+     * @param {Object} conditionAst
+     * @returns {Array}
+     */
+    getRecordIDs(conditionAst) {
+        /** @type {Table} */
+        this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.primaryTableInfo;
+        this.calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
+
+        this.joinFields = this.getLeftRightFieldInfo(conditionAst);
+        const recIds = this.getMatchedRecordIds();
+
+        return recIds;
+    }
+
+    /**
+     * 
+     * @param {TableFields} tableFields 
+     * @returns {JoinTablesRecordIds}
+     */
+    setTableFields(tableFields) {
+        this.tableFields = tableFields;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Map<String,Table>} tableInfo - Map of table info.
+     * @returns {JoinTablesRecordIds}
+     */
+    setTableInfo(tableInfo) {
+        this.tableInfo = tableInfo;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {BindData} bindVariables - Bind variable data. 
+     * @returns {JoinTablesRecordIds}
+     */
+    setBindVariables(bindVariables) {
+        this.bindVariables = bindVariables;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} name 
+     * @returns {JoinTablesRecordIds}
+     */
+    setRightTableName(name) {
+        this.rightTableName = name;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} name 
+     * @returns {JoinTablesRecordIds}
+     */
+    setLeftTableName(name) {
+        this.leftTableName = name;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} joinType 
+     * @returns {JoinTablesRecordIds}
+     */
+    setJoinType(joinType) {
+        this.joinType = joinType;
+        return this;
+    }
+
+    /**
+     * 
+     * @param {Table} primaryTableInfo 
+     * @returns {JoinTablesRecordIds}
+    */
+    setPrimaryTableInfo(primaryTableInfo) {
+        this.primaryTableInfo = primaryTableInfo;
+        return this;
+    }
+
+    /**
+     * 
+     * @returns {LeftRightJoinFields}
+     */
+    getJoinFieldsInfo() {
+        return this.joinFields;
+    }
+
+    /**
+     * @typedef {Object} LeftRightJoinFields
+     * @property {JoinSideInfo} leftSideInfo
+     * @property {JoinSideInfo} rightSideInfo
+     * 
+     */
+
+    /**
+     * @typedef {Object} JoinSideInfo
+     * @property {TableField} fieldInfo
+     * @property {String} column
+     */
+
+    /**
+     *
+     * @param {Object} astJoin
+     * @returns {LeftRightJoinFields}
+     */
+    getLeftRightFieldInfo(astJoin) {
+        /** @type {TableField} */
+        let leftFieldInfo = null;
+        /** @type {TableField} */
+        let rightFieldInfo = null;
+
+        let left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
+        let right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
+
+        leftFieldInfo = this.getTableInfoFromCalculatedField(left);
+        rightFieldInfo = this.getTableInfoFromCalculatedField(right);
+
+        /** @type {JoinSideInfo} */
+        let leftSideInfo = {
+            fieldInfo: leftFieldInfo,
+            column: left
+        };
+        /** @type {JoinSideInfo} */
+        let rightSideInfo = {
+            fieldInfo: rightFieldInfo,
+            column: right
+        }
+
+        //  joinTable.table is the RIGHT table, so switch if equal to condition left.
+        if (typeof leftFieldInfo !== 'undefined' && this.rightTableName === leftFieldInfo.originalTable) {
+            return this.swapInfo(leftSideInfo, rightSideInfo);
+        }
+
+        return { leftSideInfo, rightSideInfo };
+    }
+
+    /**
+     * 
+     * @param {JoinSideInfo} leftSideInfo 
+     * @param {JoinSideInfo} rightSideInfo 
+     * @returns {LeftRightJoinFields}
+     */
+    swapInfo(leftSideInfo, rightSideInfo) {
+        return {
+            leftSideInfo: rightSideInfo,
+            rightSideInfo: leftSideInfo
+        };
+    }
+
+    /**
+     * Look for referenced columns in expression to determine table.
+     * @param {String} calcField - Expression to parse.  
+     * @returns {TableField} - All SQL function parameters found.  It will include COLUMN names and constant data.
+     */
+    getTableInfoFromCalculatedField(calcField) {
+        let foundTableField = this.tableFields.getFieldInfo(calcField);
+
+        if (typeof foundTableField === 'undefined' && calcField !== '') {
+            //  Calculated expression.
+            foundTableField = this.getReferencedTableInfo(calcField);
+        }
+
+        return foundTableField;
+    }
+
+    /**
+     * 
+     * @param {String} calcField 
+     * @returns {TableField}
+     */
+    getReferencedTableInfo(calcField) {
+        let foundTableField = null;
+        const sqlFunc = new SqlServerFunctions();
+
+        //  A side effect when converting an expression to Javascript is that we have a list
+        //  of referenced column data (referenced in SQL functions)
+        sqlFunc.convertToJs(calcField, this.tableFields.allFields);
+        const columns = sqlFunc.getReferencedColumns();
+
+        foundTableField = this.searchColumnsForTable(calcField, columns);
+        if (foundTableField !== null)
+            return foundTableField;
+
+        //  No functions with parameters were used in 'calcField', so we don't know table yet.
+        //  We search the calcField for valid columns - except within quotes.
+        const quotedConstantsRegEx = /["'](.*?)["']/g;
+        const opRegEx = /[\+\-/*()]/g;
+        const results = calcField.replace(quotedConstantsRegEx, "");
+        let parts = results.split(opRegEx);
+        parts = parts.map(a => a.trim()).filter(a => a !== '');
+
+        foundTableField = this.searchColumnsForTable(calcField, parts);
+
+        if (foundTableField === null) {
+            throw new Error(`Failed to JOIN:  ${calcField}`);
+        }
+
+        return foundTableField;
+    }
+
+    /**
+     * 
+     * @param {String} calcField 
+     * @param {String[]} columns 
+     * @returns {TableField}
+     */
+    searchColumnsForTable(calcField, columns) {
+        let fieldInfo = null;
+        let foundTableField = null;
+
+        for (const col of columns) {
+            fieldInfo = this.tableFields.getFieldInfo(col);
+            if (typeof fieldInfo !== 'undefined') {
+                foundTableField = Object.assign({}, fieldInfo);
+                foundTableField.calculatedFormula = calcField;
+                return foundTableField;
+            }
+        }
+
+        return foundTableField;
+    }
+
+    /**
+     *
+     * @returns {Array}
+     */
+    getMatchedRecordIds() {
+        /** @type {Number[][]} */
+        let matchedRecordIDs = [];
+        let rightJoinRecordIDs = [];
+
+        switch (this.joinType) {
+            case "left":
+                matchedRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
+                break;
+            case "inner":
+                matchedRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
+                break;
+            case "right":
+                matchedRecordIDs = this.leftRightJoin(this.joinFields.rightSideInfo, this.joinFields.leftSideInfo, this.joinType);
+                break;
+            case "full":
+                matchedRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
+                rightJoinRecordIDs = this.leftRightJoin(this.joinFields.rightSideInfo, this.joinFields.leftSideInfo, "outer");
+                break;
+            default:
+                throw new Error(`Invalid join type: ${this.joinType}`);
+        }
+
+
+        return [matchedRecordIDs, rightJoinRecordIDs];
+    }
+
+    /**
+     * Returns array of each matching record ID from right table for every record in left table.
+     * If the right table entry could NOT be found, -1 is set for that record index.
+     * @param {JoinSideInfo} leftField - left table field
+     * @param {JoinSideInfo} rightField - right table field
+     * @param {String} type - either 'inner' or 'outer'.
+     * @returns {Number[][]} - first index is record ID of left table, second index is a list of the matching record ID's in right table.
+    */
+    leftRightJoin(leftField, rightField, type) {
+        const leftRecordsIDs = [];
+
+        //  First record is the column title.
+        leftRecordsIDs.push([0]);
+
+        const leftTableData = leftField.fieldInfo.tableInfo.tableData;
+        const leftTableCol = leftField.fieldInfo.tableColumn;
+
+        //  Map the RIGHT JOIN key to record numbers.
+        const keyFieldMap = this.createKeyFieldRecordMap(rightField);
+
+        let keyMasterJoinField;
+        for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
+            if (typeof leftTableCol !== 'undefined') {
+                keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
+            }
+            else {
+                keyMasterJoinField = this.calcSqlField.evaluateCalculatedField(leftField.column, leftTableRecordNum);
+            }
+
+            if (keyMasterJoinField !== null) {
+                keyMasterJoinField = keyMasterJoinField.toString();
+            }
+            const joinRows = !keyFieldMap.has(keyMasterJoinField) ? [] : keyFieldMap.get(keyMasterJoinField);
+
+            //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
+            if (joinRows.length === 0) {
+                if (type === "inner")
+                    continue;
+
+                leftRecordsIDs[leftTableRecordNum] = [-1];
+            }
+            else {
+                //  Excludes all match recordgs (is outer the right word for this?)
+                if (type === "outer")
+                    continue;
+
+                leftRecordsIDs[leftTableRecordNum] = joinRows;
+            }
+        }
+
+        return leftRecordsIDs;
+    }
+
+    /**
+     * 
+     * @param {JoinSideInfo} rightField 
+     * @returns {Map<String, Number[]>}
+     */
+    createKeyFieldRecordMap(rightField) {
+        let keyFieldMap = null;
+
+        if (typeof rightField.fieldInfo.tableColumn !== 'undefined') {
+            keyFieldMap = rightField.fieldInfo.tableInfo.createKeyFieldRecordMap(rightField.fieldInfo.fieldName);
+        }
+        else {
+            //  We have to evalulate the expression for every record and put into the key map (with record ID's)
+            const rightSideCalculator = new CalculatedField(rightField.fieldInfo.tableInfo, rightField.fieldInfo.tableInfo, this.tableFields);
+            keyFieldMap = rightField.fieldInfo.tableInfo.createCalcFieldRecordMap(rightSideCalculator, rightField.fieldInfo.calculatedFormula);
+        }
+
+        return keyFieldMap;
     }
 }
 
@@ -5628,7 +5979,7 @@ class SelectKeywordAnalysis {
                     alias = subStr.substring(1, subStr.length - 1);
 
                 //  Remove everything after 'AS'.
-                realName = item.substring(0, lastAs);
+                realName = item.substring(0, lastAs).trim();
             }
         }
 

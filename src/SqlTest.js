@@ -1,6 +1,6 @@
 /*  *** DEBUG START ***  
 //  Remove comments for testing in NODE
-import { Sql, gasSQL as GasSql, gsSQL } from './Sql.js';
+import { Sql, GasSql, gsSQL } from './Sql.js';
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
 export { CacheService };
@@ -10,6 +10,8 @@ export { Range };
 export { Utilities };
 export { Logger };
 export { PropertiesService };
+export { SqlTester };
+export { TestSql };
 
 //  GAS Mock Ups.
 class CacheService {
@@ -153,13 +155,29 @@ class SpreadsheetApp {
         return dataRange.getMockData() === null ? null : dataRange;
     }
 
-    // @param {String} sheetTabName 
-    //  @returns {Sheet}
     getSheetByName(sheetTabName) {
         let sheetObj = new Sheet(sheetTabName);
         if (sheetObj.getSheetValues(1, 1, 1, 1) === null)
             return null;
         return sheetObj;
+    }
+
+    static getUi() {
+        return new Ui();
+    }
+}
+
+class Ui {
+    createMenu(name) {
+        return this;
+    }
+
+    addItem(dest, func) {
+        return this;
+    }
+
+    addToUi() {
+        return this;
     }
 }
 
@@ -194,10 +212,15 @@ class Sheet {
                 return null;
         }
     }
+
+
+    getRange(row, col, numRows, numCols) {
+        return new Range();
+    }
 }
 
 class Range {
-    constructor(tableNameRange) {
+    constructor(tableNameRange = "") {
         this.tableNameRange = tableNameRange;
     }
 
@@ -207,6 +230,38 @@ class Range {
 
     getValue() {
         return this.getMockData()
+    }
+
+    clearContent() {
+        return this;
+    }
+
+    clearFormat() {
+        return this;
+    }
+
+    clear() {
+        return this;
+    }
+
+    setValues(values) {
+        return this;
+    }
+
+    setFontWeight(font) {
+        return this;
+    }
+
+    setFormula(formula) {
+        return this;
+    }
+
+    setBackground(background) {
+        return this;
+    }
+
+    setFormulas(formulas) {
+        return this;
     }
 
     //  Set data to be returned for any named range tested.
@@ -238,6 +293,10 @@ class Utilities {
         while (new Date().getTime() - startTime < waitMs) {
             //  waiting...
         }
+    }
+
+    static formatDate(srcDate, option, format) {
+        return srcDate;
     }
 }
 
@@ -279,7 +338,7 @@ function onOpen() {
 
     // This line calls the SpreadsheetApp and gets its UI   
     // Or DocumentApp or FormApp.
-    var ui = SpreadsheetApp.getUi();
+    const ui = SpreadsheetApp.getUi();
 
     //These lines create the menu items and 
     // tie them to functions we will write in Apps Script
@@ -400,14 +459,8 @@ class TestSql extends Sql {
         let bindings = [...super.getBindData()];
         let tables = super.getTables();
         let generateColumnTitles = super.areColumnTitlesOutput();
-        let data = [];
 
-        try {
-            data = super.execute(stmt);
-        }
-        catch (ex) {
-            throw ex;
-        }
+        const data = super.execute(stmt);
 
         let test = new TestedStatements(stmt, bindings, data, tables, generateColumnTitles);
 
@@ -1139,6 +1192,36 @@ class SqlTester {
         ["9", "Book with Mysterious Author", "Evans", "23"]];
 
         return this.isEqual("rightJoin1", data, expected);
+    }
+
+    rightJoin1a() {
+        let stmt = "SELECT books.id, books.title, editors.last_name, editors.id  " +
+            "FROM books " +
+            "right join editors on  editors.id = books.editor_id " +
+            "ORDER BY books.id";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("editors", this.editorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["books.id", "books.title", "editors.last_name", "editors.id"],
+        [null, null, "Smart", "13"],
+        [null, null, "Jones", "26"],
+        [null, null, "Smith", "27"],
+        [null, null, "Dumb", "50"],
+        [null, null, "Smart", "51"],
+        ["1", "Time to Grow Up!", "Brown", "21"],
+        ["2", "Your Trip", "Johnson", "22"],
+        ["3", "Lovely Love", "Roberts", "24"],
+        ["4", "Dream Your Life", "Roberts", "24"],
+        ["5", "Oranges", "Wright", "25"],
+        ["6", "Your Happy Life", "Johnson", "22"],
+        ["7", "Applied AI", "Evans", "23"],
+        ["9", "Book with Mysterious Author", "Evans", "23"]];
+
+        return this.isEqual("rightJoin1a", data, expected);
     }
 
     rightJoin2() {
@@ -3364,38 +3447,101 @@ class SqlTester {
         return this.isEqual("selectJoinMultipleConditions", data, expected);
     }
 
-    selectJoinMultipleConditions2() {
-        let stmt = "select * from booksales inner join bookreturns on booksales.book_id = bookreturns.book_id and booksales.quantity < 10";
+    selectJoinOnExpression1() {
+        let stmt = "select invoice, name from booksales inner join customers on substr(booksales.customer_id, 2, 1) = substr(customers.id, 2, 1)";
 
         let data = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
-            .addTableData("bookreturns", this.bookReturnsTable())
+            .addTableData("customers", this.customerTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "BOOKRETURNS.RMA", "BOOKRETURNS.BOOK_ID", "BOOKRETURNS.CUSTOMER_ID", "BOOKRETURNS.QUANTITY", "BOOKRETURNS.PRICE", "BOOKRETURNS.DATE"],
-        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "Rma001", "9", "c1", 10, 34.95, "05/01/2022"],
-        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "RMA040", "9", "c3", 1, 59.99, "05/02/2022"],
-        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "rma020", "8", "c2", 3, 29.95, "05/01/2022"],
-        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
-        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "RMA900", "7", "c1", 1, 33.97, "05/04/2022"],
-        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "rma1010", "7", "c2", 100, 17.99, "05/04/2022"],
-        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "RMA040", "9", "c3", 1, 59.99, "05/02/2022"],
-        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "rma005", "1", "c1", 1, 90, "05/02/2022"],
-        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "Rma001", "9", "c1", 10, 34.95, "05/01/2022"],
-        ["I7203", "1", "", 1, 90, "05/02/2022", "RMA040", "9", "c3", 1, 59.99, "05/02/2022"],
-        ["I7203", "1", "", 1, 90, "05/02/2022", "rma005", "1", "c1", 1, 90, "05/02/2022"],
-        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "RMA600", "2", "c4", 100, 65.49, "05/03/2022"],
-        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "Rma701", "3", "c4", 150, 24.95, "05/03/2022"],
-        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "RmA800", "4", "c4", 50, 19.99, "05/03/2022"],
-        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "RMA900", "7", "c1", 1, 33.97, "05/04/2022"],
-        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
-        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "rma1010", "7", "c2", 100, 17.99, "05/04/2022"],
-        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "rma1010", "7", "c2", 100, 17.99, "05/04/2022"],
-        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "rmA030", "7", "c2", 5, 18.99, "05/01/2022"],
-        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "RMA900", "7", "c1", 1, 33.97, "05/04/2022"]];
+        let expected = [["invoice", "name"],
+        ["I7200", "Numereo Uno"],
+        ["I7201", "Dewy Tuesdays"],
+        ["I7201", "Dewy Tuesdays"],
+        ["I7202", "Tres Buon Goods"],
+        ["I7204", "ForMe Resellers"],
+        ["I7204", "ForMe Resellers"],
+        ["I7204", "ForMe Resellers"],
+        ["I7205", "Numereo Uno"],
+        ["I7206", "Dewy Tuesdays"]];
+
+        return this.isEqual("selectJoinOnExpression1", data, expected);
+    }
+
+
+    selectJoinMultipleConditions2() {
+        let stmt = "select invoice, name, title from customers inner join booksales on booksales.customer_id = customers.id join books on books.id = booksales.book_id";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("customers", this.customerTable())
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["invoice", "name", "title"],
+        ["I7200", "Numereo Uno", "Book with Mysterious Author"],
+        ["I7205", "Numereo Uno", "Applied AI"],
+        ["I7201", "Dewy Tuesdays", "My Last Book"],
+        ["I7201", "Dewy Tuesdays", "Applied AI"],
+        ["I7206", "Dewy Tuesdays", "Applied AI"],
+        ["I7202", "Tres Buon Goods", "Book with Mysterious Author"],
+        ["I7204", "ForMe Resellers", "Your Trip"],
+        ["I7204", "ForMe Resellers", "Lovely Love"],
+        ["I7204", "ForMe Resellers", "Dream Your Life"]];
 
         return this.isEqual("selectJoinMultipleConditions2", data, expected);
+    }
+
+    selectJoinOnExpression2() {
+        let stmt = "select invoice, name, title from customers inner join booksales on substr(booksales.customer_id, 2, 1) = substr(customers.id, 2, 1) join books on books.id = booksales.book_id";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("customers", this.customerTable())
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["invoice", "name", "title"],
+        ["I7200", "Numereo Uno", "Book with Mysterious Author"],
+        ["I7205", "Numereo Uno", "Applied AI"],
+        ["I7201", "Dewy Tuesdays", "My Last Book"],
+        ["I7201", "Dewy Tuesdays", "Applied AI"],
+        ["I7206", "Dewy Tuesdays", "Applied AI"],
+        ["I7202", "Tres Buon Goods", "Book with Mysterious Author"],
+        ["I7204", "ForMe Resellers", "Your Trip"],
+        ["I7204", "ForMe Resellers", "Lovely Love"],
+        ["I7204", "ForMe Resellers", "Dream Your Life"]];
+
+        return this.isEqual("selectJoinOnExpression2", data, expected);
+    }
+
+
+    selectJoinOnExpression3() {
+        let stmt = "select invoice, name, title from customers inner join booksales on 'BB' + substr(booksales.customer_id, 2, 1) = 'BB' + substr(customers.id, 2, 1) join books on 'CC' + books.id = 'CC' + booksales.book_id";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("customers", this.customerTable())
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["invoice", "name", "title"],
+        ["I7200", "Numereo Uno", "Book with Mysterious Author"],
+        ["I7205", "Numereo Uno", "Applied AI"],
+        ["I7201", "Dewy Tuesdays", "My Last Book"],
+        ["I7201", "Dewy Tuesdays", "Applied AI"],
+        ["I7206", "Dewy Tuesdays", "Applied AI"],
+        ["I7202", "Tres Buon Goods", "Book with Mysterious Author"],
+        ["I7204", "ForMe Resellers", "Your Trip"],
+        ["I7204", "ForMe Resellers", "Lovely Love"],
+        ["I7204", "ForMe Resellers", "Dream Your Life"]];
+
+        return this.isEqual("selectJoinOnExpression3", data, expected);
     }
 
     selectJoinLeftRightSwitchedInCondition() {
@@ -3802,10 +3948,15 @@ class SqlTester {
     }
 
     testTableData2() {
-        let data = gsSQL("select * from authors", "authors", this.authorsTable(), "editors", this.editorsTable(), true);
-        data = gsSQL("select * from authors", "authors", this.authorsTable(), "editors", this.editorsTable());
+        let result = true;
 
-        return true;
+        let data = gsSQL("select id, first_name, last_name from authors", "authors", this.authorsTable(), "editors", this.editorsTable(), true);
+        result = result && this.isEqual("testTableData2.a", data, this.authorsTable());
+
+        data = gsSQL("select id, first_name, last_name from authors", "authors", this.authorsTable(), "editors", this.editorsTable());
+        result = result && this.isEqual("testTableData2.b", data, this.authorsTable());
+
+        return result;
     }
 
     testTableData() {
@@ -4168,6 +4319,46 @@ class SqlTester {
         return this.isFail("badJoin3", ex);
     }
 
+
+    badJoin4() {
+        let stmt = "select invoice, name from booksales inner join customers on substr(booksales.nonExistingColumn, 2, 1) = substr(customers.id, 2, 1)";
+
+        let testSQL = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badJoin4", ex);
+    }
+
+    badJoin5() {
+        let stmt = "select invoice, name, title from customers inner join booksales on 'BB' + substr(booksales.customer_id, 2, 1) = 'BB' + substr(customers.id, 2, 1) join books on 'CC' + books.badColumnName = 'CC' + booksales.book_id";
+ 
+        let testSQL = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badJoin5", ex);
+    }
+
     badOrderBy1() {
         let stmt = "select * from bookSales order by DATE DSC, customer_id asc";
 
@@ -4306,7 +4497,7 @@ class SqlTester {
     badParseTableSettings1() {
         let ex = "";
         try {
-            let data = GasSql.parseTableSettings([['authors', 'authorsNamedRange', true, 60, true], ['editors', 'editorsRange', 30], ['people']], "", false);
+            GasSql.parseTableSettings([['authors', 'authorsNamedRange', true, 60, true], ['editors', 'editorsRange', 30], ['people']], "", false);
         }
         catch (exceptionErr) {
             ex = exceptionErr;
@@ -4448,6 +4639,7 @@ function testerSql() {
     result = result && tester.joinLimit1();
     result = result && tester.leftJoin1();
     result = result && tester.rightJoin1();
+    result = result && tester.rightJoin1a();
     result = result && tester.rightJoin2();
     result = result && tester.fullJoin1();
     result = result && tester.fullJoin2();
@@ -4551,7 +4743,10 @@ function testerSql() {
     result = result && tester.selectFromSubQuery7();
     result = result && tester.selectConvertFunction();
     result = result && tester.selectJoinMultipleConditions();
-    // result = result && tester.selectJoinMultipleConditions2();
+    result = result && tester.selectJoinOnExpression1();
+    result = result && tester.selectJoinMultipleConditions2();
+    result = result && tester.selectJoinOnExpression2();
+    result = result && tester.selectJoinOnExpression3();
     result = result && tester.selectJoinLeftRightSwitchedInCondition();
     result = result && tester.selectJoinMultipleConditions3();
     result = result && tester.selectSingleQuoteDataWithCalculation();
@@ -4581,6 +4776,8 @@ function testerSql() {
     result = result && tester.badJoin1();
     result = result && tester.badJoin2();
     result = result && tester.badJoin3();
+    result = result && tester.badJoin4();
+    result = result && tester.badJoin5();
     result = result && tester.badOrderBy1();
     result = result && tester.badOrderBy2();
     result = result && tester.bindVariableMissing();

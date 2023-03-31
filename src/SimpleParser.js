@@ -1090,7 +1090,7 @@ class SelectKeywordAnalysis {
                     alias = subStr.substring(1, subStr.length - 1);
 
                 //  Remove everything after 'AS'.
-                realName = item.substring(0, lastAs);
+                realName = item.substring(0, lastAs).trim();
             }
         }
 
