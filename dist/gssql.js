@@ -2931,7 +2931,7 @@ class VirtualField {                        //  skipcq: JS-0128
 }
 
 /**  The JOIN creates a new logical table. */
-class DerivedTable {
+class DerivedTable {                     //  skipcq: JS-0128
     constructor() {
         /** @property {Table} */
         this.tableInfo = null;
@@ -3113,19 +3113,19 @@ class SqlServerFunctions {
         this.referencedTableColumns.push(parms[0]);
         return `Math.ceil(${parms[0]})`;
     }
-    charindex(parms) {
+    charindex(parms) {                          //  skipcq: JS-0105
         return SqlServerFunctions.charIndex(parms);
     }
-    coalesce(parms) {
+    coalesce(parms) {                           //  skipcq: JS-0105
         return SqlServerFunctions.coalesce(parms);
     }
-    concat(parms, args, masterFields) {
+    concat(parms, args, masterFields) {         //  skipcq: JS-0105
         return SqlServerFunctions.concat(parms, masterFields);
     }
-    concat_ws(parms, args, masterFields) {
+    concat_ws(parms, args, masterFields) {      //  skipcq: JS-0105
         return SqlServerFunctions.concat_ws(parms, masterFields);
     }
-    convert(parms) {
+    convert(parms) {                            //  skipcq: JS-0105
         return SqlServerFunctions.convert(parms);
     }
     day(parms) {
@@ -3137,7 +3137,7 @@ class SqlServerFunctions {
         return`Math.floor(${parms[0]})`;
     }
     if(parms) 
-        {
+        {                                       //  skipcq: JS-0105
             const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
             return `${ifCond} ? ${parms[1]} : ${parms[2]};`;
         }
@@ -3173,14 +3173,14 @@ class SqlServerFunctions {
         this.referencedTableColumns.push(parms[0]);
         return `new Date(${parms[0]}).getMonth() + 1`;
     }
-    now(parms) {
+    now() {                                     //  skipcq: JS-0105
         return "new Date().toLocaleString()";
     }
     power(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `Math.pow(${parms[0]},${parms[1]})`;
     }
-    rand(parms) {
+    rand() {                                    //  skipcq: JS-0105
         return "Math.random()";
     }
     replicate(parms) {
@@ -3203,10 +3203,10 @@ class SqlServerFunctions {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.toString().trimEnd()`;
     }
-    space(parms) {
+    space(parms) {                                  //  skipcq: JS-0105
         return `' '.repeat(${parms[0]})`;
     }
-    stuff(parms) {
+    stuff(parms) {                                  //  skipcq: JS-0105
         return `${parms[0]}.toString().substring(0,${parms[1]}-1) + ${parms[3]} + ${parms[0]}.toString().substring(${parms[1]} + ${parms[2]} - 1)`;
     }
     substr(parms) {
@@ -3282,7 +3282,7 @@ class SqlServerFunctions {
             replacement += `${parm} !== '' ? ${parm} : `;
         }
 
-        replacement += `''`;
+        replacement += "''";
 
         return replacement;
     }
@@ -4259,7 +4259,7 @@ class TableField {
 
 
 /** Handle the various JOIN table types. */
-class JoinTables {
+class JoinTables {                                   //  skipcq: JS-0128
     constructor() {
         this.joinTableIDs = new JoinTablesRecordIds(this);
         this.tableFields = null;
@@ -4675,42 +4675,32 @@ class JoinTablesRecordIds {
         /** @type {TableField} */
         let rightFieldInfo = null;
 
-        let left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
-        let right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
+        const left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
+        const right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
 
         leftFieldInfo = this.getTableInfoFromCalculatedField(left);
         rightFieldInfo = this.getTableInfoFromCalculatedField(right);
 
         /** @type {JoinSideInfo} */
-        let leftSideInfo = {
+        const leftSideInfo = {
             fieldInfo: leftFieldInfo,
             column: left
         };
         /** @type {JoinSideInfo} */
-        let rightSideInfo = {
+        const rightSideInfo = {
             fieldInfo: rightFieldInfo,
             column: right
         }
 
         //  joinTable.table is the RIGHT table, so switch if equal to condition left.
         if (typeof leftFieldInfo !== 'undefined' && this.rightTableName === leftFieldInfo.originalTable) {
-            return this.swapInfo(leftSideInfo, rightSideInfo);
+            return {
+                leftSideInfo: rightSideInfo,
+                rightSideInfo: leftSideInfo
+            };
         }
 
         return { leftSideInfo, rightSideInfo };
-    }
-
-    /**
-     * 
-     * @param {JoinSideInfo} leftSideInfo 
-     * @param {JoinSideInfo} rightSideInfo 
-     * @returns {LeftRightJoinFields}
-     */
-    swapInfo(leftSideInfo, rightSideInfo) {
-        return {
-            leftSideInfo: rightSideInfo,
-            rightSideInfo: leftSideInfo
-        };
     }
 
     /**
@@ -4750,7 +4740,7 @@ class JoinTablesRecordIds {
         //  No functions with parameters were used in 'calcField', so we don't know table yet.
         //  We search the calcField for valid columns - except within quotes.
         const quotedConstantsRegEx = /["'](.*?)["']/g;
-        const opRegEx = /[\+\-/*()]/g;
+        const opRegEx = /[+\-/*()]/g;
         const results = calcField.replace(quotedConstantsRegEx, "");
         let parts = results.split(opRegEx);
         parts = parts.map(a => a.trim()).filter(a => a !== '');
@@ -4837,18 +4827,10 @@ class JoinTablesRecordIds {
         //  Map the RIGHT JOIN key to record numbers.
         const keyFieldMap = this.createKeyFieldRecordMap(rightField);
 
-        let keyMasterJoinField;
+        let keyMasterJoinField = null;
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
-            if (typeof leftTableCol !== 'undefined') {
-                keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
-            }
-            else {
-                keyMasterJoinField = this.calcSqlField.evaluateCalculatedField(leftField.column, leftTableRecordNum);
-            }
+            keyMasterJoinField = this.getJoinColumnData(leftField, leftTableRecordNum);
 
-            if (keyMasterJoinField !== null) {
-                keyMasterJoinField = keyMasterJoinField.toString();
-            }
             const joinRows = !keyFieldMap.has(keyMasterJoinField) ? [] : keyFieldMap.get(keyMasterJoinField);
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
@@ -4868,6 +4850,30 @@ class JoinTablesRecordIds {
         }
 
         return leftRecordsIDs;
+    }
+
+    /**
+     * 
+     * @param {JoinSideInfo} fieldInfo 
+     * @param {Number} recordNumber
+     * @returns {String}
+     */
+    getJoinColumnData(fieldInfo, recordNumber) {
+        let keyMasterJoinField = null;
+        const tableColumnNumber = fieldInfo.fieldInfo.tableColumn;
+
+        if (typeof tableColumnNumber !== 'undefined') {
+            keyMasterJoinField = fieldInfo.fieldInfo.tableInfo.tableData[recordNumber][tableColumnNumber];
+        }
+        else {
+            keyMasterJoinField = this.calcSqlField.evaluateCalculatedField(fieldInfo.column, recordNumber);
+        }
+
+        if (keyMasterJoinField !== null) {
+            keyMasterJoinField = keyMasterJoinField.toString();
+        }    
+
+        return keyMasterJoinField;
     }
 
     /**
@@ -6047,9 +6053,7 @@ class TableData {       //  skipcq: JS-0128
 
         Logger.log(`loadTableData: ${namedRange}. Seconds=${cacheSeconds}`);
 
-        let tempData = Table.removeEmptyRecordsAtEndOfTable(TableData.getValuesCached(namedRange, cacheSeconds));
-
-        return tempData;
+        return  Table.removeEmptyRecordsAtEndOfTable(TableData.getValuesCached(namedRange, cacheSeconds));
     }
 
     /**

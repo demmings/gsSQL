@@ -41,9 +41,7 @@ class TableData {       //  skipcq: JS-0128
 
         Logger.log(`loadTableData: ${namedRange}. Seconds=${cacheSeconds}`);
 
-        let tempData = Table.removeEmptyRecordsAtEndOfTable(TableData.getValuesCached(namedRange, cacheSeconds));
-
-        return tempData;
+        return  Table.removeEmptyRecordsAtEndOfTable(TableData.getValuesCached(namedRange, cacheSeconds));
     }
 
     /**

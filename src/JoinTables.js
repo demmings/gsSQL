@@ -10,7 +10,7 @@ export { JoinTables, JoinTablesRecordIds };
 
 
 /** Handle the various JOIN table types. */
-class JoinTables {
+class JoinTables {                                   //  skipcq: JS-0128
     constructor() {
         this.joinTableIDs = new JoinTablesRecordIds(this);
         this.tableFields = null;
@@ -426,42 +426,32 @@ class JoinTablesRecordIds {
         /** @type {TableField} */
         let rightFieldInfo = null;
 
-        let left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
-        let right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
+        const left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
+        const right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
 
         leftFieldInfo = this.getTableInfoFromCalculatedField(left);
         rightFieldInfo = this.getTableInfoFromCalculatedField(right);
 
         /** @type {JoinSideInfo} */
-        let leftSideInfo = {
+        const leftSideInfo = {
             fieldInfo: leftFieldInfo,
             column: left
         };
         /** @type {JoinSideInfo} */
-        let rightSideInfo = {
+        const rightSideInfo = {
             fieldInfo: rightFieldInfo,
             column: right
         }
 
         //  joinTable.table is the RIGHT table, so switch if equal to condition left.
         if (typeof leftFieldInfo !== 'undefined' && this.rightTableName === leftFieldInfo.originalTable) {
-            return this.swapInfo(leftSideInfo, rightSideInfo);
+            return {
+                leftSideInfo: rightSideInfo,
+                rightSideInfo: leftSideInfo
+            };
         }
 
         return { leftSideInfo, rightSideInfo };
-    }
-
-    /**
-     * 
-     * @param {JoinSideInfo} leftSideInfo 
-     * @param {JoinSideInfo} rightSideInfo 
-     * @returns {LeftRightJoinFields}
-     */
-    swapInfo(leftSideInfo, rightSideInfo) {
-        return {
-            leftSideInfo: rightSideInfo,
-            rightSideInfo: leftSideInfo
-        };
     }
 
     /**
@@ -501,7 +491,7 @@ class JoinTablesRecordIds {
         //  No functions with parameters were used in 'calcField', so we don't know table yet.
         //  We search the calcField for valid columns - except within quotes.
         const quotedConstantsRegEx = /["'](.*?)["']/g;
-        const opRegEx = /[\+\-/*()]/g;
+        const opRegEx = /[+\-/*()]/g;
         const results = calcField.replace(quotedConstantsRegEx, "");
         let parts = results.split(opRegEx);
         parts = parts.map(a => a.trim()).filter(a => a !== '');
@@ -588,18 +578,10 @@ class JoinTablesRecordIds {
         //  Map the RIGHT JOIN key to record numbers.
         const keyFieldMap = this.createKeyFieldRecordMap(rightField);
 
-        let keyMasterJoinField;
+        let keyMasterJoinField = null;
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
-            if (typeof leftTableCol !== 'undefined') {
-                keyMasterJoinField = leftTableData[leftTableRecordNum][leftTableCol];
-            }
-            else {
-                keyMasterJoinField = this.calcSqlField.evaluateCalculatedField(leftField.column, leftTableRecordNum);
-            }
+            keyMasterJoinField = this.getJoinColumnData(leftField, leftTableRecordNum);
 
-            if (keyMasterJoinField !== null) {
-                keyMasterJoinField = keyMasterJoinField.toString();
-            }
             const joinRows = !keyFieldMap.has(keyMasterJoinField) ? [] : keyFieldMap.get(keyMasterJoinField);
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
@@ -619,6 +601,30 @@ class JoinTablesRecordIds {
         }
 
         return leftRecordsIDs;
+    }
+
+    /**
+     * 
+     * @param {JoinSideInfo} fieldInfo 
+     * @param {Number} recordNumber
+     * @returns {String}
+     */
+    getJoinColumnData(fieldInfo, recordNumber) {
+        let keyMasterJoinField = null;
+        const tableColumnNumber = fieldInfo.fieldInfo.tableColumn;
+
+        if (typeof tableColumnNumber !== 'undefined') {
+            keyMasterJoinField = fieldInfo.fieldInfo.tableInfo.tableData[recordNumber][tableColumnNumber];
+        }
+        else {
+            keyMasterJoinField = this.calcSqlField.evaluateCalculatedField(fieldInfo.column, recordNumber);
+        }
+
+        if (keyMasterJoinField !== null) {
+            keyMasterJoinField = keyMasterJoinField.toString();
+        }    
+
+        return keyMasterJoinField;
     }
 
     /**
