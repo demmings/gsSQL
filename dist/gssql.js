@@ -3826,7 +3826,7 @@ class TableFields {
             .setSelectColumn(selectedFieldParms.nextColumnPosition)
             .setColumnName(selectedFieldParms.selField.name)
             .setColumnTitle(selectedFieldParms.columnTitle)
-            .setIsTempField(selectedFieldParms.isTempField);;
+            .setIsTempField(selectedFieldParms.isTempField);
 
         this.indexTableField(fieldInfo);
     }
@@ -4822,7 +4822,6 @@ class JoinTablesRecordIds {
         leftRecordsIDs.push([0]);
 
         const leftTableData = leftField.fieldInfo.tableInfo.tableData;
-        const leftTableCol = leftField.fieldInfo.tableColumn;
 
         //  Map the RIGHT JOIN key to record numbers.
         const keyFieldMap = this.createKeyFieldRecordMap(rightField);
@@ -5227,7 +5226,7 @@ class SqlParse {
     static analyzeParts(parts_order, parts) {
         const result = {};
         let j = 0;
-        parts_order.forEach(function (item, _key) {
+        parts_order.forEach(function (item) {
             const itemName = item.toUpperCase();
             j++;
             const part_result = SelectKeywordAnalysis.analyze(item, parts[j]);
@@ -5857,7 +5856,7 @@ class SelectKeywordAnalysis {
         const strParts = str.split(',');
         const pivotResult = [];
 
-        strParts.forEach((item, _key) => {
+        strParts.forEach((item) => {
             const pivotOn = /([\w.]+)/gi;
             const pivotData = pivotOn.exec(item);
             if (pivotData !== null) {

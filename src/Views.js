@@ -2154,7 +2154,7 @@ class TableFields {
             .setSelectColumn(selectedFieldParms.nextColumnPosition)
             .setColumnName(selectedFieldParms.selField.name)
             .setColumnTitle(selectedFieldParms.columnTitle)
-            .setIsTempField(selectedFieldParms.isTempField);;
+            .setIsTempField(selectedFieldParms.isTempField);
 
         this.indexTableField(fieldInfo);
     }

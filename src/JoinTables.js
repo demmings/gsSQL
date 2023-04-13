@@ -573,7 +573,6 @@ class JoinTablesRecordIds {
         leftRecordsIDs.push([0]);
 
         const leftTableData = leftField.fieldInfo.tableInfo.tableData;
-        const leftTableCol = leftField.fieldInfo.tableColumn;
 
         //  Map the RIGHT JOIN key to record numbers.
         const keyFieldMap = this.createKeyFieldRecordMap(rightField);
