@@ -1408,7 +1408,7 @@ class SqlServerFunctions {
                 try {
                     replacement = this[func.toLocaleLowerCase()](parms, args, masterFields);
                 }
-                catch(ex) {
+                catch (ex) {
                     throw new Error(`Internal Error. Function is missing. ${func}`);
                 }
 
@@ -1462,13 +1462,12 @@ class SqlServerFunctions {
     }
     floor(parms) {
         this.referencedTableColumns.push(parms[0]);
-        return`Math.floor(${parms[0]})`;
+        return `Math.floor(${parms[0]})`;
     }
-    if(parms) 
-        {                                       //  skipcq: JS-0105
-            const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
-            return `${ifCond} ? ${parms[1]} : ${parms[2]};`;
-        }
+    if(parms) {                                       //  skipcq: JS-0105
+        const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
+        return `${ifCond} ? ${parms[1]} : ${parms[2]};`;
+    }
     left(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.substring(0,${parms[1]})`;
@@ -1521,7 +1520,7 @@ class SqlServerFunctions {
     }
     right(parms) {
         this.referencedTableColumns.push(parms[0]);
-        return  `${parms[0]}.toString().slice(${parms[0]}.length - ${parms[1]})`;
+        return `${parms[0]}.toString().slice(${parms[0]}.length - ${parms[1]})`;
     }
     round(parms) {
         this.referencedTableColumns.push(parms[0]);

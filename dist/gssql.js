@@ -3080,7 +3080,7 @@ class SqlServerFunctions {
                 try {
                     replacement = this[func.toLocaleLowerCase()](parms, args, masterFields);
                 }
-                catch(ex) {
+                catch (ex) {
                     throw new Error(`Internal Error. Function is missing. ${func}`);
                 }
 
@@ -3134,13 +3134,12 @@ class SqlServerFunctions {
     }
     floor(parms) {
         this.referencedTableColumns.push(parms[0]);
-        return`Math.floor(${parms[0]})`;
+        return `Math.floor(${parms[0]})`;
     }
-    if(parms) 
-        {                                       //  skipcq: JS-0105
-            const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
-            return `${ifCond} ? ${parms[1]} : ${parms[2]};`;
-        }
+    if(parms) {                                       //  skipcq: JS-0105
+        const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
+        return `${ifCond} ? ${parms[1]} : ${parms[2]};`;
+    }
     left(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.substring(0,${parms[1]})`;
@@ -3193,7 +3192,7 @@ class SqlServerFunctions {
     }
     right(parms) {
         this.referencedTableColumns.push(parms[0]);
-        return  `${parms[0]}.toString().slice(${parms[0]}.length - ${parms[1]})`;
+        return `${parms[0]}.toString().slice(${parms[0]}.length - ${parms[1]})`;
     }
     round(parms) {
         this.referencedTableColumns.push(parms[0]);
@@ -5250,7 +5249,7 @@ class SqlParse {
         SqlParse.reorganizeJoins(result);
 
         if (typeof result.JOIN !== 'undefined') {
-            result.JOIN.forEach((item, key) => result.JOIN[key].cond = CondParser.parse(item.cond));
+            result.JOIN.forEach((item, key) => { result.JOIN[key].cond = CondParser.parse(item.cond) });
         }
 
         SqlParse.reorganizeUnions(result);
@@ -5756,36 +5755,44 @@ class SelectKeywordAnalysis {
         const selectParts = SelectKeywordAnalysis.protect_split(',', str);
         const selectResult = selectParts.filter(function (item) {
             return item !== '';
-        }).map(function (item) {
-            let order = "";
-            if (isOrderBy) {
-                const order_by = /^(.+?)(\s+ASC|DESC)?$/gi;
-                const orderData = order_by.exec(item);
-                if (orderData !== null) {
-                    order = typeof orderData[2] === 'undefined' ? "ASC" : SelectKeywordAnalysis.trim(orderData[2]);
-                    item = orderData[1].trim();
-                }
-            }
-
-            //  Is there a column alias?
-            const [name, as] = SelectKeywordAnalysis.getNameAndAlias(item);
-
-            const splitPattern = /[\s()*/%+-]+/g;
-            let terms = name.split(splitPattern);
-
-            if (terms !== null) {
-                const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
-                terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
-            }
-            if (name !== "*" && terms !== null && terms.length > 1) {
-                const subQuery = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
-                return { name, terms, as, subQuery, order };
-            }
-
-            return { name, as, order };
-        });
+        }).map(item => SelectKeywordAnalysis.extractSelectField(item, isOrderBy));
 
         return selectResult;
+    }
+
+    /**
+     * 
+     * @param {String} item 
+     * @param {Boolean} isOrderBy 
+     * @returns {Object}
+     */
+    static extractSelectField(item, isOrderBy) {
+        let order = "";
+        if (isOrderBy) {
+            const order_by = /^(.+?)(\s+ASC|DESC)?$/gi;
+            const orderData = order_by.exec(item);
+            if (orderData !== null) {
+                order = typeof orderData[2] === 'undefined' ? "ASC" : SelectKeywordAnalysis.trim(orderData[2]);
+                item = orderData[1].trim();
+            }
+        }
+
+        //  Is there a column alias?
+        const [name, as] = SelectKeywordAnalysis.getNameAndAlias(item);
+
+        const splitPattern = /[\s()*/%+-]+/g;
+        let terms = name.split(splitPattern);
+
+        if (terms !== null) {
+            const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
+            terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
+        }
+        if (name !== "*" && terms !== null && terms.length > 1) {
+            const subQuery = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
+            return { name, terms, as, subQuery, order };
+        }
+
+        return { name, as, order };
     }
 
     static FROM(str) {
