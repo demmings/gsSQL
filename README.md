@@ -36,6 +36,20 @@ Easy to learn and understand: the **SQL query** consists mainly of English state
 * For ongoing detailed posts regarding any of my custom functions, see my website:
   * https://demmings.github.io/
 
+<br>
+
+---
+
+# Example Use
+
+![Left Join Example](img/LeftJoinExample.png)
+
+Multiple Left Joins - try doing this using **QUERY** using built in Sheets functions!  See my test worksheet on **gsSqlTest** tab. (https://docs.google.com/spreadsheets/d/1Zmyk7a7u0xvICrxen-c0CdpssrLTkHwYx6XL00Tb1ws/edit?usp=sharing))
+
+<br>
+
+---
+
 </td>
 </tr>
 </table>
