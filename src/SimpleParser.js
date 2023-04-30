@@ -253,10 +253,18 @@ class SqlParse {
     static getPositionsOfSqlParts(modifiedQuery, parts_name) {
         // Write the position(s) in query of these separators
         const parts_order = [];
+
+        /**
+         * 
+         * @param {String} _match 
+         * @param {String} name 
+         * @returns {String}
+         */
         function realNameCallback(_match, name) {
             return name;
         }
-        parts_name.forEach(function (item) {
+        
+        parts_name.forEach(item => {
             let pos = 0;
             let part = 0;
 
@@ -284,7 +292,7 @@ class SqlParse {
      */
     static removeDuplicateEntries(parts_order) {
         let busy_until = 0;
-        parts_order.forEach(function (item, key) {
+        parts_order.forEach( (item, key) => {
             if (busy_until > key)
                 delete parts_order[key];
             else {
@@ -332,7 +340,7 @@ class SqlParse {
     static analyzeParts(parts_order, parts) {
         const result = {};
         let j = 0;
-        parts_order.forEach(function (item) {
+        parts_order.forEach(item => {
             const itemName = item.toUpperCase();
             j++;
             const part_result = SelectKeywordAnalysis.analyze(item, parts[j]);
@@ -392,7 +400,7 @@ class SqlParse {
         if (typeof result[joinName] !== 'undefined') {
             if (typeof result.JOIN === 'undefined') result.JOIN = [];
             if (typeof result[joinName][0] !== 'undefined') {
-                result[joinName].forEach(function (item) {
+                result[joinName].forEach(item => {
                     item.type = joinType;
                     result.JOIN.push(item);
                 });
@@ -424,6 +432,11 @@ class SqlParse {
         }
     }
 
+    /**
+     * 
+     * @param {String} inStr 
+     * @returns {String}
+     */
     static parseUnion(inStr) {
         let unionString = inStr;
         if (unionString.startsWith("(") && unionString.endsWith(")")) {
@@ -461,7 +474,10 @@ class CondLexer {
         }
     }
 
-    // Determine the next token
+    /**
+     * Determine the next token
+     * @returns {Object}
+     */
     readNextToken() {
         if (/\w/.test(this.currentChar))
             return this.readWord();
@@ -484,6 +500,10 @@ class CondLexer {
         return { type: 'empty', value: '' };
     }
 
+    /**
+     * 
+     * @returns {Object}
+     */
     readWord() {
         let tokenValue = "";
         this.bracketCount = 0;
@@ -561,6 +581,10 @@ class CondLexer {
         return this.currentChar === ' ' && this.bracketCount <= 0;
     }
 
+    /**
+     * 
+     * @returns {Object}
+     */
     readString() {
         let tokenValue = "";
         const quote = this.currentChar;
@@ -588,6 +612,10 @@ class CondLexer {
         return { type: 'string', value: tokenValue };
     }
 
+    /**
+     * 
+     * @returns {Object}
+     */
     readGroupSymbol() {
         const tokenValue = this.currentChar;
         this.readNextChar();
@@ -595,6 +623,10 @@ class CondLexer {
         return { type: 'group', value: tokenValue };
     }
 
+    /**
+     * 
+     * @returns {Object}
+     */
     readOperator() {
         let tokenValue = this.currentChar;
         this.readNextChar();
@@ -607,6 +639,10 @@ class CondLexer {
         return { type: 'operator', value: tokenValue };
     }
 
+    /**
+     * 
+     * @returns {Object}
+     */
     readMathOperator() {
         const tokenValue = this.currentChar;
         this.readNextChar();
@@ -614,6 +650,10 @@ class CondLexer {
         return { type: 'mathoperator', value: tokenValue };
     }
 
+    /**
+     * 
+     * @returns {Object}
+     */
     readBindVariable() {
         let tokenValue = this.currentChar;
         this.readNextChar();
@@ -636,12 +676,19 @@ class CondParser {
         this.readNextToken();
     }
 
-    // Parse a string
+    /**
+     * Parse a string
+     * @param {String} source 
+     * @returns {Object}
+     */
     static parse(source) {
         return new CondParser(source).parseExpressionsRecursively();
     }
 
-    // Read the next token (skip empty tokens)
+    /**
+     * Read the next token (skip empty tokens)
+     * @returns {Object}
+     */
     readNextToken() {
         this.currentToken = this.lexer.readNextToken();
         while (this.currentToken.type === 'empty')
@@ -649,12 +696,18 @@ class CondParser {
         return this.currentToken;
     }
 
-    // Wrapper function ; parse the source
+    /**
+     * Wrapper function ; parse the source
+     * @returns {Object}
+     */
     parseExpressionsRecursively() {
         return this.parseLogicalExpression();
     }
 
-    // Parse logical expressions (AND/OR)
+    /**
+     * Parse logical expressions (AND/OR)
+     * @returns {Object}
+     */
     parseLogicalExpression() {
         let leftNode = this.parseConditionExpression();
 
@@ -676,7 +729,10 @@ class CondParser {
         return leftNode;
     }
 
-    // Parse conditions ([word/string] [operator] [word/string])
+    /**
+     * Parse conditions ([word/string] [operator] [word/string])
+     * @returns {Object}
+     */
     parseConditionExpression() {
         let left = this.parseBaseExpression();
 
@@ -793,7 +849,6 @@ class CondParser {
 
                 inCurrentToken = this.currentToken;
             }
-
         }
 
         this.readNextToken();
@@ -831,6 +886,11 @@ class CondParser {
         return astNode;
     }
 
+    /**
+     * 
+     * @param {Object} inCurrentToken 
+     * @returns {Number}
+     */
     static groupBracketIncrementer(inCurrentToken) {
         let diff = 0;
         if (inCurrentToken.type === 'group') {
@@ -848,6 +908,12 @@ class CondParser {
 
 /** Analyze each distinct component of SELECT statement. */
 class SelectKeywordAnalysis {
+    /**
+     * 
+     * @param {String} itemName 
+     * @param {Object} part 
+     * @returns {any}
+     */
     static analyze(itemName, part) {
         const keyWord = itemName.toUpperCase().replace(/ /g, '_');
 
@@ -858,11 +924,20 @@ class SelectKeywordAnalysis {
         return SelectKeywordAnalysis[keyWord](part);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @param {Boolean} isOrderBy 
+     * @returns {Object[]}
+     */
     static SELECT(str, isOrderBy = false) {
         const selectParts = SelectKeywordAnalysis.protect_split(',', str);
-        const selectResult = selectParts.filter(function (item) {
-            return item !== '';
-        }).map(item => SelectKeywordAnalysis.extractSelectField(item, isOrderBy));
+        const selectResult = selectParts.filter( item => item !== '')
+            .map(item => SelectKeywordAnalysis.extractSelectField(item, isOrderBy));
+
+        if (selectResult.length === 0) {
+            throw new Error("No fields SELECTED.");
+        }
 
         return selectResult;
     }
@@ -902,6 +977,11 @@ class SelectKeywordAnalysis {
         return { name, as, order };
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object}
+     */
     static FROM(str) {
         const subqueryAst = this.parseForCorrelatedSubQuery(str);
         if (subqueryAst !== null) {
@@ -915,32 +995,58 @@ class SelectKeywordAnalysis {
             return subqueryAst;
         }
 
-        let fromResult = str.split(',');
+        let fromParts = str.split(',');
+        fromParts = fromParts.map(item => SelectKeywordAnalysis.trim(item));
 
-        fromResult = fromResult.map(item => SelectKeywordAnalysis.trim(item));
-        fromResult = fromResult.map(item => {
+        const fromResult = fromParts.map(item => {
             const [table, as] = SelectKeywordAnalysis.getNameAndAlias(item);
             return { table, as };
         });
+
         return fromResult[0];
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object}
+     */
     static LEFT_JOIN(str) {
         return SelectKeywordAnalysis.allJoins(str);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object}
+     */
     static INNER_JOIN(str) {
         return SelectKeywordAnalysis.allJoins(str);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object}
+     */
     static RIGHT_JOIN(str) {
         return SelectKeywordAnalysis.allJoins(str);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object}
+     */
     static FULL_JOIN(str) {
         return SelectKeywordAnalysis.allJoins(str);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object}
+     */
     static allJoins(str) {
         const subqueryAst = this.parseForCorrelatedSubQuery(str);
 
@@ -954,18 +1060,38 @@ class SelectKeywordAnalysis {
         return joinResult;
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object}
+     */
     static WHERE(str) {
         return CondParser.parse(str);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object[]}
+     */
     static ORDER_BY(str) {
         return SelectKeywordAnalysis.SELECT(str, true);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object[]}
+     */
     static GROUP_BY(str) {
         return SelectKeywordAnalysis.SELECT(str);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object[]}
+     */
     static PIVOT(str) {
         const strParts = str.split(',');
         const pivotResult = [];
@@ -984,6 +1110,11 @@ class SelectKeywordAnalysis {
         return pivotResult;
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object}
+     */
     static LIMIT(str) {
         const limitResult = {};
         limitResult.nb = Number(str);
@@ -991,22 +1122,47 @@ class SelectKeywordAnalysis {
         return limitResult;
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {Object}
+     */
     static HAVING(str) {
         return CondParser.parse(str);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {String}
+     */
     static UNION(str) {
         return SelectKeywordAnalysis.trim(str);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {String}
+     */
     static UNION_ALL(str) {
         return SelectKeywordAnalysis.trim(str);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {String}
+     */
     static INTERSECT(str) {
         return SelectKeywordAnalysis.trim(str);
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {String}
+     */
     static EXCEPT(str) {
         return SelectKeywordAnalysis.trim(str);
     }
@@ -1072,6 +1228,11 @@ class SelectKeywordAnalysis {
         return strParts;
     }
 
+    /**
+     * 
+     * @param {any} str 
+     * @returns {any}
+     */
     static trim(str) {
         if (typeof str === 'string')
             return str.trim();

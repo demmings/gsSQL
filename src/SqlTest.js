@@ -4160,6 +4160,24 @@ class SqlTester {
         return this.isFail("selectBadField4", ex);
     }
 
+    selectBadField5() {
+        let stmt = "SELECT from booksales group by invoice";
+
+        let testSQL = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadField5", ex);
+    }
+
     selectBadOp1() {
         let stmt = "SELECT  quantity, Sum(price) from booksales where price >>! 0 ";
 
@@ -4768,6 +4786,7 @@ function testerSql() {
     result = result && tester.selectBadField2();
     result = result && tester.selectBadField3();
     result = result && tester.selectBadField4();
+    result = result && tester.selectBadField5();
     result = result && tester.selectBadOp1();
     result = result && tester.selectBadAs1();
     result = result && tester.selectBadConstant1();
