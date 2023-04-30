@@ -263,7 +263,7 @@ class SqlParse {
         function realNameCallback(_match, name) {
             return name;
         }
-        
+
         parts_name.forEach(item => {
             let pos = 0;
             let part = 0;
@@ -292,7 +292,7 @@ class SqlParse {
      */
     static removeDuplicateEntries(parts_order) {
         let busy_until = 0;
-        parts_order.forEach( (item, key) => {
+        parts_order.forEach((item, key) => {
             if (busy_until > key)
                 delete parts_order[key];
             else {
@@ -721,8 +721,8 @@ class CondParser {
             if (typeof leftNode.logic !== 'undefined' && leftNode.logic === logic && typeof leftNode.terms !== 'undefined')
                 leftNode.terms.push(rightNode);
             else {
-                const terms = [leftNode, rightNode];
-                leftNode = { 'logic': logic, 'terms': terms.slice(0) };
+                const terms = [leftNode, rightNode].slice(0);
+                leftNode = { logic, terms };
             }
         }
 
@@ -932,7 +932,7 @@ class SelectKeywordAnalysis {
      */
     static SELECT(str, isOrderBy = false) {
         const selectParts = SelectKeywordAnalysis.protect_split(',', str);
-        const selectResult = selectParts.filter( item => item !== '')
+        const selectResult = selectParts.filter(item => item !== '')
             .map(item => SelectKeywordAnalysis.extractSelectField(item, isOrderBy));
 
         if (selectResult.length === 0) {
