@@ -2922,11 +2922,23 @@ class VirtualField {                        //  skipcq: JS-0128
      */
     constructor(fieldName, tableInfo, tableColumn) {
         /** @property {String} - field name */
-        this.fieldName = fieldName;
+        this._fieldName = fieldName;
         /** @property {Table} - table this field belongs to. */
-        this.tableInfo = tableInfo;
+        this._tableInfo = tableInfo;
         /** @property {Number} - column number of this field. */
-        this.tableColumn = tableColumn;
+        this._tableColumn = tableColumn;
+    }
+
+    get fieldName() {
+        return this._fieldName;
+    }
+
+    get tableInfo() {
+        return this._tableInfo;
+    }
+
+    get tableColumn() {
+        return this._tableColumn;
     }
 }
 
