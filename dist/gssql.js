@@ -2394,7 +2394,7 @@ class SelectTables {
 
     /**
      * Get constant bind data
-     * @param {Object} fieldCondition - left or right portion of condition
+     * @param {String} fieldCondition - left or right portion of condition
      * @returns {any}
      */
     resolveBindData(fieldCondition) {
@@ -2525,7 +2525,7 @@ class SelectTables {
         }
 
         // @ts-ignore
-        const expanded = "^" + rightValue.replace(/%/g, ".*").replace(/_/g, ".");
+        const expanded = `^${rightValue.replace(/%/g, ".*").replace(/_/g, ".")}`;
 
         const result = leftValue.search(expanded);
         return result !== -1;
@@ -3244,7 +3244,7 @@ class SqlServerFunctions {
         let args = [];
 
         if (func === "CASE")
-            args = functionString.match(this.matchCaseWhenThenStr);
+            args = this.matchCaseWhenThenStr.exec(functionString);
         else
             args = SelectTables.parseForFunctions(functionString, func);
 
@@ -3375,7 +3375,7 @@ class SqlServerFunctions {
         let caseString = functionString;
 
         if (func === "CASE") {
-            caseArguments = functionString.match(/CASE(.*?)END/i);
+            caseArguments = /CASE(.*?)END/i.exec(functionString);
 
             if (caseArguments !== null && caseArguments.length > 1) {
                 this.firstCase = true;
@@ -5053,7 +5053,7 @@ class SqlParse {
         // Define which words can act as separator
         const reg = SqlParse.makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
 
-        const matchedUnions = newStr.match(reg);
+        const matchedUnions = reg.exec(newStr);
         if (matchedUnions === null || matchedUnions.length === 0)
             return newStr;
 
@@ -5731,20 +5731,7 @@ class CondParser {
         if (operator === 'IN' || isSelectStatement) {
             astNode = this.parseSelectIn(astNode, isSelectStatement);
         }
-        else {
-            //  Are we within brackets of mathmatical expression ?
-            let inCurrentToken = this.currentToken;
-
-            while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
-                this.readNextToken();
-                if (inCurrentToken.type !== 'group') {
-                    astNode += ` ${inCurrentToken.value}`;
-                }
-
-                inCurrentToken = this.currentToken;
-            }
-        }
-
+        
         this.readNextToken();
 
         return astNode;
@@ -5752,7 +5739,7 @@ class CondParser {
 
     /**
      * 
-     * @param {Object} startAstNode 
+     * @param {any} startAstNode 
      * @param {Boolean} isSelectStatement 
      * @returns {Object}
      */

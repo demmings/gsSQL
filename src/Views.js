@@ -722,7 +722,7 @@ class SelectTables {
 
     /**
      * Get constant bind data
-     * @param {Object} fieldCondition - left or right portion of condition
+     * @param {String} fieldCondition - left or right portion of condition
      * @returns {any}
      */
     resolveBindData(fieldCondition) {
@@ -853,7 +853,7 @@ class SelectTables {
         }
 
         // @ts-ignore
-        const expanded = "^" + rightValue.replace(/%/g, ".*").replace(/_/g, ".");
+        const expanded = `^${rightValue.replace(/%/g, ".*").replace(/_/g, ".")}`;
 
         const result = leftValue.search(expanded);
         return result !== -1;
@@ -1572,7 +1572,7 @@ class SqlServerFunctions {
         let args = [];
 
         if (func === "CASE")
-            args = functionString.match(this.matchCaseWhenThenStr);
+            args = this.matchCaseWhenThenStr.exec(functionString);
         else
             args = SelectTables.parseForFunctions(functionString, func);
 
@@ -1703,7 +1703,7 @@ class SqlServerFunctions {
         let caseString = functionString;
 
         if (func === "CASE") {
-            caseArguments = functionString.match(/CASE(.*?)END/i);
+            caseArguments = /CASE(.*?)END/i.exec(functionString);
 
             if (caseArguments !== null && caseArguments.length > 1) {
                 this.firstCase = true;

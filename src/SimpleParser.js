@@ -159,7 +159,7 @@ class SqlParse {
         // Define which words can act as separator
         const reg = SqlParse.makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
 
-        const matchedUnions = newStr.match(reg);
+        const matchedUnions = reg.exec(newStr);
         if (matchedUnions === null || matchedUnions.length === 0)
             return newStr;
 
@@ -837,20 +837,7 @@ class CondParser {
         if (operator === 'IN' || isSelectStatement) {
             astNode = this.parseSelectIn(astNode, isSelectStatement);
         }
-        else {
-            //  Are we within brackets of mathmatical expression ?
-            let inCurrentToken = this.currentToken;
-
-            while (inCurrentToken.type !== 'group' && inCurrentToken.type !== 'eot') {
-                this.readNextToken();
-                if (inCurrentToken.type !== 'group') {
-                    astNode += ` ${inCurrentToken.value}`;
-                }
-
-                inCurrentToken = this.currentToken;
-            }
-        }
-
+        
         this.readNextToken();
 
         return astNode;
@@ -858,7 +845,7 @@ class CondParser {
 
     /**
      * 
-     * @param {Object} startAstNode 
+     * @param {any} startAstNode 
      * @param {Boolean} isSelectStatement 
      * @returns {Object}
      */
