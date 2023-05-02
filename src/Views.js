@@ -853,7 +853,7 @@ class SelectTables {
         }
 
         // @ts-ignore
-        const expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
+        const expanded = "^" + rightValue.replace(/%/g, ".*").replace(/_/g, ".");
 
         const result = leftValue.search(expanded);
         return result !== -1;
@@ -2258,8 +2258,9 @@ class TableFields {
 
                 //  When subquery table data becomes data for the derived table name, references to
                 //  original table names in column output needs to be changed to new derived table name.
-                if (columnTableNameReplacement !== null && columnOutput.startsWith(`${fld.originalTable}.`)) {
-                    columnOutput = columnOutput.replace(`${fld.originalTable}.`, `${columnTableNameReplacement}.`);
+                if (columnTableNameReplacement !== null) {
+                    const matchingTableIndex = columnOutput.toUpperCase().indexOf(`${fld.originalTable}.`);
+                    columnOutput = matchingTableIndex === 0 ? columnTableNameReplacement + columnOutput.slice(matchingTableIndex + fld.originalTable.length) : columnOutput;
                 }
                 columnTitles.push(columnOutput);
             }

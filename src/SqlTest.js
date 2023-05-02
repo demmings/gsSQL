@@ -3717,6 +3717,66 @@ class SqlTester {
         return this.isEqual("joinBigTables1", data.length, expected);
     }
 
+    selectWhereLike3() {
+        let stmt = "select id, title, author_id from books where title like 'Your%'";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["id", "title", "author_id"],
+        ["2", "Your Trip", "15"],
+        ["6", "Your Happy Life", "15"]];
+
+        return this.isEqual("selectWhereLike3", data, expected);
+    }
+
+    selectWhereLike4() {
+        let stmt = "select id, title, author_id from books where title like '%Your%'";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["id", "title", "author_id"],
+        ["2", "Your Trip", "15"],
+        ["4", "Dream Your Life", "11"],
+        ["6", "Your Happy Life", "15"]];
+
+        return this.isEqual("selectWhereLike4", data, expected);
+    }
+
+    selectFromSubQuery8() {
+        let stmt = "Select * from (select * from books where title like 'Your%') as mybooks";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["MYBOOKS.ID", "MYBOOKS.TITLE", "MYBOOKS.TYPE", "MYBOOKS.AUTHOR_ID", "MYBOOKS.EDITOR_ID", "MYBOOKS.TRANSLATOR_ID"],
+        ["2", "Your Trip", "translated", "15", "22", "32"],
+        ["6", "Your Happy Life", "translated", "15", "22", "33"]];
+
+        return this.isEqual("selectFromSubQuery8", data, expected);
+    }
+
+    selectFromSubQuery9() {
+        let stmt = "Select * from (select * from books where title = 'Your Happy Life') as mybooks";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["MYBOOKS.ID", "MYBOOKS.TITLE", "MYBOOKS.TYPE", "MYBOOKS.AUTHOR_ID", "MYBOOKS.EDITOR_ID", "MYBOOKS.TRANSLATOR_ID"],
+        ["6", "Your Happy Life", "translated", "15", "22", "33"]];
+
+        return this.isEqual("selectFromSubQuery9", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -4359,7 +4419,7 @@ class SqlTester {
 
     badJoin5() {
         let stmt = "select invoice, name, title from customers inner join booksales on 'BB' + substr(booksales.customer_id, 2, 1) = 'BB' + substr(customers.id, 2, 1) join books on 'CC' + books.badColumnName = 'CC' + booksales.book_id";
- 
+
         let testSQL = new TestSql()
             .addTableData("books", this.bookTable())
             .addTableData("booksales", this.bookSalesTable())
@@ -4776,6 +4836,10 @@ function testerSql() {
     //  This test causes problems on gsSqlTest sheet (too big)
     // result = result && tester.joinBigTables1();
     result = result && tester.removeTrailingEmptyRecords();
+    result = result && tester.selectWhereLike3();
+    result = result && tester.selectWhereLike4();
+    result = result && tester.selectFromSubQuery8();
+    result = result && tester.selectFromSubQuery9();
 
     Logger.log("============================================================================");
 

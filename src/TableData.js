@@ -258,7 +258,7 @@ class TableData {       //  skipcq: JS-0128
         //  Only change our CACHE STATUS if we have a lock.
         const lock = LockService.getScriptLock();
         try {
-            lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
+            lock.waitLock(100000); // wait 100 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) {
             throw new Error("Cache lock failed");
         }
@@ -357,7 +357,7 @@ class TableData {       //  skipcq: JS-0128
         //  Update status that cache is updated.
         const lock = LockService.getScriptLock();
         try {
-            lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
+            lock.waitLock(100000); // wait 100 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) {
             throw new Error("Cache lock failed");
         }

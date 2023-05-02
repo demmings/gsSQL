@@ -2525,7 +2525,7 @@ class SelectTables {
         }
 
         // @ts-ignore
-        const expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
+        const expanded = "^" + rightValue.replace(/%/g, ".*").replace(/_/g, ".");
 
         const result = leftValue.search(expanded);
         return result !== -1;
@@ -3930,8 +3930,9 @@ class TableFields {
 
                 //  When subquery table data becomes data for the derived table name, references to
                 //  original table names in column output needs to be changed to new derived table name.
-                if (columnTableNameReplacement !== null && columnOutput.startsWith(`${fld.originalTable}.`)) {
-                    columnOutput = columnOutput.replace(`${fld.originalTable}.`, `${columnTableNameReplacement}.`);
+                if (columnTableNameReplacement !== null) {
+                    const matchingTableIndex = columnOutput.toUpperCase().indexOf(`${fld.originalTable}.`);
+                    columnOutput = matchingTableIndex === 0 ? columnTableNameReplacement + columnOutput.slice(matchingTableIndex + fld.originalTable.length) : columnOutput;
                 }
                 columnTitles.push(columnOutput);
             }
@@ -6068,8 +6069,8 @@ class SelectKeywordAnalysis {
     static parseForCorrelatedSubQuery(selectField) {
         let subQueryAst = null;
 
-        const regExp = /\(\s*(SELECT[\s\S]+)\)/;
-        const matches = regExp.exec(selectField.toUpperCase());
+        const regExp = /\(\s*(SELECT[\s\S]+)\)/i;
+        const matches = regExp.exec(selectField);
 
         if (matches !== null && matches.length > 1) {
             subQueryAst = SqlParse.sql2ast(matches[1]);
@@ -6437,7 +6438,7 @@ class TableData {       //  skipcq: JS-0128
         //  Only change our CACHE STATUS if we have a lock.
         const lock = LockService.getScriptLock();
         try {
-            lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
+            lock.waitLock(100000); // wait 100 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) {
             throw new Error("Cache lock failed");
         }
@@ -6536,7 +6537,7 @@ class TableData {       //  skipcq: JS-0128
         //  Update status that cache is updated.
         const lock = LockService.getScriptLock();
         try {
-            lock.waitLock(10000); // wait 10 seconds for others' use of the code section and lock to stop and then proceed
+            lock.waitLock(100000); // wait 100 seconds for others' use of the code section and lock to stop and then proceed
         } catch (e) {
             throw new Error("Cache lock failed");
         }
