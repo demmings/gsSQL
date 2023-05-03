@@ -389,18 +389,20 @@ class SelectTables {
     /**
      * Parse the input for a calculated field.
      * String split on comma, EXCEPT if comma is within brackets (i.e. within an inner function)
+     * or within a string like ", "
      * @param {String} paramString - Search and parse this string for parameters.
      * @returns {String[]} - List of function parameters.
      */
     static parseForParams(paramString, startBracket = "(", endBracket = ")") {
         const args = [];
         let bracketCount = 0;
+        let inQuotes = "";
         let start = 0;
 
         for (let i = 0; i < paramString.length; i++) {
             const ch = paramString.charAt(i);
 
-            if (ch === "," && bracketCount === 0) {
+            if (ch === "," && bracketCount === 0 && inQuotes === "") {
                 args.push(paramString.substring(start, i));
                 start = i + 1;
             }
@@ -408,6 +410,16 @@ class SelectTables {
                 bracketCount++;
             else if (ch === endBracket)
                 bracketCount--;
+
+            if (inQuotes === "") {
+                if (ch === '"' || ch === "'")
+                    inQuotes = ch;
+            }
+            else {
+                if (ch === inQuotes)
+                    inQuotes = "";
+            }
+
         }
 
         const lastStr = paramString.substring(start);
@@ -987,6 +999,10 @@ class CalculatedField {
             result = new Function(functionString)();
         }
         catch (ex) {
+            if (calculatedFormula !== '') {
+                throw new Error(`Invalid select field: ${calculatedFormula}`);
+            }
+
             throw new Error(`Calculated Field Error: ${ex.message}.  ${functionString}`);
         }
 

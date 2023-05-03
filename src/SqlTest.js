@@ -3777,6 +3777,29 @@ class SqlTester {
         return this.isEqual("selectFromSubQuery9", data, expected);
     }
 
+    selectConcat1() {
+        let stmt = "Select concat(invoice, ', ', price) from  booksales";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["concat(invoice, ', ', price)"],
+        ["I7200, 34.95"],
+        ["I7201, 29.95"],
+        ["I7201, 18.99"],
+        ["I7202, 59.99"],
+        ["I7203, 90"],
+        ["I7204, 65.49"],
+        ["I7204, 24.95"],
+        ["I7204, 19.99"],
+        ["I7205, 33.97"],
+        ["I7206, 17.99"]];
+
+        return this.isEqual("selectFromSubQuery9", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -4238,6 +4261,24 @@ class SqlTester {
         return this.isFail("selectBadField5", ex);
     }
 
+    selectBadField6() {
+        let stmt = "SELECT invoice date from booksales";
+
+        let testSQL = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadField6", ex);
+    }
+
     selectBadOp1() {
         let stmt = "SELECT  quantity, Sum(price) from booksales where price >>! 0 ";
 
@@ -4472,6 +4513,44 @@ class SqlTester {
         }
 
         return this.isFail("badOrderBy2", ex);
+
+    }
+
+    badOrderBy3() {
+        let stmt = "select * from bookSales order invoice";
+
+        let testSQL = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badOrderBy3", ex);
+
+    }
+
+    badGroupBy1() {
+        let stmt = "select date from bookSales group date";
+
+        let testSQL = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badGroupBy1", ex);
 
     }
 
@@ -4840,6 +4919,7 @@ function testerSql() {
     result = result && tester.selectWhereLike4();
     result = result && tester.selectFromSubQuery8();
     result = result && tester.selectFromSubQuery9();
+    result = result && tester.selectConcat1();
 
     Logger.log("============================================================================");
 
@@ -4851,6 +4931,7 @@ function testerSql() {
     result = result && tester.selectBadField3();
     result = result && tester.selectBadField4();
     result = result && tester.selectBadField5();
+    result = result && tester.selectBadField6();
     result = result && tester.selectBadOp1();
     result = result && tester.selectBadAs1();
     result = result && tester.selectBadConstant1();
@@ -4863,6 +4944,8 @@ function testerSql() {
     result = result && tester.badJoin5();
     result = result && tester.badOrderBy1();
     result = result && tester.badOrderBy2();
+    result = result && tester.badOrderBy3();
+    result = result && tester.badGroupBy1();
     result = result && tester.bindVariableMissing();
     result = result && tester.bindVariableMissing1();
     result = result && tester.selectNoFrom();
