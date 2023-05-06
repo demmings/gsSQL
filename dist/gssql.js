@@ -1772,6 +1772,10 @@ class SelectTables {
         if (typeof ast.WHERE !== 'undefined') {
             conditions = ast.WHERE;
         }
+        else if (typeof ast["GROUP BY"] === 'undefined' && typeof ast["HAVING"] !== 'undefined') {
+            //  This will work in mySql as long as select field is in having clause.
+            conditions = ast.HAVING;
+        }
         else {
             //  Entire table is selected.  
             conditions = { operator: "=", left: "\"A\"", right: "\"A\"" };
@@ -2078,20 +2082,11 @@ class SelectTables {
                 args.push(paramString.substring(start, i));
                 start = i + 1;
             }
-            else if (ch === startBracket)
-                bracketCount++;
-            else if (ch === endBracket)
-                bracketCount--;
-
-            if (inQuotes === "") {
-                if (ch === '"' || ch === "'")
-                    inQuotes = ch;
-            }
             else {
-                if (ch === inQuotes)
-                    inQuotes = "";
+                bracketCount += SelectTables.functionBracketCounter(ch, startBracket, endBracket);
             }
 
+            inQuotes = SelectTables.checkIfWithinString(ch, inQuotes);
         }
 
         const lastStr = paramString.substring(start);
@@ -2099,6 +2094,44 @@ class SelectTables {
             args.push(lastStr);
 
         return args;
+    }
+
+    /**
+     * 
+     * @param {String} ch 
+     * @param {String} startBracket 
+     * @param {String} endBracket 
+     * @returns {Number}
+     */
+    static functionBracketCounter(ch, startBracket, endBracket) {
+        let counter = 0;
+        if (ch === startBracket)
+            counter = 1;
+        else if (ch === endBracket)
+            counter = -1;
+
+        return counter;
+    }
+
+    /**
+     * 
+     * @param {String} ch 
+     * @param {String} inQuotes 
+     * @returns {String} - Returns empty string if not within a string constant.
+     * If it is within a string, it will return either a single or double quote so we can
+     * determine when the string ends (it will match the starting quote.)
+     */
+    static checkIfWithinString(ch, inQuotes) {
+        if (inQuotes === "") {
+            if (ch === '"' || ch === "'")
+                return ch;
+        }
+        else {
+            if (ch === inQuotes)
+                return "";
+        }
+
+        return inQuotes;
     }
 
     /**
@@ -3079,7 +3112,8 @@ class SqlServerFunctions {
      * @returns {String} - javascript code
      */
     convertToJs(calculatedFormula, masterFields) {
-        const sqlFunctions = ["ABS", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "DAY", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+        const sqlFunctions = ["ABS", "ADDDATE", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "CURDATE", 
+            "DAY", "DATEDIFF", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTR", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
         /** @property {String} - regex to find components of CASE statement. */
@@ -3134,6 +3168,9 @@ class SqlServerFunctions {
         this.referencedTableColumns.push(parms[0]);
         return `Math.abs(${parms[0]})`;
     }
+    adddate(parms) {
+        return SqlServerFunctions.adddate(parms);
+    }
     case(parms, args) {
         return this.caseWhen(args);
     }
@@ -3155,6 +3192,12 @@ class SqlServerFunctions {
     }
     convert(parms) {                            //  skipcq: JS-0105
         return SqlServerFunctions.convert(parms);
+    }
+    curdate() {                                 //  skipcq: JS-0105
+        return "new Date().toLocaleString().split(',')[0]";
+    }
+    datediff(parms){
+        return SqlServerFunctions.datediff(parms);  
     }
     day(parms) {
         this.referencedTableColumns.push(parms[0]);
@@ -3389,6 +3432,39 @@ class SqlServerFunctions {
         }
 
         return replacement;
+    }
+
+    static adddate(parms) {
+        if (parms.length < 2) {
+            throw new Error("ADDDATE expecting at least two parameters");
+        }
+
+        let parm1 = `(new Date(${parms[0]})).getTime()`;
+        let parm2 = `(${parms[1]} * (1000 * 3600 * 24))`;
+        let totalMs = `(${parm1} + ${parm2})`;
+
+        return `new Date(${totalMs})`;
+    }
+
+    /**
+     * DATEDIFF(date1, date2) = date1 - date2 (as days)
+     * @param {any[]} parms 
+     * @returns {String}
+     */
+    static datediff(parms) {
+        let diffFunc = "";
+
+        if (parms.length !== 2) {
+            throw new Error("DATEDIFF expecting two parameters");
+        }
+
+        let parm1 = `(new Date(${parms[0]}).getTime())/(1000 * 3600 * 24)`;
+        let parm2 = `(new Date(${parms[1]}).getTime())/(1000 * 3600 * 24)`;
+
+        parm1 = `Math.floor(${parm1})`;
+        parm2 = `Math.floor(${parm2})`;
+
+        return `${parm1} - ${parm2}`;
     }
 
     /**

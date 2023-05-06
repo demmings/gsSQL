@@ -403,14 +403,17 @@ let data = new Sql()
   * "COUNT", 
   * "AVG", 
   * "DISTINCT"
-* SQL Server Functions
+* SQL Server Functions  (syntax reference https://dev.mysql.com/doc/refman/8.0/en/built-in-function-reference.html)
   * "ABS",
+  * "ADDDATE",    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*(ADDDATE(date, days))*
   * "CASE", 
   * "CEILING", 
   * "CHARINDEX",
   * "COALESCE",
   * "CONCAT"
   * "CONCAT_WS", 
+  * "CURDATE",
+  * "DATEDIFF"
   * "DAY",
   * "FLOOR", 
   * "IF", 

@@ -3797,7 +3797,44 @@ class SqlTester {
         ["I7205, 33.97"],
         ["I7206, 17.99"]];
 
-        return this.isEqual("selectFromSubQuery9", data, expected);
+        return this.isEqual("selectConcat1", data, expected);
+    }
+
+    selectBadHavingButStillWork() {
+        //  Should be a GROUP BY, but this does work in mySQL
+        let stmt = "select id from books having id < 5";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["id"],
+        ["1"],
+        ["2"],
+        ["3"],
+        ["4"]];
+
+        return this.isEqual("selectBadHavingButStillWork", data, expected);
+    }
+
+    selectDateDiff() {
+        //  This will never test.
+        let stmt = "select date as 'Invoice Date', adddate(date, 30) as '30 Days Overdue', datediff(adddate(curDate(),7), now()) from booksales where date <= adddate('05/01/2022',1)";
+
+        let data = new TestSql()
+            .addTableData("BookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["Invoice Date","30 Days Overdue","datediff(adddate(curDate(),7), now())"],
+        ["05/01/2022","2022-05-31T04:00:00.000Z",7],
+        ["05/01/2022","2022-05-31T04:00:00.000Z",7],
+        ["05/01/2022","2022-05-31T04:00:00.000Z",7],
+        ["05/02/2022","2022-06-01T04:00:00.000Z",7],
+        ["05/02/2022","2022-06-01T04:00:00.000Z",7]];
+
+        return this.isEqual("selectDateDiff", data, expected);
     }
 
     //  S T A R T   O T H E R   T E S T S
@@ -4920,6 +4957,8 @@ function testerSql() {
     result = result && tester.selectFromSubQuery8();
     result = result && tester.selectFromSubQuery9();
     result = result && tester.selectConcat1();
+    result = result && tester.selectBadHavingButStillWork();
+    result = result && tester.selectDateDiff();
 
     Logger.log("============================================================================");
 
