@@ -100,7 +100,7 @@ class SelectTables {
         if (typeof ast.WHERE !== 'undefined') {
             conditions = ast.WHERE;
         }
-        else if (typeof ast["GROUP BY"] === 'undefined' && typeof ast["HAVING"] !== 'undefined') {
+        else if (typeof ast["GROUP BY"] === 'undefined' && typeof ast.HAVING !== 'undefined') {
             //  This will work in mySql as long as select field is in having clause.
             conditions = ast.HAVING;
         }
@@ -1496,7 +1496,7 @@ class SqlServerFunctions {
         this.referencedTableColumns.push(parms[0]);
         return `Math.abs(${parms[0]})`;
     }
-    adddate(parms) {
+    adddate(parms) {                            //  skipcq: JS-0105
         return SqlServerFunctions.adddate(parms);
     }
     case(parms, args) {
@@ -1524,7 +1524,7 @@ class SqlServerFunctions {
     curdate() {                                 //  skipcq: JS-0105
         return "new Date().toLocaleString().split(',')[0]";
     }
-    datediff(parms){
+    datediff(parms){                            //  skipcq: JS-0105
         return SqlServerFunctions.datediff(parms);  
     }
     day(parms) {
@@ -1767,9 +1767,9 @@ class SqlServerFunctions {
             throw new Error("ADDDATE expecting at least two parameters");
         }
 
-        let parm1 = `(new Date(${parms[0]})).getTime()`;
-        let parm2 = `(${parms[1]} * (1000 * 3600 * 24))`;
-        let totalMs = `(${parm1} + ${parm2})`;
+        const parm1 = `(new Date(${parms[0]})).getTime()`;
+        const parm2 = `(${parms[1]} * (1000 * 3600 * 24))`;
+        const totalMs = `(${parm1} + ${parm2})`;
 
         return `new Date(${totalMs})`;
     }
@@ -1780,8 +1780,6 @@ class SqlServerFunctions {
      * @returns {String}
      */
     static datediff(parms) {
-        let diffFunc = "";
-
         if (parms.length !== 2) {
             throw new Error("DATEDIFF expecting two parameters");
         }
