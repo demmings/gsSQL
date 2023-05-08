@@ -4,7 +4,8 @@ export { ScriptSettings };
 import { PropertiesService } from "./SqlTest.js";
 //  *** DEBUG END ***/
 
-/** Stores settings for the SCRIPT.  Long term cache storage for small tables.  */
+/** @classdesc 
+ * Stores settings for the SCRIPT.  Long term cache storage for small tables.  */
 class ScriptSettings {      //  skipcq: JS-0128
     /**
      * For storing cache data for very long periods of time.

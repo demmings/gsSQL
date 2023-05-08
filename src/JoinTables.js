@@ -3,23 +3,27 @@
 
 import { Table } from './Table.js';
 import { Sql, BindData } from './Sql.js';
-import { SqlParse } from './SimpleParser.js';
 import { DerivedTable, TableFields, TableField, CalculatedField, SqlServerFunctions } from './Views.js';
 export { JoinTables, JoinTablesRecordIds };
 //  *** DEBUG END ***/
 
-
-/** Handle the various JOIN table types. */
+/** 
+ * @classdesc Handle the various JOIN table types. 
+ */
 class JoinTables {                                   //  skipcq: JS-0128
     constructor() {
+        /** @property {JoinTablesRecordIds} */
         this.joinTableIDs = new JoinTablesRecordIds(this);
+        /** @property {TableFields} */
         this.tableFields = null;
+        /** @property {BindData} */
         this.bindVariables = null;
+        /** @property {Map<String,Table>} */
         this.tableInfo = null;
     }
 
     /**
-     * 
+     * Info for all tables referenced in join.
      * @param {Map<String,Table>} tableInfo - Map of table info.
      * @returns {JoinTables}
      */
@@ -52,7 +56,7 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * The "FROM" table.
      * @param {Table} primaryTableInfo 
      * @returns {JoinTables}
      */
@@ -95,10 +99,10 @@ class JoinTables {                                   //  skipcq: JS-0128
      *
      * @param {Object} conditions
      * @param {String} leftTableName
-     * @returns {Array}
+     * @returns {MatchingJoinRecordIDs}
      */
     joinCondition(conditions, leftTableName) {
-        let recIds = [];
+        let recIds = null;
         const rightTableName = conditions.table;
         const joinType = conditions.type;
 
@@ -118,13 +122,14 @@ class JoinTables {                                   //  skipcq: JS-0128
      * @param {String} joinType - inner, full, left, right
      * @param {String} rightTableName - right join table.
      * @param {String} leftTableName - left join table name
-     * @returns {Array}
+     * @returns {MatchingJoinRecordIDs}
      */
     resolveCondition(logic, astConditions, joinType, rightTableName, leftTableName) {
-        let leftIds = [];
-        let rightIds = [];
-        let resultsLeft = [];
-        let resultsRight = [];
+        let leftJoinRecordIDs = [];
+        let rightJoinRecordIDs = [];
+        /** @type {MatchingJoinRecordIDs} */
+        let matchedIDs = null;
+
         this.joinTableIDs
             .setLeftTableName(leftTableName)
             .setRightTableName(rightTableName)
@@ -133,27 +138,26 @@ class JoinTables {                                   //  skipcq: JS-0128
 
         for (const cond of astConditions) {
             if (typeof cond.logic === 'undefined') {
-                [leftIds, rightIds] = this.joinTableIDs.getRecordIDs(cond);
-                resultsLeft.push(leftIds);
-                resultsRight.push(rightIds);
+                matchedIDs = this.joinTableIDs.getRecordIDs(cond);
             }
             else {
-                [leftIds, rightIds] = this.resolveCondition(cond.logic, cond.terms, joinType, rightTableName, leftTableName);
-                resultsLeft.push(leftIds);
-                resultsRight.push(rightIds);
+                matchedIDs = this.resolveCondition(cond.logic, cond.terms, joinType, rightTableName, leftTableName);
             }
+
+            leftJoinRecordIDs.push(matchedIDs.leftJoinRecordIDs);
+            rightJoinRecordIDs.push(matchedIDs.rightJoinRecordIDs);
         }
 
         if (logic === "AND") {
-            resultsLeft = JoinTables.andJoinIds(resultsLeft);
-            resultsRight = JoinTables.andJoinIds(resultsRight);
+            leftJoinRecordIDs = JoinTables.andJoinIds(leftJoinRecordIDs);
+            rightJoinRecordIDs = JoinTables.andJoinIds(rightJoinRecordIDs);
         }
         if (logic === "OR") {
-            resultsLeft = JoinTables.orJoinIds(resultsLeft);
-            resultsRight = JoinTables.orJoinIds(resultsRight);
+            leftJoinRecordIDs = JoinTables.orJoinIds(leftJoinRecordIDs);
+            rightJoinRecordIDs = JoinTables.orJoinIds(rightJoinRecordIDs);
         }
 
-        return [resultsLeft, resultsRight];
+        return { leftJoinRecordIDs, rightJoinRecordIDs };
     }
 
     /**
@@ -227,21 +231,19 @@ class JoinTables {                                   //  skipcq: JS-0128
     * Join two tables and create a derived table that contains all data from both tables.
     * @param {LeftRightJoinFields} leftRightFieldInfo - left table field of join
     * @param {Object} joinTable - AST that contains join type.
-    * @param {Array} recIds
+    * @param {MatchingJoinRecordIDs} recIds
     * @returns {DerivedTable} - new derived table after join of left and right tables.
     */
     static joinTables(leftRightFieldInfo, joinTable, recIds) {
         let derivedTable = null;
         let rightDerivedTable = null;
 
-        const [matchedRecordIDs, rightJoinRecordIDs] = recIds;
-
         switch (joinTable.type) {
             case "left":
                 derivedTable = new DerivedTable()
                     .setLeftField(leftRightFieldInfo.leftSideInfo.fieldInfo)
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
+                    .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
                     .createTable();
                 break;
@@ -250,7 +252,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                 derivedTable = new DerivedTable()
                     .setLeftField(leftRightFieldInfo.leftSideInfo.fieldInfo)
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
+                    .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(false)
                     .createTable();
                 break;
@@ -259,7 +261,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                 derivedTable = new DerivedTable()
                     .setLeftField(leftRightFieldInfo.rightSideInfo.fieldInfo)
                     .setRightField(leftRightFieldInfo.leftSideInfo.fieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
+                    .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
                     .createTable();
 
@@ -269,14 +271,14 @@ class JoinTables {                                   //  skipcq: JS-0128
                 derivedTable = new DerivedTable()
                     .setLeftField(leftRightFieldInfo.leftSideInfo.fieldInfo)
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
+                    .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
                     .createTable();
 
                 rightDerivedTable = new DerivedTable()
                     .setLeftField(leftRightFieldInfo.rightSideInfo.fieldInfo)
                     .setRightField(leftRightFieldInfo.leftSideInfo.fieldInfo)
-                    .setLeftRecords(rightJoinRecordIDs)
+                    .setLeftRecords(recIds.rightJoinRecordIDs)
                     .setIsOuterJoin(true)
                     .createTable();
 
@@ -291,27 +293,43 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 }
 
+/**
+ * @classdesc
+ * Find record ID's for matching JOINed table records.
+ */
 class JoinTablesRecordIds {
+    /**
+     * @param {JoinTables} joinTables 
+     */
     constructor(joinTables) {
+        /** @property {JoinTables} */
         this.dataJoin = joinTables;
+        /** @property {TableFields} */
         this.tableFields = null;
-        /** @type {LeftRightJoinFields} */
+        /** @property {LeftRightJoinFields} */
         this.joinFields = null;
+        /** @property {TableFields} */
         this.tableFields = null;
+        /** @property {Map<String,Table>} */
         this.tableInfo = null;
+        /** @property {BindData} */
         this.bindVariables = null;
+        /** @property {Table} */
         this.primaryTableInfo = null
-        /** @type {Table} */
+        /** @property {Table} */
         this.masterTable = null;
+        /** @property {String} */
         this.rightTableName = "";
+        /** @property {String} */
         this.leftTableName = "";
+        /** @property {String} */
         this.joinType = "";
     }
 
     /**
      *
      * @param {Object} conditionAst
-     * @returns {Array}
+     * @returns {MatchingJoinRecordIDs}
      */
     getRecordIDs(conditionAst) {
         /** @type {Table} */
@@ -319,9 +337,8 @@ class JoinTablesRecordIds {
         this.calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
 
         this.joinFields = this.getLeftRightFieldInfo(conditionAst);
-        const recIds = this.getMatchedRecordIds();
 
-        return recIds;
+        return this.getMatchedRecordIds();
     }
 
     /**
@@ -528,34 +545,39 @@ class JoinTablesRecordIds {
     }
 
     /**
+     * @typedef {Object} MatchingJoinRecordIDs
+     * @property {Number[][]} leftJoinRecordIDs
+     * @property {Number[][]} rightJoinRecordIDs
+     */
+
+    /**
      *
-     * @returns {Array}
+     * @returns {MatchingJoinRecordIDs}
      */
     getMatchedRecordIds() {
         /** @type {Number[][]} */
-        let matchedRecordIDs = [];
+        let leftJoinRecordIDs = [];
         let rightJoinRecordIDs = [];
 
         switch (this.joinType) {
             case "left":
-                matchedRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
+                leftJoinRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
                 break;
             case "inner":
-                matchedRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
+                leftJoinRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
                 break;
             case "right":
-                matchedRecordIDs = this.leftRightJoin(this.joinFields.rightSideInfo, this.joinFields.leftSideInfo, this.joinType);
+                leftJoinRecordIDs = this.leftRightJoin(this.joinFields.rightSideInfo, this.joinFields.leftSideInfo, this.joinType);
                 break;
             case "full":
-                matchedRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
+                leftJoinRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
                 rightJoinRecordIDs = this.leftRightJoin(this.joinFields.rightSideInfo, this.joinFields.leftSideInfo, "outer");
                 break;
             default:
                 throw new Error(`Invalid join type: ${this.joinType}`);
         }
 
-
-        return [matchedRecordIDs, rightJoinRecordIDs];
+        return { leftJoinRecordIDs, rightJoinRecordIDs };
     }
 
     /**
@@ -621,7 +643,7 @@ class JoinTablesRecordIds {
 
         if (keyMasterJoinField !== null) {
             keyMasterJoinField = keyMasterJoinField.toString();
-        }    
+        }
 
         return keyMasterJoinField;
     }

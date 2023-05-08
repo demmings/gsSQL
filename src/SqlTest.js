@@ -3827,14 +3827,34 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["Invoice Date","30 Days Overdue","datediff(adddate(curDate(),7), now())"],
-        ["05/01/2022","2022-05-31T04:00:00.000Z",7],
-        ["05/01/2022","2022-05-31T04:00:00.000Z",7],
-        ["05/01/2022","2022-05-31T04:00:00.000Z",7],
-        ["05/02/2022","2022-06-01T04:00:00.000Z",7],
-        ["05/02/2022","2022-06-01T04:00:00.000Z",7]];
+        let expected = [["Invoice Date", "30 Days Overdue", "datediff(adddate(curDate(),7), now())"],
+        ["05/01/2022", "2022-05-31T04:00:00.000Z", 7],
+        ["05/01/2022", "2022-05-31T04:00:00.000Z", 7],
+        ["05/01/2022", "2022-05-31T04:00:00.000Z", 7],
+        ["05/02/2022", "2022-06-01T04:00:00.000Z", 7],
+        ["05/02/2022", "2022-06-01T04:00:00.000Z", 7]];
 
         return this.isEqual("selectDateDiff", data, expected);
+    }
+
+    selectNotLikeInMiddle1() {
+        let stmt = "select * from books where title not like 'Your%'";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID"],
+        ["1", "Time to Grow Up!", "original", "11", "21", ""],
+        ["3", "Lovely Love", "original", "14", "24", ""],
+        ["4", "Dream Your Life", "original", "11", "24", ""],
+        ["5", "Oranges", "translated", "12", "25", "31"],
+        ["7", "Applied AI", "translated", "13", "23", "34"],
+        ["9", "Book with Mysterious Author", "translated", "1", "23", "34"],
+        ["8", "My Last Book", "original", "11", "28", ""]];
+
+        return this.isEqual("selectNotLikeInMiddle1", data, expected);
     }
 
     //  S T A R T   O T H E R   T E S T S
@@ -4959,6 +4979,7 @@ function testerSql() {
     result = result && tester.selectConcat1();
     result = result && tester.selectBadHavingButStillWork();
     result = result && tester.selectDateDiff();
+    result = result && tester.selectNotLikeInMiddle1();
 
     Logger.log("============================================================================");
 

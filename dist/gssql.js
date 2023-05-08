@@ -1,7 +1,8 @@
 // @author Chris Demmings - https://demmings.github.io/
 /**
  * Query any sheet range using standard SQL SELECT syntax.
- * EXAMPLE :  gsSQL("select * from expenses where type = ?1", "expenses", A1:B, true, "travel")
+ * @example
+ * gsSQL("select * from expenses where type = ?1", "expenses", A1:B, true, "travel")
  * 
  * @param {String} statement - SQL string 
  * @param {...any} parms - "table name",  SheetRange, [..."table name", SheetRange], OutputTitles (true/false), [...Bind Variable] 
@@ -12,7 +13,18 @@ function gsSQL(statement, ...parms) {     //  skipcq: JS-0128
     return GasSql.execute(statement, parms);
 }
 
+/**
+ * @classdesc 
+ * Top level class used by Google Sheets custom function to process SELECT and return table data. 
+ */
 class GasSql {
+    /**
+     * Run SELECT command statement and returns data in a table format (double array).
+     * The appropriate functions are selected to be run based on the format of the command line parameters.
+     * @param {String} statement 
+     * @param {any[]} parms 
+     * @returns {any[][]}
+     */
     static execute(statement, parms) {
         if (parms.length === 0 || (parms.length > 0 && (Array.isArray(parms[0]) || parms[0] === ''))) {
             return GasSql.executeSqlv1(statement, parms);
@@ -25,6 +37,14 @@ class GasSql {
         }
     }
 
+    /**
+     * Processes SQL SELECT using original command line syntax.  This syntax does not update automatically if the
+     * data changes, so is not recommended anymore.
+     * @param {String} statement 
+     * @param {any[]} parms 
+     * @returns {any[][]}
+     * @deprecated
+     */
     static executeSqlv1(statement, parms) {
         const sqlCmd = new Sql();
         let columnTitle = true;
@@ -57,6 +77,13 @@ class GasSql {
         return sqlCmd.execute(statement);
     }
 
+    /**
+     * Process SQL SELECT using new command line syntax.  Using this syntax ensures that the select data is refreshed
+     * if any of the selected table data changes - and is therefore the recommended usage.
+     * @param {String} statement 
+     * @param {any[]} parms 
+     * @returns {any[][]}
+     */
     static executeSqlv2(statement, parms) {
         const sqlCmd = new Sql();
         let columnTitle = true;
@@ -127,9 +154,9 @@ class GasSql {
             if (table.length === 1)
                 table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
             if (table.length === 2)
-                table.push(60);      //  default 0 second cache.
+                table.push(60);         //  default 0 second cache.
             if (table.length === 3)
-                table.push(true);    //  default HAS column title row.
+                table.push(true);       //  default HAS column title row.
             if (table[1] === "")
                 table[1] = table[0];    //  If empty range, assumes TABLE NAME is the SHEET NAME and loads entire sheet.
             if (table.length !== 4)
@@ -147,7 +174,10 @@ class GasSql {
     }
 }
 
-/** Perform SQL SELECT using this class. */
+/** 
+ * @classdesc
+ * Perform SQL SELECT using this class.
+ */
 class Sql {
     constructor() {
         /** @property {Map<String,Table>} - Map of referenced tables.*/
@@ -366,8 +396,8 @@ class Sql {
 
     /**
      * Sets all tables referenced SELECT.
-    * @param {Map<String,Table>} mapOfTables - Map of referenced tables indexed by TABLE name.
-    */
+     * @param {Map<String,Table>} mapOfTables - Map of referenced tables indexed by TABLE name.
+     */
     setTables(mapOfTables) {
         this.tables = mapOfTables;
         return this;
@@ -1052,6 +1082,7 @@ class Sql {
 }
 
 /**
+ * @classdesc 
  * Store and retrieve bind data for use in WHERE portion of SELECT statement.
  */
 class BindData {
@@ -1113,7 +1144,10 @@ class BindData {
 
 
 
-/** Data and methods for each (logical) SQL table. */
+/** 
+ * @classdesc 
+ * Data and methods for each (logical) SQL table. 
+ */
 class Table {       //  skipcq: JS-0128
     /**
      * 
@@ -1189,7 +1223,6 @@ class Table {       //  skipcq: JS-0128
      * @param {any[]} tableData - Loaded table data with first row titles included.
      * @returns {Table}
      */
-
     loadArrayData(tableData) {
         if (typeof tableData === 'undefined' || tableData.length === 0)
             return this;
@@ -1391,9 +1424,8 @@ class Table {       //  skipcq: JS-0128
             else {
                 value = calcSqlField.evaluateCalculatedField(calcField, i);
             }
-            if (value !== null) {
-                value = value.toString();
-            }
+
+            value = (value !== null) ? value = value.toString() : value; 
 
             if (value !== "") {
                 let rowNumbers = [];
@@ -1409,7 +1441,8 @@ class Table {       //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * The calculated field is evaluated for every record in the table.  Each unique calculated value
+     * will map to a list of table record numbers where the calculated value will be found.
      * @param {CalculatedField} calcSqlField 
      * @param {String} calcField 
      * @returns  {Map<String,Number[]>}
@@ -1447,7 +1480,10 @@ class Table {       //  skipcq: JS-0128
 
 }
 
-/** Class contains information about each column in the SQL table. */
+/** 
+ * @classdesc
+ * Class contains information about each column in the SQL table. 
+ */
 class Schema {
     constructor() {
         /** @property {String} - Table name. */
@@ -1641,6 +1677,7 @@ class Schema {
      * @property {String} fullColumnName
      * @property {String} fullColumnAliasName
      */
+
     /**
      * Find all valid variations for a column name.  This will include base column name,
      * the column name prefixed with full table name, and the column name prefixed with table alias.
@@ -1682,7 +1719,10 @@ class Schema {
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
 
-/** Perform SQL SELECT operations to retrieve requested data. */
+/** 
+ * @classdesc 
+ * Perform SQL SELECT operations to retrieve requested data. 
+ */
 class SelectTables {
     /**
      * @param {Object} ast - Abstract Syntax Tree
@@ -1761,10 +1801,10 @@ class SelectTables {
     }
 
     /**
-      * Retrieve filtered record ID's.
-      * @param {Object} ast - Abstract Syntax Tree
-      * @returns {Number[]} - Records ID's that match WHERE condition.
-      */
+     * Retrieve filtered record ID's.
+     * @param {Object} ast - Abstract Syntax Tree
+     * @returns {Number[]} - Records ID's that match WHERE condition.
+     */
     whereCondition(ast) {
         let sqlData = [];
 
@@ -2569,23 +2609,36 @@ class SelectTables {
             return false;
         }
 
-        // @ts-ignore
-        const expanded = `^${rightValue.replace(/%/g, ".*").replace(/_/g, ".")}`;
-
-        const result = leftValue.search(expanded);
-        return result !== -1;
+        return SelectTables.likeConditionMatch(leftValue, rightValue) !== -1;
     }
 
+    /**
+     * Compare strings in NOT LIKE condition
+     * @param {String} leftValue - string for comparison
+     * @param {String} rightValue - string with wildcard
+     * @returns {Boolean} - Do strings NOT match?
+     */
     static notLikeCondition(leftValue, rightValue) {
         if ((leftValue === null || rightValue === null) && !(leftValue === null && rightValue === null)) {
             return false;
         }
 
+        return SelectTables.likeConditionMatch(leftValue, rightValue) === -1;
+    }
+
+    /**
+     * Compare strings in (NOT) LIKE condition
+     * @param {String} leftValue - string for comparison
+     * @param {String} rightValue - string with wildcard
+     * @returns {Number} - Found position (not found === -1)
+     */
+    static likeConditionMatch(leftValue, rightValue) {
         // @ts-ignore
-        const expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
+        const expanded = `^${rightValue.replace(/%/g, ".*").replace(/_/g, ".")}`;
 
         const result = leftValue.search(expanded);
-        return result === -1;
+
+        return result;
     }
 
     /**
@@ -2645,7 +2698,9 @@ class SelectTables {
     }
 }
 
-/** Evaulate calculated fields in SELECT statement.  This is achieved by converting the request 
+/** 
+ * @classdesc 
+ * Evaulate calculated fields in SELECT statement.  This is achieved by converting the request 
  * into javascript and then using 'Function' to evaulate it.  
  */
 class CalculatedField {
@@ -2812,7 +2867,9 @@ class CalculatedField {
     }
 }
 
-/** Correlated Sub-Query requires special lookups for every record in the primary table. */
+/** 
+ * @classdesc
+ * Correlated Sub-Query requires special lookups for every record in the primary table. */
 class CorrelatedSubQuery {
     /**
      * 
@@ -2905,7 +2962,10 @@ class CorrelatedSubQuery {
     }
 }
 
-/** Tracks all fields in a table (including derived tables when there is a JOIN). */
+/** 
+ * @classdesc
+ * Tracks all fields in a table (including derived tables when there is a JOIN). 
+ */
 class VirtualFields {
     constructor() {
         /** @property {Map<String, VirtualField>} - Map to field for fast access. Field name is key. */
@@ -2961,7 +3021,10 @@ class VirtualFields {
     }
 }
 
-/**  Defines all possible table fields including '*' and long/short form (i.e. table.column). */
+/** 
+ * @classdesc 
+ * Defines all possible table fields including '*' and long/short form (i.e. table.column). 
+ */
 class VirtualField {                        //  skipcq: JS-0128
     /**
      * 
@@ -2991,7 +3054,10 @@ class VirtualField {                        //  skipcq: JS-0128
     }
 }
 
-/**  The JOIN creates a new logical table. */
+/**  
+ * @classdesc
+ * The JOIN creates a new logical table. 
+ */
 class DerivedTable {                     //  skipcq: JS-0128
     constructor() {
         /** @property {Table} */
@@ -3103,7 +3169,10 @@ class DerivedTable {                     //  skipcq: JS-0128
     }
 }
 
-/** Convert SQL CALCULATED fields into javascript code that can be evaulated and converted to data. */
+/** 
+ * @classdesc
+ * Convert SQL CALCULATED fields into javascript code that can be evaulated and converted to data. 
+ */
 class SqlServerFunctions {
     /**
      * Convert SQL formula to javascript code.
@@ -3112,7 +3181,7 @@ class SqlServerFunctions {
      * @returns {String} - javascript code
      */
     convertToJs(calculatedFormula, masterFields) {
-        const sqlFunctions = ["ABS", "ADDDATE", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "CURDATE", 
+        const sqlFunctions = ["ABS", "ADDDATE", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "CURDATE",
             "DAY", "DATEDIFF", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTR", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
@@ -3124,7 +3193,7 @@ class SqlServerFunctions {
         this.originalFunctionString = "";
         /** @property {Boolean} - when working on each WHEN/THEN in CASE, is this the first one encountered. */
         this.firstCase = true;
-        /** @type {String[]} */
+        /** @property {String[]} */
         this.referencedTableColumns = [];
 
         let functionString = SelectTables.toUpperCaseExceptQuoted(calculatedFormula);
@@ -3196,8 +3265,8 @@ class SqlServerFunctions {
     curdate() {                                 //  skipcq: JS-0105
         return "new Date().toLocaleString().split(',')[0]";
     }
-    datediff(parms){                            //  skipcq: JS-0105
-        return SqlServerFunctions.datediff(parms);  
+    datediff(parms) {                            //  skipcq: JS-0105
+        return SqlServerFunctions.datediff(parms);
     }
     day(parms) {
         this.referencedTableColumns.push(parms[0]);
@@ -3434,6 +3503,13 @@ class SqlServerFunctions {
         return replacement;
     }
 
+    /**
+     * Add number of days to a date and return JS code to return this date.
+     * @param {any[]} parms 
+     * parms[0] - A date.
+     * parms[1] - Number of days to add to the date.
+     * @returns {String}
+     */
     static adddate(parms) {
         if (parms.length < 2) {
             throw new Error("ADDDATE expecting at least two parameters");
@@ -3539,7 +3615,10 @@ class SqlServerFunctions {
     }
 }
 
-/** Used to create a single row from multiple rows for GROUP BY expressions. */
+/** 
+ * @classdesc
+ * Used to create a single row from multiple rows for GROUP BY expressions. 
+ */
 class ConglomerateRecord {
     /**
      * 
@@ -3668,7 +3747,10 @@ class ConglomerateRecord {
     }
 }
 
-/** Fields from all tables. */
+/** 
+ * @classdesc
+ * Fields from all tables. 
+ * */
 class TableFields {
     constructor() {
         /** @property {TableField[]} */
@@ -3844,6 +3926,15 @@ class TableFields {
     }
 
     /**
+     * @typedef {Object} SelectFieldParameters
+     * @property {Object} selField 
+     * @property {Object} parsedField 
+     * @property {String} columnTitle 
+     * @property {Number} nextColumnPosition
+     * @property {Boolean} isTempField
+     */
+
+    /**
      * Updates internal SELECTED (returned in data) field list.
      * @param {Object} astFields - AST from SELECT
      * @param {Number} nextColumnPosition
@@ -3854,6 +3945,7 @@ class TableFields {
             const parsedField = this.parseAstSelectField(selField);
             const columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
+            /** @type {SelectFieldParameters} */
             const selectedFieldParms = {
                 selField, parsedField, columnTitle, nextColumnPosition, isTempField
             };
@@ -3873,6 +3965,11 @@ class TableFields {
         }
     }
 
+    /**
+     * 
+     * @param {SelectFieldParameters} selectedFieldParms 
+     * @returns {void}
+     */
     updateColumnAsSelected(selectedFieldParms) {
         let fieldInfo = this.getFieldInfo(selectedFieldParms.parsedField.columnName);
 
@@ -3902,6 +3999,10 @@ class TableFields {
         this.indexTableField(fieldInfo);
     }
 
+    /**
+     * 
+     * @param {SelectFieldParameters} selectedFieldParms 
+     */
     updateCalculatedAsSelected(selectedFieldParms) {
         const fieldInfo = new TableField();
         this.allFields.push(fieldInfo);
@@ -3917,6 +4018,10 @@ class TableFields {
         this.indexTableField(fieldInfo);
     }
 
+    /**
+     * 
+     * @param {SelectFieldParameters} selectedFieldParms 
+     */
     updateConstantAsSelected(selectedFieldParms) {
         const fieldInfo = new TableField();
         this.allFields.push(fieldInfo);
@@ -4136,7 +4241,10 @@ class TableFields {
     }
 }
 
-/** Table column information. */
+/** 
+ * @classdesc
+ * Table column information. 
+ */
 class TableField {
     constructor() {
         /** @property {String} */
@@ -4359,18 +4467,23 @@ class TableField {
 }
 
 
-
-/** Handle the various JOIN table types. */
+/** 
+ * @classdesc Handle the various JOIN table types. 
+ */
 class JoinTables {                                   //  skipcq: JS-0128
     constructor() {
+        /** @property {JoinTablesRecordIds} */
         this.joinTableIDs = new JoinTablesRecordIds(this);
+        /** @property {TableFields} */
         this.tableFields = null;
+        /** @property {BindData} */
         this.bindVariables = null;
+        /** @property {Map<String,Table>} */
         this.tableInfo = null;
     }
 
     /**
-     * 
+     * Info for all tables referenced in join.
      * @param {Map<String,Table>} tableInfo - Map of table info.
      * @returns {JoinTables}
      */
@@ -4403,7 +4516,7 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * The "FROM" table.
      * @param {Table} primaryTableInfo 
      * @returns {JoinTables}
      */
@@ -4446,10 +4559,10 @@ class JoinTables {                                   //  skipcq: JS-0128
      *
      * @param {Object} conditions
      * @param {String} leftTableName
-     * @returns {Array}
+     * @returns {MatchingJoinRecordIDs}
      */
     joinCondition(conditions, leftTableName) {
-        let recIds = [];
+        let recIds = null;
         const rightTableName = conditions.table;
         const joinType = conditions.type;
 
@@ -4469,13 +4582,14 @@ class JoinTables {                                   //  skipcq: JS-0128
      * @param {String} joinType - inner, full, left, right
      * @param {String} rightTableName - right join table.
      * @param {String} leftTableName - left join table name
-     * @returns {Array}
+     * @returns {MatchingJoinRecordIDs}
      */
     resolveCondition(logic, astConditions, joinType, rightTableName, leftTableName) {
-        let leftIds = [];
-        let rightIds = [];
-        let resultsLeft = [];
-        let resultsRight = [];
+        let leftJoinRecordIDs = [];
+        let rightJoinRecordIDs = [];
+        /** @type {MatchingJoinRecordIDs} */
+        let matchedIDs = null;
+
         this.joinTableIDs
             .setLeftTableName(leftTableName)
             .setRightTableName(rightTableName)
@@ -4484,27 +4598,26 @@ class JoinTables {                                   //  skipcq: JS-0128
 
         for (const cond of astConditions) {
             if (typeof cond.logic === 'undefined') {
-                [leftIds, rightIds] = this.joinTableIDs.getRecordIDs(cond);
-                resultsLeft.push(leftIds);
-                resultsRight.push(rightIds);
+                matchedIDs = this.joinTableIDs.getRecordIDs(cond);
             }
             else {
-                [leftIds, rightIds] = this.resolveCondition(cond.logic, cond.terms, joinType, rightTableName, leftTableName);
-                resultsLeft.push(leftIds);
-                resultsRight.push(rightIds);
+                matchedIDs = this.resolveCondition(cond.logic, cond.terms, joinType, rightTableName, leftTableName);
             }
+
+            leftJoinRecordIDs.push(matchedIDs.leftJoinRecordIDs);
+            rightJoinRecordIDs.push(matchedIDs.rightJoinRecordIDs);
         }
 
         if (logic === "AND") {
-            resultsLeft = JoinTables.andJoinIds(resultsLeft);
-            resultsRight = JoinTables.andJoinIds(resultsRight);
+            leftJoinRecordIDs = JoinTables.andJoinIds(leftJoinRecordIDs);
+            rightJoinRecordIDs = JoinTables.andJoinIds(rightJoinRecordIDs);
         }
         if (logic === "OR") {
-            resultsLeft = JoinTables.orJoinIds(resultsLeft);
-            resultsRight = JoinTables.orJoinIds(resultsRight);
+            leftJoinRecordIDs = JoinTables.orJoinIds(leftJoinRecordIDs);
+            rightJoinRecordIDs = JoinTables.orJoinIds(rightJoinRecordIDs);
         }
 
-        return [resultsLeft, resultsRight];
+        return { leftJoinRecordIDs, rightJoinRecordIDs };
     }
 
     /**
@@ -4578,21 +4691,19 @@ class JoinTables {                                   //  skipcq: JS-0128
     * Join two tables and create a derived table that contains all data from both tables.
     * @param {LeftRightJoinFields} leftRightFieldInfo - left table field of join
     * @param {Object} joinTable - AST that contains join type.
-    * @param {Array} recIds
+    * @param {MatchingJoinRecordIDs} recIds
     * @returns {DerivedTable} - new derived table after join of left and right tables.
     */
     static joinTables(leftRightFieldInfo, joinTable, recIds) {
         let derivedTable = null;
         let rightDerivedTable = null;
 
-        const [matchedRecordIDs, rightJoinRecordIDs] = recIds;
-
         switch (joinTable.type) {
             case "left":
                 derivedTable = new DerivedTable()
                     .setLeftField(leftRightFieldInfo.leftSideInfo.fieldInfo)
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
+                    .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
                     .createTable();
                 break;
@@ -4601,7 +4712,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                 derivedTable = new DerivedTable()
                     .setLeftField(leftRightFieldInfo.leftSideInfo.fieldInfo)
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
+                    .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(false)
                     .createTable();
                 break;
@@ -4610,7 +4721,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                 derivedTable = new DerivedTable()
                     .setLeftField(leftRightFieldInfo.rightSideInfo.fieldInfo)
                     .setRightField(leftRightFieldInfo.leftSideInfo.fieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
+                    .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
                     .createTable();
 
@@ -4620,14 +4731,14 @@ class JoinTables {                                   //  skipcq: JS-0128
                 derivedTable = new DerivedTable()
                     .setLeftField(leftRightFieldInfo.leftSideInfo.fieldInfo)
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
-                    .setLeftRecords(matchedRecordIDs)
+                    .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
                     .createTable();
 
                 rightDerivedTable = new DerivedTable()
                     .setLeftField(leftRightFieldInfo.rightSideInfo.fieldInfo)
                     .setRightField(leftRightFieldInfo.leftSideInfo.fieldInfo)
-                    .setLeftRecords(rightJoinRecordIDs)
+                    .setLeftRecords(recIds.rightJoinRecordIDs)
                     .setIsOuterJoin(true)
                     .createTable();
 
@@ -4642,27 +4753,43 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 }
 
+/**
+ * @classdesc
+ * Find record ID's for matching JOINed table records.
+ */
 class JoinTablesRecordIds {
+    /**
+     * @param {JoinTables} joinTables 
+     */
     constructor(joinTables) {
+        /** @property {JoinTables} */
         this.dataJoin = joinTables;
+        /** @property {TableFields} */
         this.tableFields = null;
-        /** @type {LeftRightJoinFields} */
+        /** @property {LeftRightJoinFields} */
         this.joinFields = null;
+        /** @property {TableFields} */
         this.tableFields = null;
+        /** @property {Map<String,Table>} */
         this.tableInfo = null;
+        /** @property {BindData} */
         this.bindVariables = null;
+        /** @property {Table} */
         this.primaryTableInfo = null
-        /** @type {Table} */
+        /** @property {Table} */
         this.masterTable = null;
+        /** @property {String} */
         this.rightTableName = "";
+        /** @property {String} */
         this.leftTableName = "";
+        /** @property {String} */
         this.joinType = "";
     }
 
     /**
      *
      * @param {Object} conditionAst
-     * @returns {Array}
+     * @returns {MatchingJoinRecordIDs}
      */
     getRecordIDs(conditionAst) {
         /** @type {Table} */
@@ -4670,9 +4797,8 @@ class JoinTablesRecordIds {
         this.calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
 
         this.joinFields = this.getLeftRightFieldInfo(conditionAst);
-        const recIds = this.getMatchedRecordIds();
 
-        return recIds;
+        return this.getMatchedRecordIds();
     }
 
     /**
@@ -4879,34 +5005,39 @@ class JoinTablesRecordIds {
     }
 
     /**
+     * @typedef {Object} MatchingJoinRecordIDs
+     * @property {Number[][]} leftJoinRecordIDs
+     * @property {Number[][]} rightJoinRecordIDs
+     */
+
+    /**
      *
-     * @returns {Array}
+     * @returns {MatchingJoinRecordIDs}
      */
     getMatchedRecordIds() {
         /** @type {Number[][]} */
-        let matchedRecordIDs = [];
+        let leftJoinRecordIDs = [];
         let rightJoinRecordIDs = [];
 
         switch (this.joinType) {
             case "left":
-                matchedRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
+                leftJoinRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
                 break;
             case "inner":
-                matchedRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
+                leftJoinRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
                 break;
             case "right":
-                matchedRecordIDs = this.leftRightJoin(this.joinFields.rightSideInfo, this.joinFields.leftSideInfo, this.joinType);
+                leftJoinRecordIDs = this.leftRightJoin(this.joinFields.rightSideInfo, this.joinFields.leftSideInfo, this.joinType);
                 break;
             case "full":
-                matchedRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
+                leftJoinRecordIDs = this.leftRightJoin(this.joinFields.leftSideInfo, this.joinFields.rightSideInfo, this.joinType);
                 rightJoinRecordIDs = this.leftRightJoin(this.joinFields.rightSideInfo, this.joinFields.leftSideInfo, "outer");
                 break;
             default:
                 throw new Error(`Invalid join type: ${this.joinType}`);
         }
 
-
-        return [matchedRecordIDs, rightJoinRecordIDs];
+        return { leftJoinRecordIDs, rightJoinRecordIDs };
     }
 
     /**
@@ -4972,7 +5103,7 @@ class JoinTablesRecordIds {
 
         if (keyMasterJoinField !== null) {
             keyMasterJoinField = keyMasterJoinField.toString();
-        }    
+        }
 
         return keyMasterJoinField;
     }
@@ -5001,7 +5132,7 @@ class JoinTablesRecordIds {
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 
-/** Parse SQL SELECT statement and convert into Abstract Syntax Tree */
+/** @classdesc Parse SQL SELECT statement and convert into Abstract Syntax Tree */
 class SqlParse {
     /**
      * 
@@ -6730,7 +6861,8 @@ const TABLE = {
 
 
 
-/** Stores settings for the SCRIPT.  Long term cache storage for small tables.  */
+/** @classdesc 
+ * Stores settings for the SCRIPT.  Long term cache storage for small tables.  */
 class ScriptSettings {      //  skipcq: JS-0128
     /**
      * For storing cache data for very long periods of time.

@@ -10,7 +10,10 @@ import { JoinTables } from './JoinTables.js';
 
 const DERIVEDTABLE = "::DERIVEDTABLE::";
 
-/** Perform SQL SELECT operations to retrieve requested data. */
+/** 
+ * @classdesc 
+ * Perform SQL SELECT operations to retrieve requested data. 
+ */
 class SelectTables {
     /**
      * @param {Object} ast - Abstract Syntax Tree
@@ -89,10 +92,10 @@ class SelectTables {
     }
 
     /**
-      * Retrieve filtered record ID's.
-      * @param {Object} ast - Abstract Syntax Tree
-      * @returns {Number[]} - Records ID's that match WHERE condition.
-      */
+     * Retrieve filtered record ID's.
+     * @param {Object} ast - Abstract Syntax Tree
+     * @returns {Number[]} - Records ID's that match WHERE condition.
+     */
     whereCondition(ast) {
         let sqlData = [];
 
@@ -897,23 +900,36 @@ class SelectTables {
             return false;
         }
 
-        // @ts-ignore
-        const expanded = `^${rightValue.replace(/%/g, ".*").replace(/_/g, ".")}`;
-
-        const result = leftValue.search(expanded);
-        return result !== -1;
+        return SelectTables.likeConditionMatch(leftValue, rightValue) !== -1;
     }
 
+    /**
+     * Compare strings in NOT LIKE condition
+     * @param {String} leftValue - string for comparison
+     * @param {String} rightValue - string with wildcard
+     * @returns {Boolean} - Do strings NOT match?
+     */
     static notLikeCondition(leftValue, rightValue) {
         if ((leftValue === null || rightValue === null) && !(leftValue === null && rightValue === null)) {
             return false;
         }
 
+        return SelectTables.likeConditionMatch(leftValue, rightValue) === -1;
+    }
+
+    /**
+     * Compare strings in (NOT) LIKE condition
+     * @param {String} leftValue - string for comparison
+     * @param {String} rightValue - string with wildcard
+     * @returns {Number} - Found position (not found === -1)
+     */
+    static likeConditionMatch(leftValue, rightValue) {
         // @ts-ignore
-        const expanded = rightValue.replace(/%/g, ".*").replace(/_/g, ".");
+        const expanded = `^${rightValue.replace(/%/g, ".*").replace(/_/g, ".")}`;
 
         const result = leftValue.search(expanded);
-        return result === -1;
+
+        return result;
     }
 
     /**
@@ -973,7 +989,9 @@ class SelectTables {
     }
 }
 
-/** Evaulate calculated fields in SELECT statement.  This is achieved by converting the request 
+/** 
+ * @classdesc 
+ * Evaulate calculated fields in SELECT statement.  This is achieved by converting the request 
  * into javascript and then using 'Function' to evaulate it.  
  */
 class CalculatedField {
@@ -1140,7 +1158,9 @@ class CalculatedField {
     }
 }
 
-/** Correlated Sub-Query requires special lookups for every record in the primary table. */
+/** 
+ * @classdesc
+ * Correlated Sub-Query requires special lookups for every record in the primary table. */
 class CorrelatedSubQuery {
     /**
      * 
@@ -1233,7 +1253,10 @@ class CorrelatedSubQuery {
     }
 }
 
-/** Tracks all fields in a table (including derived tables when there is a JOIN). */
+/** 
+ * @classdesc
+ * Tracks all fields in a table (including derived tables when there is a JOIN). 
+ */
 class VirtualFields {
     constructor() {
         /** @property {Map<String, VirtualField>} - Map to field for fast access. Field name is key. */
@@ -1289,7 +1312,10 @@ class VirtualFields {
     }
 }
 
-/**  Defines all possible table fields including '*' and long/short form (i.e. table.column). */
+/** 
+ * @classdesc 
+ * Defines all possible table fields including '*' and long/short form (i.e. table.column). 
+ */
 class VirtualField {                        //  skipcq: JS-0128
     /**
      * 
@@ -1319,7 +1345,10 @@ class VirtualField {                        //  skipcq: JS-0128
     }
 }
 
-/**  The JOIN creates a new logical table. */
+/**  
+ * @classdesc
+ * The JOIN creates a new logical table. 
+ */
 class DerivedTable {                     //  skipcq: JS-0128
     constructor() {
         /** @property {Table} */
@@ -1431,7 +1460,10 @@ class DerivedTable {                     //  skipcq: JS-0128
     }
 }
 
-/** Convert SQL CALCULATED fields into javascript code that can be evaulated and converted to data. */
+/** 
+ * @classdesc
+ * Convert SQL CALCULATED fields into javascript code that can be evaulated and converted to data. 
+ */
 class SqlServerFunctions {
     /**
      * Convert SQL formula to javascript code.
@@ -1440,7 +1472,7 @@ class SqlServerFunctions {
      * @returns {String} - javascript code
      */
     convertToJs(calculatedFormula, masterFields) {
-        const sqlFunctions = ["ABS", "ADDDATE", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "CURDATE", 
+        const sqlFunctions = ["ABS", "ADDDATE", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "CURDATE",
             "DAY", "DATEDIFF", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTR", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
@@ -1452,7 +1484,7 @@ class SqlServerFunctions {
         this.originalFunctionString = "";
         /** @property {Boolean} - when working on each WHEN/THEN in CASE, is this the first one encountered. */
         this.firstCase = true;
-        /** @type {String[]} */
+        /** @property {String[]} */
         this.referencedTableColumns = [];
 
         let functionString = SelectTables.toUpperCaseExceptQuoted(calculatedFormula);
@@ -1524,8 +1556,8 @@ class SqlServerFunctions {
     curdate() {                                 //  skipcq: JS-0105
         return "new Date().toLocaleString().split(',')[0]";
     }
-    datediff(parms){                            //  skipcq: JS-0105
-        return SqlServerFunctions.datediff(parms);  
+    datediff(parms) {                            //  skipcq: JS-0105
+        return SqlServerFunctions.datediff(parms);
     }
     day(parms) {
         this.referencedTableColumns.push(parms[0]);
@@ -1762,6 +1794,13 @@ class SqlServerFunctions {
         return replacement;
     }
 
+    /**
+     * Add number of days to a date and return JS code to return this date.
+     * @param {any[]} parms 
+     * parms[0] - A date.
+     * parms[1] - Number of days to add to the date.
+     * @returns {String}
+     */
     static adddate(parms) {
         if (parms.length < 2) {
             throw new Error("ADDDATE expecting at least two parameters");
@@ -1867,7 +1906,10 @@ class SqlServerFunctions {
     }
 }
 
-/** Used to create a single row from multiple rows for GROUP BY expressions. */
+/** 
+ * @classdesc
+ * Used to create a single row from multiple rows for GROUP BY expressions. 
+ */
 class ConglomerateRecord {
     /**
      * 
@@ -1996,7 +2038,10 @@ class ConglomerateRecord {
     }
 }
 
-/** Fields from all tables. */
+/** 
+ * @classdesc
+ * Fields from all tables. 
+ * */
 class TableFields {
     constructor() {
         /** @property {TableField[]} */
@@ -2172,6 +2217,15 @@ class TableFields {
     }
 
     /**
+     * @typedef {Object} SelectFieldParameters
+     * @property {Object} selField 
+     * @property {Object} parsedField 
+     * @property {String} columnTitle 
+     * @property {Number} nextColumnPosition
+     * @property {Boolean} isTempField
+     */
+
+    /**
      * Updates internal SELECTED (returned in data) field list.
      * @param {Object} astFields - AST from SELECT
      * @param {Number} nextColumnPosition
@@ -2182,6 +2236,7 @@ class TableFields {
             const parsedField = this.parseAstSelectField(selField);
             const columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
 
+            /** @type {SelectFieldParameters} */
             const selectedFieldParms = {
                 selField, parsedField, columnTitle, nextColumnPosition, isTempField
             };
@@ -2201,6 +2256,11 @@ class TableFields {
         }
     }
 
+    /**
+     * 
+     * @param {SelectFieldParameters} selectedFieldParms 
+     * @returns {void}
+     */
     updateColumnAsSelected(selectedFieldParms) {
         let fieldInfo = this.getFieldInfo(selectedFieldParms.parsedField.columnName);
 
@@ -2230,6 +2290,10 @@ class TableFields {
         this.indexTableField(fieldInfo);
     }
 
+    /**
+     * 
+     * @param {SelectFieldParameters} selectedFieldParms 
+     */
     updateCalculatedAsSelected(selectedFieldParms) {
         const fieldInfo = new TableField();
         this.allFields.push(fieldInfo);
@@ -2245,6 +2309,10 @@ class TableFields {
         this.indexTableField(fieldInfo);
     }
 
+    /**
+     * 
+     * @param {SelectFieldParameters} selectedFieldParms 
+     */
     updateConstantAsSelected(selectedFieldParms) {
         const fieldInfo = new TableField();
         this.allFields.push(fieldInfo);
@@ -2464,7 +2532,10 @@ class TableFields {
     }
 }
 
-/** Table column information. */
+/** 
+ * @classdesc
+ * Table column information. 
+ */
 class TableField {
     constructor() {
         /** @property {String} */

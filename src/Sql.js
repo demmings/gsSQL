@@ -15,7 +15,8 @@ class Logger {
 //  *** DEBUG END ***/
 /**
  * Query any sheet range using standard SQL SELECT syntax.
- * EXAMPLE :  gsSQL("select * from expenses where type = ?1", "expenses", A1:B, true, "travel")
+ * @example
+ * gsSQL("select * from expenses where type = ?1", "expenses", A1:B, true, "travel")
  * 
  * @param {String} statement - SQL string 
  * @param {...any} parms - "table name",  SheetRange, [..."table name", SheetRange], OutputTitles (true/false), [...Bind Variable] 
@@ -26,7 +27,18 @@ function gsSQL(statement, ...parms) {     //  skipcq: JS-0128
     return GasSql.execute(statement, parms);
 }
 
+/**
+ * @classdesc 
+ * Top level class used by Google Sheets custom function to process SELECT and return table data. 
+ */
 class GasSql {
+    /**
+     * Run SELECT command statement and returns data in a table format (double array).
+     * The appropriate functions are selected to be run based on the format of the command line parameters.
+     * @param {String} statement 
+     * @param {any[]} parms 
+     * @returns {any[][]}
+     */
     static execute(statement, parms) {
         if (parms.length === 0 || (parms.length > 0 && (Array.isArray(parms[0]) || parms[0] === ''))) {
             return GasSql.executeSqlv1(statement, parms);
@@ -39,6 +51,14 @@ class GasSql {
         }
     }
 
+    /**
+     * Processes SQL SELECT using original command line syntax.  This syntax does not update automatically if the
+     * data changes, so is not recommended anymore.
+     * @param {String} statement 
+     * @param {any[]} parms 
+     * @returns {any[][]}
+     * @deprecated
+     */
     static executeSqlv1(statement, parms) {
         const sqlCmd = new Sql();
         let columnTitle = true;
@@ -71,6 +91,13 @@ class GasSql {
         return sqlCmd.execute(statement);
     }
 
+    /**
+     * Process SQL SELECT using new command line syntax.  Using this syntax ensures that the select data is refreshed
+     * if any of the selected table data changes - and is therefore the recommended usage.
+     * @param {String} statement 
+     * @param {any[]} parms 
+     * @returns {any[][]}
+     */
     static executeSqlv2(statement, parms) {
         const sqlCmd = new Sql();
         let columnTitle = true;
@@ -141,9 +168,9 @@ class GasSql {
             if (table.length === 1)
                 table.push(table[0]);   // if NO RANGE, assumes table name is sheet name.
             if (table.length === 2)
-                table.push(60);      //  default 0 second cache.
+                table.push(60);         //  default 0 second cache.
             if (table.length === 3)
-                table.push(true);    //  default HAS column title row.
+                table.push(true);       //  default HAS column title row.
             if (table[1] === "")
                 table[1] = table[0];    //  If empty range, assumes TABLE NAME is the SHEET NAME and loads entire sheet.
             if (table.length !== 4)
@@ -161,7 +188,10 @@ class GasSql {
     }
 }
 
-/** Perform SQL SELECT using this class. */
+/** 
+ * @classdesc
+ * Perform SQL SELECT using this class.
+ */
 class Sql {
     constructor() {
         /** @property {Map<String,Table>} - Map of referenced tables.*/
@@ -380,8 +410,8 @@ class Sql {
 
     /**
      * Sets all tables referenced SELECT.
-    * @param {Map<String,Table>} mapOfTables - Map of referenced tables indexed by TABLE name.
-    */
+     * @param {Map<String,Table>} mapOfTables - Map of referenced tables indexed by TABLE name.
+     */
     setTables(mapOfTables) {
         this.tables = mapOfTables;
         return this;
@@ -1066,6 +1096,7 @@ class Sql {
 }
 
 /**
+ * @classdesc 
  * Store and retrieve bind data for use in WHERE portion of SELECT statement.
  */
 class BindData {

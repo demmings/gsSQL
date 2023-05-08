@@ -13,7 +13,10 @@ class Logger {
 
 //  *** DEBUG END ***/
 
-/** Data and methods for each (logical) SQL table. */
+/** 
+ * @classdesc 
+ * Data and methods for each (logical) SQL table. 
+ */
 class Table {       //  skipcq: JS-0128
     /**
      * 
@@ -89,7 +92,6 @@ class Table {       //  skipcq: JS-0128
      * @param {any[]} tableData - Loaded table data with first row titles included.
      * @returns {Table}
      */
-
     loadArrayData(tableData) {
         if (typeof tableData === 'undefined' || tableData.length === 0)
             return this;
@@ -291,9 +293,8 @@ class Table {       //  skipcq: JS-0128
             else {
                 value = calcSqlField.evaluateCalculatedField(calcField, i);
             }
-            if (value !== null) {
-                value = value.toString();
-            }
+
+            value = (value !== null) ? value = value.toString() : value; 
 
             if (value !== "") {
                 let rowNumbers = [];
@@ -309,7 +310,8 @@ class Table {       //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * The calculated field is evaluated for every record in the table.  Each unique calculated value
+     * will map to a list of table record numbers where the calculated value will be found.
      * @param {CalculatedField} calcSqlField 
      * @param {String} calcField 
      * @returns  {Map<String,Number[]>}
@@ -347,7 +349,10 @@ class Table {       //  skipcq: JS-0128
 
 }
 
-/** Class contains information about each column in the SQL table. */
+/** 
+ * @classdesc
+ * Class contains information about each column in the SQL table. 
+ */
 class Schema {
     constructor() {
         /** @property {String} - Table name. */
@@ -541,6 +546,7 @@ class Schema {
      * @property {String} fullColumnName
      * @property {String} fullColumnAliasName
      */
+
     /**
      * Find all valid variations for a column name.  This will include base column name,
      * the column name prefixed with full table name, and the column name prefixed with table alias.
