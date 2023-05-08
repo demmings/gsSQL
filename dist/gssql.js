@@ -1425,7 +1425,7 @@ class Table {       //  skipcq: JS-0128
                 value = calcSqlField.evaluateCalculatedField(calcField, i);
             }
 
-            value = (value !== null) ? value = value.toString() : value; 
+            value = (value !== null) ? value.toString() : value; 
 
             if (value !== "") {
                 let rowNumbers = [];
