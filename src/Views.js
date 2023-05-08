@@ -788,6 +788,11 @@ class SelectTables {
         return constantData;
     }
 
+    /**
+     * 
+     * @param {Object} ast 
+     * @returns {Boolean}
+     */
     static isCorrelatedSubQuery(ast) {
         const tableSet = new Map();
         Sql.extractAstTables(ast, tableSet);
@@ -1517,6 +1522,10 @@ class SqlServerFunctions {
         return functionString;
     }
 
+    /**
+     * 
+     * @returns {String[]}
+     */
     getReferencedColumns() {
         return this.referencedTableColumns;
     }
@@ -1528,137 +1537,324 @@ class SqlServerFunctions {
         this.referencedTableColumns.push(parms[0]);
         return `Math.abs(${parms[0]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     adddate(parms) {                            //  skipcq: JS-0105
         return SqlServerFunctions.adddate(parms);
     }
-    case(parms, args) {
+
+    /**
+     * @param {String[]} _parms 
+     * @param {String[]} args 
+     * @returns {String}
+     */
+    case(_parms, args) {
         return this.caseWhen(args);
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     ceiling(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `Math.ceil(${parms[0]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     charindex(parms) {                          //  skipcq: JS-0105
         return SqlServerFunctions.charIndex(parms);
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     coalesce(parms) {                           //  skipcq: JS-0105
         return SqlServerFunctions.coalesce(parms);
     }
-    concat(parms, args, masterFields) {         //  skipcq: JS-0105
+
+    /**
+     * @param {String[]} parms 
+     * @param {String[]} _args 
+     * @param {TableField[]} masterFields 
+     * @returns {String}
+     */
+    concat(parms, _args, masterFields) {         //  skipcq: JS-0105
         return SqlServerFunctions.concat(parms, masterFields);
     }
-    concat_ws(parms, args, masterFields) {      //  skipcq: JS-0105
+
+    /**
+     * @param {String[]} parms 
+     * @param {String[]} _args 
+     * @param {TableField[]} masterFields 
+     * @returns {String}
+     */
+    concat_ws(parms, _args, masterFields) {      //  skipcq: JS-0105
         return SqlServerFunctions.concat_ws(parms, masterFields);
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     convert(parms) {                            //  skipcq: JS-0105
         return SqlServerFunctions.convert(parms);
     }
+
+    /**
+     * @returns {String}
+     */
     curdate() {                                 //  skipcq: JS-0105
         return "new Date().toLocaleString().split(',')[0]";
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     datediff(parms) {                            //  skipcq: JS-0105
         return SqlServerFunctions.datediff(parms);
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     day(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `new Date(${parms[0]}).getDate()`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     floor(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `Math.floor(${parms[0]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     if(parms) {                                       //  skipcq: JS-0105
         const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
         return `${ifCond} ? ${parms[1]} : ${parms[2]};`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     left(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.substring(0,${parms[1]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     len(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.length`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     length(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.length`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     log(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `Math.log2(${parms[0]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     log10(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `Math.log10(${parms[0]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     lower(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.toLowerCase()`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     ltrim(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.trimStart()`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     month(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `new Date(${parms[0]}).getMonth() + 1`;
     }
+
+    /**
+     * @returns {String}
+     */
     now() {                                     //  skipcq: JS-0105
         return "new Date().toLocaleString()";
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     power(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `Math.pow(${parms[0]},${parms[1]})`;
     }
+
+    /**
+     * @returns {String}
+     */
     rand() {                                    //  skipcq: JS-0105
         return "Math.random()";
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     replicate(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.toString().repeat(${parms[1]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     reverse(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.toString().split("").reverse().join("")`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     right(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.toString().slice(${parms[0]}.length - ${parms[1]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     round(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `Math.round(${parms[0]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     rtrim(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.toString().trimEnd()`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     space(parms) {                                  //  skipcq: JS-0105
         return `' '.repeat(${parms[0]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     stuff(parms) {                                  //  skipcq: JS-0105
         return `${parms[0]}.toString().substring(0,${parms[1]}-1) + ${parms[3]} + ${parms[0]}.toString().substring(${parms[1]} + ${parms[2]} - 1)`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     substr(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.toString().substring(${parms[1]} - 1, ${parms[1]} + ${parms[2]} - 1)`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     substring(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.toString().substring(${parms[1]} - 1, ${parms[1]} + ${parms[2]} - 1)`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     sqrt(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `Math.sqrt(${parms[0]})`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     trim(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.toString().trim()`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     upper(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.toString().toUpperCase()`;
     }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     year(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `new Date(${parms[0]}).getFullYear()`;
