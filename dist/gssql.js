@@ -341,8 +341,6 @@ class Sql {
     * @returns {any[][]} - Double array where first index is ROW and second index is COLUMN.
     */
     execute(statement) {
-        let sqlData = [];
-
         this.ast = (typeof statement === 'string') ? SqlParse.sql2ast(statement) : statement;
 
         //  "SELECT * from (select a,b,c from table) as derivedtable"
@@ -820,7 +818,7 @@ class Sql {
         view.removeTempColumns(viewTableData);
 
         //  Limit rows returned.
-        viewTableData = view.limit(ast, viewTableData);
+        viewTableData = SelectTables.limit(ast, viewTableData);
 
         //  Apply SET rules for various union types.
         viewTableData = this.unionSets(ast, viewTableData);
@@ -859,7 +857,10 @@ class Sql {
 
             if (typeof ast['GROUP BY'] === 'undefined') {
                 const groupBy = [];
-                astFields.map(astItem => groupBy.push({ name: astItem.name, as: '' }));
+
+                for (const astItem of astFields) {
+                    groupBy.push({ name: astItem.name, as: '' });
+                }
 
                 ast["GROUP BY"] = groupBy;
             }
@@ -1015,7 +1016,7 @@ class Sql {
         const srcDataRecordKeys = new Map();
 
         //  Create a unique key for every record in source data.
-        srcData.map(srcRow => srcDataRecordKeys.set(srcRow.join("::"), true));
+        srcData.forEach(srcRow => srcDataRecordKeys.set(srcRow.join("::"), true));
 
         for (const newRow of newData) {
             const key = newRow.join("::");
@@ -2319,7 +2320,7 @@ class SelectTables {
      * @param {any[][]} viewTableData 
      * @returns {any[][]}
      */
-    limit(ast, viewTableData) {
+    static limit(ast, viewTableData) {
         if (typeof ast.LIMIT !== 'undefined') {
             const maxItems = ast.LIMIT.nb;
             if (viewTableData.length > maxItems)
@@ -2709,7 +2710,7 @@ class CalculatedField {
 
         /** @property {Map<String, TableField>} */
         this.mapMasterFields = new Map();
-        this.masterFields.map(fld => this.mapMasterFields.set(fld.fieldName, fld));
+        this.masterFields.forEach(fld => this.mapMasterFields.set(fld.fieldName, fld));
     }
 
     /**
@@ -4269,7 +4270,7 @@ class TableFields {
      */
     getColumnNames() {
         const columnNames = [];
-        this.getSelectFields().map(fld => columnNames.push(fld.columnName));
+        this.getSelectFields().forEach(fld => columnNames.push(fld.columnName));
 
         return columnNames;
     }
@@ -7071,7 +7072,7 @@ class ScriptSettings {      //  skipcq: JS-0128
      */
     putAll(propertyDataObject, daysToHold = 1) {
         const keys = Object.keys(propertyDataObject);
-        keys.map(key => this.put(key, propertyDataObject[key], daysToHold));
+        keys.forEach(key => this.put(key, propertyDataObject[key], daysToHold));
     }
 
     /**

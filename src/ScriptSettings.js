@@ -59,7 +59,7 @@ class ScriptSettings {      //  skipcq: JS-0128
      */
     putAll(propertyDataObject, daysToHold = 1) {
         const keys = Object.keys(propertyDataObject);
-        keys.map(key => this.put(key, propertyDataObject[key], daysToHold));
+        keys.forEach(key => this.put(key, propertyDataObject[key], daysToHold));
     }
 
     /**
