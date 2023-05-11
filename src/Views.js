@@ -639,7 +639,7 @@ class SelectTables {
      * @param {any[][]} viewTableData 
      * @returns {any[][]}
      */
-    limit(ast, viewTableData) {
+    static limit(ast, viewTableData) {
         if (typeof ast.LIMIT !== 'undefined') {
             const maxItems = ast.LIMIT.nb;
             if (viewTableData.length > maxItems)
@@ -1029,7 +1029,7 @@ class CalculatedField {
 
         /** @property {Map<String, TableField>} */
         this.mapMasterFields = new Map();
-        this.masterFields.map(fld => this.mapMasterFields.set(fld.fieldName, fld));
+        this.masterFields.forEach(fld => this.mapMasterFields.set(fld.fieldName, fld));
     }
 
     /**
@@ -2589,7 +2589,7 @@ class TableFields {
      */
     getColumnNames() {
         const columnNames = [];
-        this.getSelectFields().map(fld => columnNames.push(fld.columnName));
+        this.getSelectFields().forEach(fld => columnNames.push(fld.columnName));
 
         return columnNames;
     }
