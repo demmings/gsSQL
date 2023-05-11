@@ -43,7 +43,6 @@ class GasSql {
      * @param {String} statement 
      * @param {any[]} parms 
      * @returns {any[][]}
-     * @deprecated
      */
     static executeSqlv1(statement, parms) {
         const sqlCmd = new Sql();
@@ -359,13 +358,11 @@ class Sql {
         Sql.setTableAlias(this.tables, this.ast);
         Sql.loadSchema(this.tables);
 
-        if (typeof this.ast.SELECT !== 'undefined') {
-            sqlData = this.select(this.ast);
-        }
-        else
+        if (typeof this.ast.SELECT === 'undefined') {
             throw new Error("Only SELECT statements are supported.");
+        }
 
-        return sqlData;
+        return this.select(this.ast);
     }
 
     /**
@@ -459,25 +456,26 @@ class Sql {
      * @returns {void}
      */
     selectJoinSubQuery() {
-        if (typeof this.ast.JOIN !== 'undefined') {
-            for (const joinAst of this.ast.JOIN) {
-                if (typeof joinAst.table !== 'string') {
-                    const data = new Sql()
-                        .setTables(this.tables)
-                        .enableColumnTitle(true)
-                        .replaceColumnTableNameWith(joinAst.as)
-                        .execute(joinAst.table);
+        if (typeof this.ast.JOIN === 'undefined')
+            return;
 
-                    if (typeof joinAst.as !== 'undefined') {
-                        this.addTableData(joinAst.as, data);
-                    }
+        for (const joinAst of this.ast.JOIN) {
+            if (typeof joinAst.table !== 'string') {
+                const data = new Sql()
+                    .setTables(this.tables)
+                    .enableColumnTitle(true)
+                    .replaceColumnTableNameWith(joinAst.as)
+                    .execute(joinAst.table);
 
-                    if (joinAst.as === '') {
-                        throw new Error("Every derived table must have its own alias");
-                    }
-                    joinAst.table = joinAst.as;
-                    joinAst.as = '';
+                if (typeof joinAst.as !== 'undefined') {
+                    this.addTableData(joinAst.as, data);
                 }
+
+                if (joinAst.as === '') {
+                    throw new Error("Every derived table must have its own alias");
+                }
+                joinAst.table = joinAst.as;
+                joinAst.as = '';
             }
         }
     }
@@ -643,7 +641,6 @@ class Sql {
     * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
     */
     static getTableNamesJoin(ast, tableSet) {
-
         if (typeof ast.JOIN === 'undefined')
             return;
 
@@ -822,19 +819,18 @@ class Sql {
         //  Remove fields referenced but not included in SELECT field list.
         view.removeTempColumns(viewTableData);
 
-        if (typeof ast.LIMIT !== 'undefined') {
-            const maxItems = ast.LIMIT.nb;
-            if (viewTableData.length > maxItems)
-                viewTableData.splice(maxItems);
-        }
+        //  Limit rows returned.
+        viewTableData = view.limit(ast, viewTableData);
 
         //  Apply SET rules for various union types.
         viewTableData = this.unionSets(ast, viewTableData);
 
+        //  Add column titles
         if (this.columnTitle) {
             viewTableData.unshift(view.getColumnTitles(this.columnTableNameReplacement));
         }
 
+        //  If no data and no titles, create empty double array so sheets function does not have an error.
         if (viewTableData.length === 0) {
             viewTableData.push([""]);
         }
@@ -854,20 +850,18 @@ class Sql {
     static distinctField(ast) {
         const astFields = ast.SELECT;
 
-        if (astFields.length > 0) {
-            const firstField = astFields[0].name.toUpperCase();
-            if (firstField.startsWith("DISTINCT")) {
-                astFields[0].name = firstField.replace("DISTINCT", "").trim();
+        if (astFields.length === 0)
+            return ast;
 
-                if (typeof ast['GROUP BY'] === 'undefined') {
-                    const groupBy = [];
+        const firstField = astFields[0].name.toUpperCase();
+        if (firstField.startsWith("DISTINCT")) {
+            astFields[0].name = firstField.replace("DISTINCT", "").trim();
 
-                    for (const astItem of astFields) {
-                        groupBy.push({ name: astItem.name, as: '' });
-                    }
+            if (typeof ast['GROUP BY'] === 'undefined') {
+                const groupBy = [];
+                astFields.map(astItem => groupBy.push({ name: astItem.name, as: '' }));
 
-                    ast["GROUP BY"] = groupBy;
-                }
+                ast["GROUP BY"] = groupBy;
             }
         }
 
@@ -885,8 +879,9 @@ class Sql {
             if (typeof ast['GROUP BY'] === 'undefined')
                 throw new Error("PIVOT requires GROUP BY");
         }
-        else
+        else {
             return ast;
+        }
 
         // These are all of the unique PIVOT field data points.
         const pivotFieldData = this.getUniquePivotData(ast);
@@ -946,8 +941,9 @@ class Sql {
                     newPivotAstFields.push({ name: caseTxt, as: asField });
                 }
             }
-            else
+            else {
                 newPivotAstFields.push(selectField);
+            }
         }
 
         return newPivotAstFields;
@@ -965,41 +961,45 @@ class Sql {
         let unionTableData = viewTableData;
 
         for (const type of unionTypes) {
-            if (typeof ast[type] !== 'undefined') {
-                const unionSQL = new Sql()
-                    .setBindValues(this.bindData)
-                    .copyTableData(this.getTables());
-                for (const union of ast[type]) {
-                    const unionData = unionSQL.execute(union);
-                    if (unionTableData.length > 0 && unionData.length > 0 && unionTableData[0].length !== unionData[0].length)
-                        throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
+            if (typeof ast[type] === 'undefined') {
+                continue;
+            }
 
-                    switch (type) {
-                        case "UNION":
-                            //  Remove duplicates.
-                            unionTableData = Sql.appendUniqueRows(unionTableData, unionData);
-                            break;
+            const unionSQL = new Sql()
+                .setBindValues(this.bindData)
+                .copyTableData(this.getTables());
 
-                        case "UNION ALL":
-                            //  Allow duplicates.
-                            unionTableData = unionTableData.concat(unionData);
-                            break;
+            for (const union of ast[type]) {
+                const unionData = unionSQL.execute(union);
+                if (unionTableData.length > 0 && unionData.length > 0 && unionTableData[0].length !== unionData[0].length)
+                    throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
 
-                        case "INTERSECT":
-                            //  Must exist in BOTH tables.
-                            unionTableData = Sql.intersectRows(unionTableData, unionData);
-                            break;
+                switch (type) {
+                    case "UNION":
+                        //  Remove duplicates.
+                        unionTableData = Sql.appendUniqueRows(unionTableData, unionData);
+                        break;
 
-                        case "EXCEPT":
-                            //  Remove from first table all rows that match in second table.
-                            unionTableData = Sql.exceptRows(unionTableData, unionData);
-                            break;
+                    case "UNION ALL":
+                        //  Allow duplicates.
+                        unionTableData = unionTableData.concat(unionData);
+                        break;
 
-                        default:
-                            throw new Error(`Internal error.  Unsupported UNION type: ${type}`);
-                    }
+                    case "INTERSECT":
+                        //  Must exist in BOTH tables.
+                        unionTableData = Sql.intersectRows(unionTableData, unionData);
+                        break;
+
+                    case "EXCEPT":
+                        //  Remove from first table all rows that match in second table.
+                        unionTableData = Sql.exceptRows(unionTableData, unionData);
+                        break;
+
+                    default:
+                        throw new Error(`Internal error.  Unsupported UNION type: ${type}`);
                 }
             }
+
         }
 
         return unionTableData;
@@ -1012,17 +1012,16 @@ class Sql {
      * @returns {any[][]} - srcData rows PLUS any row in newData that is NOT in srcData.
      */
     static appendUniqueRows(srcData, newData) {
-        const srcMap = new Map();
+        const srcDataRecordKeys = new Map();
 
-        for (const srcRow of srcData) {
-            srcMap.set(srcRow.join("::"), true);
-        }
+        //  Create a unique key for every record in source data.
+        srcData.map(srcRow => srcDataRecordKeys.set(srcRow.join("::"), true));
 
         for (const newRow of newData) {
             const key = newRow.join("::");
-            if (!srcMap.has(key)) {
+            if (!srcDataRecordKeys.has(key)) {
                 srcData.push(newRow);
-                srcMap.set(key, true);
+                srcDataRecordKeys.set(key, true);
             }
         }
         return srcData;
@@ -1373,16 +1372,8 @@ class Table {       //  skipcq: JS-0128
      */
     getRecords(startRecord, lastRecord, fields) {
         const selectedRecords = [];
-
-        let minStartRecord = startRecord;
-        if (minStartRecord < 1) {
-            minStartRecord = 1;
-        }
-
-        let maxLastRecord = lastRecord;
-        if (maxLastRecord < 0) {
-            maxLastRecord = this.tableData.length - 1;
-        }
+        const minStartRecord = startRecord < 1 ? 1 : startRecord;
+        const maxLastRecord = lastRecord < 0 ? this.tableData.length - 1 : lastRecord;
 
         for (let i = minStartRecord; i <= maxLastRecord && i < this.tableData.length; i++) {
             const row = [];
@@ -1406,33 +1397,22 @@ class Table {       //  skipcq: JS-0128
      * @param {String} calcField
      * @returns {Map<String,Number[]>}
      */
-    createKeyFieldRecordMap(fieldName, calcSqlField=null, calcField="") {
+    createKeyFieldRecordMap(fieldName, calcSqlField = null, calcField = "") {
         const indexedFieldName = fieldName.trim().toUpperCase();
         /** @type {Map<String,Number[]>} */
         const fieldValuesMap = new Map();
 
         let value = null;
-        let fieldIndex = null;
-        if (calcSqlField === null) {
-            fieldIndex = this.schema.getFieldColumn(indexedFieldName);
-        }
+        const fieldIndex = calcSqlField === null ? this.schema.getFieldColumn(indexedFieldName) : null;
 
         for (let i = 1; i < this.tableData.length; i++) {
-            if (calcSqlField === null) {
-                value = this.tableData[i][fieldIndex];
-            }
-            else {
-                value = calcSqlField.evaluateCalculatedField(calcField, i);
-            }
-
-            value = (value !== null) ? value.toString() : value; 
+            value = calcSqlField === null ? this.tableData[i][fieldIndex] : calcSqlField.evaluateCalculatedField(calcField, i);
+            value = (value !== null) ? value.toString() : value;
 
             if (value !== "") {
-                let rowNumbers = [];
-                if (fieldValuesMap.has(value))
-                    rowNumbers = fieldValuesMap.get(value);
-
+                const rowNumbers = fieldValuesMap.has(value) ? fieldValuesMap.get(value) : [];
                 rowNumbers.push(i);
+
                 fieldValuesMap.set(value, rowNumbers);
             }
         }
@@ -1458,12 +1438,8 @@ class Table {       //  skipcq: JS-0128
      * @returns {Number[]} - all matching row numbers.
      */
     search(fieldName, searchValue) {
-        const rows = [];
-
         const fieldValuesMap = this.indexes.get(fieldName);
-        if (fieldValuesMap.has(searchValue))
-            return fieldValuesMap.get(searchValue);
-        return rows;
+        return fieldValuesMap.has(searchValue) ? fieldValuesMap.get(searchValue) : [];
     }
 
     /**
@@ -1477,7 +1453,6 @@ class Table {       //  skipcq: JS-0128
         const data = concatTable.getRecords(1, -1, fieldColumns);
         this.tableData = this.tableData.concat(data);
     }
-
 }
 
 /** 
@@ -1614,11 +1589,7 @@ class Schema {
         const fieldIndex = [];
 
         for (const field of fieldNames) {
-            let i = -1;
-
-            if (this.fields.has(field.trim().toUpperCase()))
-                i = this.fields.get(field.trim().toUpperCase());
-
+            const i = this.fields.has(field.trim().toUpperCase()) ? this.fields.get(field.trim().toUpperCase()) : -1;
             fieldIndex.push(i);
         }
 
@@ -2055,9 +2026,8 @@ class SelectTables {
                     inQuotes = ch;
                 ch = ch.toUpperCase();
             }
-            else {
-                if (ch === inQuotes)
-                    inQuotes = "";
+            else if (ch === inQuotes) {
+                inQuotes = "";
             }
 
             finalString += ch;
@@ -2166,9 +2136,8 @@ class SelectTables {
             if (ch === '"' || ch === "'")
                 return ch;
         }
-        else {
-            if (ch === inQuotes)
-                return "";
+        else if (ch === inQuotes) {
+            return "";
         }
 
         return inQuotes;
@@ -2346,6 +2315,21 @@ class SelectTables {
     }
 
     /**
+     * @param {Object} ast 
+     * @param {any[][]} viewTableData 
+     * @returns {any[][]}
+     */
+    limit(ast, viewTableData) {
+        if (typeof ast.LIMIT !== 'undefined') {
+            const maxItems = ast.LIMIT.nb;
+            if (viewTableData.length > maxItems)
+                viewTableData.splice(maxItems);
+        }
+
+        return viewTableData;
+    }
+
+    /**
      * Sort the table data from lowest to highest using the data in colIndex for sorting.
      * @param {any[][]} tableData - table data to sort.
      * @param {Number} colIndex - column index which indicates which column to use for sorting.
@@ -2377,7 +2361,6 @@ class SelectTables {
      * @returns {any[][]} - sorted table data.
      */
     static sortByColumnDESC(tableData, colIndex) {
-
         tableData.sort(sortFunction);
 
         /**
@@ -2663,8 +2646,7 @@ class SelectTables {
             items = [rightValue.toString()];
         }
 
-        for (let i = 0; i < items.length; i++)
-            items[i] = items[i].trimStart().trimEnd();
+        items = items.map(a => a.trim());
 
         let index = items.indexOf(leftValue);
         if (index === -1 && typeof leftValue === 'number') {
@@ -2725,10 +2707,9 @@ class CalculatedField {
         /** @property {TableField[]} */
         this.masterFields = tableFields.allFields.filter((vField) => this.masterTable === vField.tableInfo);
 
+        /** @property {Map<String, TableField>} */
         this.mapMasterFields = new Map();
-        for (const fld of this.masterFields) {
-            this.mapMasterFields.set(fld.fieldName, fld);
-        }
+        this.masterFields.map(fld => this.mapMasterFields.set(fld.fieldName, fld));
     }
 
     /**
@@ -2948,7 +2929,6 @@ class CorrelatedSubQuery {
      * @param {BindData} bindData
      */
     traverseWhere(calcSqlField, terms, masterRecordID, bindData) {
-
         for (const cond of terms) {
             if (typeof cond.logic === 'undefined') {
                 let result = calcSqlField.masterFields.find(item => item.fieldName === cond.left.toUpperCase());
@@ -3032,7 +3012,6 @@ class VirtualFields {
  */
 class VirtualField {                        //  skipcq: JS-0128
     /**
-     * 
      * @param {String} fieldName - field name
      * @param {Table} tableInfo - table this field belongs to.
      * @param {Number} tableColumn - column number of this field.
@@ -3817,7 +3796,6 @@ class SqlServerFunctions {
  */
 class ConglomerateRecord {
     /**
-     * 
      * @param {TableField[]} virtualFields 
      */
     constructor(virtualFields) {
@@ -3916,13 +3894,8 @@ class ConglomerateRecord {
      * @returns {Number} - minimum value from set.
      */
     static minCase(first, value, data) {
-        let groupValue = value;
-        if (first)
-            groupValue = data;
-        if (data < groupValue)
-            groupValue = data;
-
-        return groupValue;
+        const groupValue = first ? data : value;
+        return data < groupValue ? data : groupValue;
     }
 
     /**
@@ -3933,13 +3906,8 @@ class ConglomerateRecord {
      * @returns {Number} - max value from set.
      */
     static maxCase(first, value, data) {
-        let groupValue = value;
-        if (first)
-            groupValue = data;
-        if (data > groupValue)
-            groupValue = data;
-
-        return groupValue;
+        const groupValue = first ? data : value;
+        return data > groupValue ? data : groupValue;
     }
 }
 
@@ -4050,12 +4018,7 @@ class TableFields {
      */
     findTableField(tableName, tableColumn) {
         const key = `${tableName}:${tableColumn}`;
-
-        if (!this.tableColumnMap.has(key)) {
-            return null;
-        }
-
-        return this.tableColumnMap.get(key);
+        return !this.tableColumnMap.has(key) ? null : this.tableColumnMap.get(key);
     }
 
     /**
@@ -4083,7 +4046,6 @@ class TableFields {
      */
     getTableInfo(field) {
         const fldInfo = this.getFieldInfo(field);
-
         return typeof fldInfo !== 'undefined' ? fldInfo.tableInfo : fldInfo;
     }
 
@@ -4094,11 +4056,7 @@ class TableFields {
      */
     getFieldColumn(field) {
         const fld = this.getFieldInfo(field);
-        if (fld !== null) {
-            return fld.tableColumn;
-        }
-
-        return -1;
+        return fld !== null ? fld.tableColumn : -1;
     }
 
     /**
@@ -4311,10 +4269,7 @@ class TableFields {
      */
     getColumnNames() {
         const columnNames = [];
-
-        for (const fld of this.getSelectFields()) {
-            columnNames.push(fld.columnName);
-        }
+        this.getSelectFields().map(fld => columnNames.push(fld.columnName));
 
         return columnNames;
     }
@@ -4427,13 +4382,7 @@ class TableFields {
      * @returns {Number} - Number of conglomerate functions.
      */
     getConglomerateFieldCount() {
-        let count = 0;
-        for (/** @type {TableField} */ const field of this.getSelectFields()) {
-            if (field.aggregateFunction !== "")
-                count++;
-        }
-
-        return count;
+        return this.getSelectFields().filter(field => field.aggregateFunction !== "").length;
     }
 }
 
@@ -4762,11 +4711,12 @@ class JoinTables {                                   //  skipcq: JS-0128
         const rightTableName = conditions.table;
         const joinType = conditions.type;
 
-        if (typeof conditions.cond.logic === 'undefined')
+        if (typeof conditions.cond.logic === 'undefined') {
             recIds = this.resolveCondition("OR", [conditions], joinType, rightTableName, leftTableName);
-
-        else
+        }
+        else {
             recIds = this.resolveCondition(conditions.cond.logic, conditions.cond.terms, joinType, rightTableName, leftTableName);
+        }
 
         return recIds;
     }
@@ -5158,8 +5108,9 @@ class JoinTablesRecordIds {
         const columns = sqlFunc.getReferencedColumns();
 
         foundTableField = this.searchColumnsForTable(calcField, columns);
-        if (foundTableField !== null)
+        if (foundTableField !== null) {
             return foundTableField;
+        }
 
         //  No functions with parameters were used in 'calcField', so we don't know table yet.
         //  We search the calcField for valid columns - except within quotes.
@@ -5328,10 +5279,12 @@ class JoinTablesRecordIds {
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 
-/** @classdesc Parse SQL SELECT statement and convert into Abstract Syntax Tree */
+/**
+ * @classdesc 
+ * Parse SQL SELECT statement and convert into Abstract Syntax Tree 
+ */
 class SqlParse {
     /**
-     * 
      * @param {String} cond 
      * @returns {String}
      */
@@ -5341,10 +5294,12 @@ class SqlParse {
 
         if (typeof ast.WHERE !== 'undefined') {
             const conditions = ast.WHERE;
-            if (typeof conditions.logic === 'undefined')
+            if (typeof conditions.logic === 'undefined') {
                 sqlData = SqlParse.resolveSqlCondition("OR", [conditions]);
-            else
+            }
+            else {
                 sqlData = SqlParse.resolveSqlCondition(conditions.logic, conditions.terms);
+            }
 
         }
 
@@ -5420,10 +5375,12 @@ class SqlParse {
                 }
 
                 jsCondition += ` ${cond.left}`;
-                if (cond.operator === "=")
+                if (cond.operator === "=") {
                     jsCondition += " == ";
-                else
+                }
+                else {
                     jsCondition += ` ${cond.operator}`;
+                }
                 jsCondition += ` ${cond.right}`;
             }
             else {
@@ -5487,8 +5444,9 @@ class SqlParse {
         const reg = SqlParse.makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
 
         const matchedUnions = reg.exec(newStr);
-        if (matchedUnions === null || matchedUnions.length === 0)
+        if (matchedUnions === null || matchedUnions.length === 0) {
             return newStr;
+        }
 
         let prefix = "";
         const parts = [];
@@ -5620,8 +5578,9 @@ class SqlParse {
     static removeDuplicateEntries(parts_order) {
         let busy_until = 0;
         parts_order.forEach((item, key) => {
-            if (busy_until > key)
+            if (busy_until > key) {
                 delete parts_order[key];
+            }
             else {
                 busy_until = key + item.length;
 
@@ -5670,7 +5629,7 @@ class SqlParse {
         parts_order.forEach(item => {
             const itemName = item.toUpperCase();
             j++;
-            const part_result = SelectKeywordAnalysis.analyze(item, parts[j]);
+            const selectComponentAst = SelectKeywordAnalysis.analyze(item, parts[j]);
 
             if (typeof result[itemName] !== 'undefined') {
                 if (typeof result[itemName] === 'string' || typeof result[itemName][0] === 'undefined') {
@@ -5679,10 +5638,10 @@ class SqlParse {
                     result[itemName].push(tmp);
                 }
 
-                result[itemName].push(part_result);
+                result[itemName].push(selectComponentAst);
             }
             else {
-                result[itemName] = part_result;
+                result[itemName] = selectComponentAst;
             }
 
         });
@@ -7112,10 +7071,7 @@ class ScriptSettings {      //  skipcq: JS-0128
      */
     putAll(propertyDataObject, daysToHold = 1) {
         const keys = Object.keys(propertyDataObject);
-
-        for (const key of keys) {
-            this.put(key, propertyDataObject[key], daysToHold);
-        }
+        keys.map(key => this.put(key, propertyDataObject[key], daysToHold));
     }
 
     /**
@@ -7170,8 +7126,9 @@ class PropertyData {
     static getData(obj) {
         let value = null;
         try {
-            if (!PropertyData.isExpired(obj))
+            if (!PropertyData.isExpired(obj)) {
                 value = JSON.parse(obj.myData);
+            }
         }
         catch (ex) {
             Logger.log(`Invalid property value.  Not JSON: ${ex.toString()}`);

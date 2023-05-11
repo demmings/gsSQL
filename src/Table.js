@@ -242,16 +242,8 @@ class Table {       //  skipcq: JS-0128
      */
     getRecords(startRecord, lastRecord, fields) {
         const selectedRecords = [];
-
-        let minStartRecord = startRecord;
-        if (minStartRecord < 1) {
-            minStartRecord = 1;
-        }
-
-        let maxLastRecord = lastRecord;
-        if (maxLastRecord < 0) {
-            maxLastRecord = this.tableData.length - 1;
-        }
+        const minStartRecord = startRecord < 1 ? 1 : startRecord;
+        const maxLastRecord = lastRecord < 0 ? this.tableData.length - 1 : lastRecord;
 
         for (let i = minStartRecord; i <= maxLastRecord && i < this.tableData.length; i++) {
             const row = [];
@@ -275,33 +267,22 @@ class Table {       //  skipcq: JS-0128
      * @param {String} calcField
      * @returns {Map<String,Number[]>}
      */
-    createKeyFieldRecordMap(fieldName, calcSqlField=null, calcField="") {
+    createKeyFieldRecordMap(fieldName, calcSqlField = null, calcField = "") {
         const indexedFieldName = fieldName.trim().toUpperCase();
         /** @type {Map<String,Number[]>} */
         const fieldValuesMap = new Map();
 
         let value = null;
-        let fieldIndex = null;
-        if (calcSqlField === null) {
-            fieldIndex = this.schema.getFieldColumn(indexedFieldName);
-        }
+        const fieldIndex = calcSqlField === null ? this.schema.getFieldColumn(indexedFieldName) : null;
 
         for (let i = 1; i < this.tableData.length; i++) {
-            if (calcSqlField === null) {
-                value = this.tableData[i][fieldIndex];
-            }
-            else {
-                value = calcSqlField.evaluateCalculatedField(calcField, i);
-            }
-
-            value = (value !== null) ? value.toString() : value; 
+            value = calcSqlField === null ? this.tableData[i][fieldIndex] : calcSqlField.evaluateCalculatedField(calcField, i);
+            value = (value !== null) ? value.toString() : value;
 
             if (value !== "") {
-                let rowNumbers = [];
-                if (fieldValuesMap.has(value))
-                    rowNumbers = fieldValuesMap.get(value);
-
+                const rowNumbers = fieldValuesMap.has(value) ? fieldValuesMap.get(value) : [];
                 rowNumbers.push(i);
+
                 fieldValuesMap.set(value, rowNumbers);
             }
         }
@@ -327,12 +308,8 @@ class Table {       //  skipcq: JS-0128
      * @returns {Number[]} - all matching row numbers.
      */
     search(fieldName, searchValue) {
-        const rows = [];
-
         const fieldValuesMap = this.indexes.get(fieldName);
-        if (fieldValuesMap.has(searchValue))
-            return fieldValuesMap.get(searchValue);
-        return rows;
+        return fieldValuesMap.has(searchValue) ? fieldValuesMap.get(searchValue) : [];
     }
 
     /**
@@ -346,7 +323,6 @@ class Table {       //  skipcq: JS-0128
         const data = concatTable.getRecords(1, -1, fieldColumns);
         this.tableData = this.tableData.concat(data);
     }
-
 }
 
 /** 
@@ -483,11 +459,7 @@ class Schema {
         const fieldIndex = [];
 
         for (const field of fieldNames) {
-            let i = -1;
-
-            if (this.fields.has(field.trim().toUpperCase()))
-                i = this.fields.get(field.trim().toUpperCase());
-
+            const i = this.fields.has(field.trim().toUpperCase()) ? this.fields.get(field.trim().toUpperCase()) : -1;
             fieldIndex.push(i);
         }
 

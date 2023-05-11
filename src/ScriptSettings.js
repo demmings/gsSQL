@@ -59,10 +59,7 @@ class ScriptSettings {      //  skipcq: JS-0128
      */
     putAll(propertyDataObject, daysToHold = 1) {
         const keys = Object.keys(propertyDataObject);
-
-        for (const key of keys) {
-            this.put(key, propertyDataObject[key], daysToHold);
-        }
+        keys.map(key => this.put(key, propertyDataObject[key], daysToHold));
     }
 
     /**
@@ -117,8 +114,9 @@ class PropertyData {
     static getData(obj) {
         let value = null;
         try {
-            if (!PropertyData.isExpired(obj))
+            if (!PropertyData.isExpired(obj)) {
                 value = JSON.parse(obj.myData);
+            }
         }
         catch (ex) {
             Logger.log(`Invalid property value.  Not JSON: ${ex.toString()}`);

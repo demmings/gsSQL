@@ -57,7 +57,6 @@ class GasSql {
      * @param {String} statement 
      * @param {any[]} parms 
      * @returns {any[][]}
-     * @deprecated
      */
     static executeSqlv1(statement, parms) {
         const sqlCmd = new Sql();
@@ -373,13 +372,11 @@ class Sql {
         Sql.setTableAlias(this.tables, this.ast);
         Sql.loadSchema(this.tables);
 
-        if (typeof this.ast.SELECT !== 'undefined') {
-            sqlData = this.select(this.ast);
-        }
-        else
+        if (typeof this.ast.SELECT === 'undefined') {
             throw new Error("Only SELECT statements are supported.");
+        }
 
-        return sqlData;
+        return this.select(this.ast);
     }
 
     /**
@@ -473,25 +470,26 @@ class Sql {
      * @returns {void}
      */
     selectJoinSubQuery() {
-        if (typeof this.ast.JOIN !== 'undefined') {
-            for (const joinAst of this.ast.JOIN) {
-                if (typeof joinAst.table !== 'string') {
-                    const data = new Sql()
-                        .setTables(this.tables)
-                        .enableColumnTitle(true)
-                        .replaceColumnTableNameWith(joinAst.as)
-                        .execute(joinAst.table);
+        if (typeof this.ast.JOIN === 'undefined')
+            return;
 
-                    if (typeof joinAst.as !== 'undefined') {
-                        this.addTableData(joinAst.as, data);
-                    }
+        for (const joinAst of this.ast.JOIN) {
+            if (typeof joinAst.table !== 'string') {
+                const data = new Sql()
+                    .setTables(this.tables)
+                    .enableColumnTitle(true)
+                    .replaceColumnTableNameWith(joinAst.as)
+                    .execute(joinAst.table);
 
-                    if (joinAst.as === '') {
-                        throw new Error("Every derived table must have its own alias");
-                    }
-                    joinAst.table = joinAst.as;
-                    joinAst.as = '';
+                if (typeof joinAst.as !== 'undefined') {
+                    this.addTableData(joinAst.as, data);
                 }
+
+                if (joinAst.as === '') {
+                    throw new Error("Every derived table must have its own alias");
+                }
+                joinAst.table = joinAst.as;
+                joinAst.as = '';
             }
         }
     }
@@ -657,7 +655,6 @@ class Sql {
     * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
     */
     static getTableNamesJoin(ast, tableSet) {
-
         if (typeof ast.JOIN === 'undefined')
             return;
 
@@ -836,19 +833,18 @@ class Sql {
         //  Remove fields referenced but not included in SELECT field list.
         view.removeTempColumns(viewTableData);
 
-        if (typeof ast.LIMIT !== 'undefined') {
-            const maxItems = ast.LIMIT.nb;
-            if (viewTableData.length > maxItems)
-                viewTableData.splice(maxItems);
-        }
+        //  Limit rows returned.
+        viewTableData = view.limit(ast, viewTableData);
 
         //  Apply SET rules for various union types.
         viewTableData = this.unionSets(ast, viewTableData);
 
+        //  Add column titles
         if (this.columnTitle) {
             viewTableData.unshift(view.getColumnTitles(this.columnTableNameReplacement));
         }
 
+        //  If no data and no titles, create empty double array so sheets function does not have an error.
         if (viewTableData.length === 0) {
             viewTableData.push([""]);
         }
@@ -868,20 +864,18 @@ class Sql {
     static distinctField(ast) {
         const astFields = ast.SELECT;
 
-        if (astFields.length > 0) {
-            const firstField = astFields[0].name.toUpperCase();
-            if (firstField.startsWith("DISTINCT")) {
-                astFields[0].name = firstField.replace("DISTINCT", "").trim();
+        if (astFields.length === 0)
+            return ast;
 
-                if (typeof ast['GROUP BY'] === 'undefined') {
-                    const groupBy = [];
+        const firstField = astFields[0].name.toUpperCase();
+        if (firstField.startsWith("DISTINCT")) {
+            astFields[0].name = firstField.replace("DISTINCT", "").trim();
 
-                    for (const astItem of astFields) {
-                        groupBy.push({ name: astItem.name, as: '' });
-                    }
+            if (typeof ast['GROUP BY'] === 'undefined') {
+                const groupBy = [];
+                astFields.map(astItem => groupBy.push({ name: astItem.name, as: '' }));
 
-                    ast["GROUP BY"] = groupBy;
-                }
+                ast["GROUP BY"] = groupBy;
             }
         }
 
@@ -899,8 +893,9 @@ class Sql {
             if (typeof ast['GROUP BY'] === 'undefined')
                 throw new Error("PIVOT requires GROUP BY");
         }
-        else
+        else {
             return ast;
+        }
 
         // These are all of the unique PIVOT field data points.
         const pivotFieldData = this.getUniquePivotData(ast);
@@ -960,8 +955,9 @@ class Sql {
                     newPivotAstFields.push({ name: caseTxt, as: asField });
                 }
             }
-            else
+            else {
                 newPivotAstFields.push(selectField);
+            }
         }
 
         return newPivotAstFields;
@@ -979,41 +975,45 @@ class Sql {
         let unionTableData = viewTableData;
 
         for (const type of unionTypes) {
-            if (typeof ast[type] !== 'undefined') {
-                const unionSQL = new Sql()
-                    .setBindValues(this.bindData)
-                    .copyTableData(this.getTables());
-                for (const union of ast[type]) {
-                    const unionData = unionSQL.execute(union);
-                    if (unionTableData.length > 0 && unionData.length > 0 && unionTableData[0].length !== unionData[0].length)
-                        throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
+            if (typeof ast[type] === 'undefined') {
+                continue;
+            }
 
-                    switch (type) {
-                        case "UNION":
-                            //  Remove duplicates.
-                            unionTableData = Sql.appendUniqueRows(unionTableData, unionData);
-                            break;
+            const unionSQL = new Sql()
+                .setBindValues(this.bindData)
+                .copyTableData(this.getTables());
 
-                        case "UNION ALL":
-                            //  Allow duplicates.
-                            unionTableData = unionTableData.concat(unionData);
-                            break;
+            for (const union of ast[type]) {
+                const unionData = unionSQL.execute(union);
+                if (unionTableData.length > 0 && unionData.length > 0 && unionTableData[0].length !== unionData[0].length)
+                    throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
 
-                        case "INTERSECT":
-                            //  Must exist in BOTH tables.
-                            unionTableData = Sql.intersectRows(unionTableData, unionData);
-                            break;
+                switch (type) {
+                    case "UNION":
+                        //  Remove duplicates.
+                        unionTableData = Sql.appendUniqueRows(unionTableData, unionData);
+                        break;
 
-                        case "EXCEPT":
-                            //  Remove from first table all rows that match in second table.
-                            unionTableData = Sql.exceptRows(unionTableData, unionData);
-                            break;
+                    case "UNION ALL":
+                        //  Allow duplicates.
+                        unionTableData = unionTableData.concat(unionData);
+                        break;
 
-                        default:
-                            throw new Error(`Internal error.  Unsupported UNION type: ${type}`);
-                    }
+                    case "INTERSECT":
+                        //  Must exist in BOTH tables.
+                        unionTableData = Sql.intersectRows(unionTableData, unionData);
+                        break;
+
+                    case "EXCEPT":
+                        //  Remove from first table all rows that match in second table.
+                        unionTableData = Sql.exceptRows(unionTableData, unionData);
+                        break;
+
+                    default:
+                        throw new Error(`Internal error.  Unsupported UNION type: ${type}`);
                 }
             }
+
         }
 
         return unionTableData;
@@ -1026,17 +1026,16 @@ class Sql {
      * @returns {any[][]} - srcData rows PLUS any row in newData that is NOT in srcData.
      */
     static appendUniqueRows(srcData, newData) {
-        const srcMap = new Map();
+        const srcDataRecordKeys = new Map();
 
-        for (const srcRow of srcData) {
-            srcMap.set(srcRow.join("::"), true);
-        }
+        //  Create a unique key for every record in source data.
+        srcData.map(srcRow => srcDataRecordKeys.set(srcRow.join("::"), true));
 
         for (const newRow of newData) {
             const key = newRow.join("::");
-            if (!srcMap.has(key)) {
+            if (!srcDataRecordKeys.has(key)) {
                 srcData.push(newRow);
-                srcMap.set(key, true);
+                srcDataRecordKeys.set(key, true);
             }
         }
         return srcData;

@@ -106,11 +106,12 @@ class JoinTables {                                   //  skipcq: JS-0128
         const rightTableName = conditions.table;
         const joinType = conditions.type;
 
-        if (typeof conditions.cond.logic === 'undefined')
+        if (typeof conditions.cond.logic === 'undefined') {
             recIds = this.resolveCondition("OR", [conditions], joinType, rightTableName, leftTableName);
-
-        else
+        }
+        else {
             recIds = this.resolveCondition(conditions.cond.logic, conditions.cond.terms, joinType, rightTableName, leftTableName);
+        }
 
         return recIds;
     }
@@ -502,8 +503,9 @@ class JoinTablesRecordIds {
         const columns = sqlFunc.getReferencedColumns();
 
         foundTableField = this.searchColumnsForTable(calcField, columns);
-        if (foundTableField !== null)
+        if (foundTableField !== null) {
             return foundTableField;
+        }
 
         //  No functions with parameters were used in 'calcField', so we don't know table yet.
         //  We search the calcField for valid columns - except within quotes.

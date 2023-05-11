@@ -346,9 +346,8 @@ class SelectTables {
                     inQuotes = ch;
                 ch = ch.toUpperCase();
             }
-            else {
-                if (ch === inQuotes)
-                    inQuotes = "";
+            else if (ch === inQuotes) {
+                inQuotes = "";
             }
 
             finalString += ch;
@@ -457,9 +456,8 @@ class SelectTables {
             if (ch === '"' || ch === "'")
                 return ch;
         }
-        else {
-            if (ch === inQuotes)
-                return "";
+        else if (ch === inQuotes) {
+            return "";
         }
 
         return inQuotes;
@@ -637,6 +635,21 @@ class SelectTables {
     }
 
     /**
+     * @param {Object} ast 
+     * @param {any[][]} viewTableData 
+     * @returns {any[][]}
+     */
+    limit(ast, viewTableData) {
+        if (typeof ast.LIMIT !== 'undefined') {
+            const maxItems = ast.LIMIT.nb;
+            if (viewTableData.length > maxItems)
+                viewTableData.splice(maxItems);
+        }
+
+        return viewTableData;
+    }
+
+    /**
      * Sort the table data from lowest to highest using the data in colIndex for sorting.
      * @param {any[][]} tableData - table data to sort.
      * @param {Number} colIndex - column index which indicates which column to use for sorting.
@@ -668,7 +681,6 @@ class SelectTables {
      * @returns {any[][]} - sorted table data.
      */
     static sortByColumnDESC(tableData, colIndex) {
-
         tableData.sort(sortFunction);
 
         /**
@@ -954,8 +966,7 @@ class SelectTables {
             items = [rightValue.toString()];
         }
 
-        for (let i = 0; i < items.length; i++)
-            items[i] = items[i].trimStart().trimEnd();
+        items = items.map(a => a.trim());
 
         let index = items.indexOf(leftValue);
         if (index === -1 && typeof leftValue === 'number') {
@@ -1016,10 +1027,9 @@ class CalculatedField {
         /** @property {TableField[]} */
         this.masterFields = tableFields.allFields.filter((vField) => this.masterTable === vField.tableInfo);
 
+        /** @property {Map<String, TableField>} */
         this.mapMasterFields = new Map();
-        for (const fld of this.masterFields) {
-            this.mapMasterFields.set(fld.fieldName, fld);
-        }
+        this.masterFields.map(fld => this.mapMasterFields.set(fld.fieldName, fld));
     }
 
     /**
@@ -1239,7 +1249,6 @@ class CorrelatedSubQuery {
      * @param {BindData} bindData
      */
     traverseWhere(calcSqlField, terms, masterRecordID, bindData) {
-
         for (const cond of terms) {
             if (typeof cond.logic === 'undefined') {
                 let result = calcSqlField.masterFields.find(item => item.fieldName === cond.left.toUpperCase());
@@ -1323,7 +1332,6 @@ class VirtualFields {
  */
 class VirtualField {                        //  skipcq: JS-0128
     /**
-     * 
      * @param {String} fieldName - field name
      * @param {Table} tableInfo - table this field belongs to.
      * @param {Number} tableColumn - column number of this field.
@@ -2108,7 +2116,6 @@ class SqlServerFunctions {
  */
 class ConglomerateRecord {
     /**
-     * 
      * @param {TableField[]} virtualFields 
      */
     constructor(virtualFields) {
@@ -2207,13 +2214,8 @@ class ConglomerateRecord {
      * @returns {Number} - minimum value from set.
      */
     static minCase(first, value, data) {
-        let groupValue = value;
-        if (first)
-            groupValue = data;
-        if (data < groupValue)
-            groupValue = data;
-
-        return groupValue;
+        const groupValue = first ? data : value;
+        return data < groupValue ? data : groupValue;
     }
 
     /**
@@ -2224,13 +2226,8 @@ class ConglomerateRecord {
      * @returns {Number} - max value from set.
      */
     static maxCase(first, value, data) {
-        let groupValue = value;
-        if (first)
-            groupValue = data;
-        if (data > groupValue)
-            groupValue = data;
-
-        return groupValue;
+        const groupValue = first ? data : value;
+        return data > groupValue ? data : groupValue;
     }
 }
 
@@ -2341,12 +2338,7 @@ class TableFields {
      */
     findTableField(tableName, tableColumn) {
         const key = `${tableName}:${tableColumn}`;
-
-        if (!this.tableColumnMap.has(key)) {
-            return null;
-        }
-
-        return this.tableColumnMap.get(key);
+        return !this.tableColumnMap.has(key) ? null : this.tableColumnMap.get(key);
     }
 
     /**
@@ -2374,7 +2366,6 @@ class TableFields {
      */
     getTableInfo(field) {
         const fldInfo = this.getFieldInfo(field);
-
         return typeof fldInfo !== 'undefined' ? fldInfo.tableInfo : fldInfo;
     }
 
@@ -2385,11 +2376,7 @@ class TableFields {
      */
     getFieldColumn(field) {
         const fld = this.getFieldInfo(field);
-        if (fld !== null) {
-            return fld.tableColumn;
-        }
-
-        return -1;
+        return fld !== null ? fld.tableColumn : -1;
     }
 
     /**
@@ -2602,10 +2589,7 @@ class TableFields {
      */
     getColumnNames() {
         const columnNames = [];
-
-        for (const fld of this.getSelectFields()) {
-            columnNames.push(fld.columnName);
-        }
+        this.getSelectFields().map(fld => columnNames.push(fld.columnName));
 
         return columnNames;
     }
@@ -2718,13 +2702,7 @@ class TableFields {
      * @returns {Number} - Number of conglomerate functions.
      */
     getConglomerateFieldCount() {
-        let count = 0;
-        for (/** @type {TableField} */ const field of this.getSelectFields()) {
-            if (field.aggregateFunction !== "")
-                count++;
-        }
-
-        return count;
+        return this.getSelectFields().filter(field => field.aggregateFunction !== "").length;
     }
 }
 
