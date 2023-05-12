@@ -19,7 +19,6 @@ class Logger {
  */
 class Table {       //  skipcq: JS-0128
     /**
-     * 
      * @param {String} tableName - name of sql table.
      */
     constructor(tableName) {
@@ -28,9 +27,6 @@ class Table {       //  skipcq: JS-0128
 
         /** @property {any[][]} - table data. */
         this.tableData = [];
-
-        /** @property {Map<String, Map<String,Number[]>>} - table indexes*/
-        this.indexes = new Map();
 
         /** @property {Boolean} */
         this.hasColumnTitle = true;
@@ -302,17 +298,6 @@ class Table {       //  skipcq: JS-0128
     }
 
     /**
-     * Return all row ID's where FIELD = SEARCH VALUE.
-     * @param {String} fieldName - table column name (must be upper case and trimmed)
-     * @param {any} searchValue - value to search for in index
-     * @returns {Number[]} - all matching row numbers.
-     */
-    search(fieldName, searchValue) {
-        const fieldValuesMap = this.indexes.get(fieldName);
-        return fieldValuesMap.has(searchValue) ? fieldValuesMap.get(searchValue) : [];
-    }
-
-    /**
      * Append table data from 'concatTable' to the end of this tables existing data.
      * @param {Table} concatTable - Append 'concatTable' data to end of current table data.
      * @returns {void}
@@ -348,7 +333,7 @@ class Schema {
 
         /** @property {Map<String,Number>} - String=Field Name, Number=Column Number */
         this.fields = new Map();
-
+        
         /** @property {VirtualFields} */
         this.virtualFields = new VirtualFields();
     }
@@ -498,7 +483,7 @@ class Schema {
             this.setFieldVariantsColumNumber(fieldVariants, colNum);
 
             if (columnName !== "") {
-                const virtualField = new VirtualField(columnName, this.tableInfo, colNum);
+                const virtualField = new VirtualField(columnName);
                 this.virtualFields.add(virtualField, true);
             }
 

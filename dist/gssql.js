@@ -1150,7 +1150,6 @@ class BindData {
  */
 class Table {       //  skipcq: JS-0128
     /**
-     * 
      * @param {String} tableName - name of sql table.
      */
     constructor(tableName) {
@@ -1159,9 +1158,6 @@ class Table {       //  skipcq: JS-0128
 
         /** @property {any[][]} - table data. */
         this.tableData = [];
-
-        /** @property {Map<String, Map<String,Number[]>>} - table indexes*/
-        this.indexes = new Map();
 
         /** @property {Boolean} */
         this.hasColumnTitle = true;
@@ -1433,17 +1429,6 @@ class Table {       //  skipcq: JS-0128
     }
 
     /**
-     * Return all row ID's where FIELD = SEARCH VALUE.
-     * @param {String} fieldName - table column name (must be upper case and trimmed)
-     * @param {any} searchValue - value to search for in index
-     * @returns {Number[]} - all matching row numbers.
-     */
-    search(fieldName, searchValue) {
-        const fieldValuesMap = this.indexes.get(fieldName);
-        return fieldValuesMap.has(searchValue) ? fieldValuesMap.get(searchValue) : [];
-    }
-
-    /**
      * Append table data from 'concatTable' to the end of this tables existing data.
      * @param {Table} concatTable - Append 'concatTable' data to end of current table data.
      * @returns {void}
@@ -1479,7 +1464,7 @@ class Schema {
 
         /** @property {Map<String,Number>} - String=Field Name, Number=Column Number */
         this.fields = new Map();
-
+        
         /** @property {VirtualFields} */
         this.virtualFields = new VirtualFields();
     }
@@ -1629,7 +1614,7 @@ class Schema {
             this.setFieldVariantsColumNumber(fieldVariants, colNum);
 
             if (columnName !== "") {
-                const virtualField = new VirtualField(columnName, this.tableInfo, colNum);
+                const virtualField = new VirtualField(columnName);
                 this.virtualFields.add(virtualField, true);
             }
 
@@ -2108,7 +2093,7 @@ class SelectTables {
     }
 
     /**
-     * 
+     * Track net brackets encountered in string.
      * @param {String} ch 
      * @param {String} startBracket 
      * @param {String} endBracket 
@@ -2125,7 +2110,7 @@ class SelectTables {
     }
 
     /**
-     * 
+     * Track if current ch(ar) is within quotes.
      * @param {String} ch 
      * @param {String} inQuotes 
      * @returns {String} - Returns empty string if not within a string constant.
@@ -2775,11 +2760,11 @@ class CalculatedField {
             //  Get the DATA from this field.  We then build a series of LET statments
             //  and we assign that data to the field name that might be found in a calculated field.
             let varData = vField.getData(masterRecordID);
-            if (varData instanceof Date) {
-                varData = `'${varData}'`;
+
+            if (typeof varData === "string") {
+                varData = `'${varData.replace(/'/g, "\\'")}'`;
             }
-            else if (typeof varData === "string") {
-                varData = varData.replace(/'/g, "\\'");
+            else if (varData instanceof Date) {
                 varData = `'${varData}'`;
             }
 
@@ -2811,8 +2796,9 @@ class CalculatedField {
         let myVars = "";
 
         for (const aliasName of vField.aliasNames) {
-            if ((this.primaryTable.tableName !== vField.tableInfo.tableName && aliasName.indexOf(".") === -1))
+            if ((this.primaryTable.tableName !== vField.tableInfo.tableName && aliasName.indexOf(".") === -1)) {
                 continue;
+            }
 
             if (aliasName.indexOf(".") === -1) {
                 if (!variablesDeclared.has(aliasName)) {
@@ -2963,6 +2949,7 @@ class VirtualFields {
     /**
      * Adds info for one field into master list of fields for table.
      * @param {VirtualField} field - Information for one field in the table.
+     * @param {Boolean} checkForDuplicates - throws error if adding a duplicate field name.
      */
     add(field, checkForDuplicates = false) {
         if (checkForDuplicates && this.virtualFieldMap.has(field.fieldName)) {
@@ -3014,28 +3001,14 @@ class VirtualFields {
 class VirtualField {                        //  skipcq: JS-0128
     /**
      * @param {String} fieldName - field name
-     * @param {Table} tableInfo - table this field belongs to.
-     * @param {Number} tableColumn - column number of this field.
      */
-    constructor(fieldName, tableInfo, tableColumn) {
+    constructor(fieldName) {
         /** @property {String} - field name */
         this._fieldName = fieldName;
-        /** @property {Table} - table this field belongs to. */
-        this._tableInfo = tableInfo;
-        /** @property {Number} - column number of this field. */
-        this._tableColumn = tableColumn;
     }
 
     get fieldName() {
         return this._fieldName;
-    }
-
-    get tableInfo() {
-        return this._tableInfo;
-    }
-
-    get tableColumn() {
-        return this._tableColumn;
     }
 }
 
@@ -3942,24 +3915,23 @@ class TableFields {
 
             for (const field of validFieldNames) {
                 const tableColumn = tableObject.getFieldColumn(field);
-                if (tableColumn !== -1) {
-                    let virtualField = this.findTableField(tableName, tableColumn);
-                    if (virtualField !== null) {
-                        virtualField.addAlias(field);
-                    }
-                    else {
-                        virtualField = new TableField()
-                            .setOriginalTable(tableName)
-                            .setOriginalTableColumn(tableColumn)
-                            .addAlias(field)
-                            .setIsPrimaryTable(primaryTable.toUpperCase() === tableName.toUpperCase())
-                            .setTableInfo(tableObject);
 
-                        this.allFields.push(virtualField);
-                    }
-
-                    this.indexTableField(virtualField, primaryTable.toUpperCase() === tableName.toUpperCase());
+                let virtualField = this.findTableField(tableName, tableColumn);
+                if (virtualField !== null) {
+                    virtualField.addAlias(field);
                 }
+                else {
+                    virtualField = new TableField()
+                        .setOriginalTable(tableName)
+                        .setOriginalTableColumn(tableColumn)
+                        .addAlias(field)
+                        .setIsPrimaryTable(primaryTable.toUpperCase() === tableName.toUpperCase())
+                        .setTableInfo(tableObject);
+
+                    this.allFields.push(virtualField);
+                }
+
+                this.indexTableField(virtualField, primaryTable.toUpperCase() === tableName.toUpperCase());
             }
         }
 
@@ -3992,10 +3964,10 @@ class TableFields {
      */
     indexTableField(field, isPrimaryTable = false) {
         for (const aliasField of field.aliasNames) {
-            const fieldInfo = this.fieldNameMap.get(aliasField.toUpperCase());
+            const fieldInfo = this.fieldNameMap.get(aliasField);
 
             if (typeof fieldInfo === 'undefined' || isPrimaryTable) {
-                this.fieldNameMap.set(aliasField.toUpperCase(), field);
+                this.fieldNameMap.set(aliasField, field);
             }
         }
 
@@ -4069,12 +4041,6 @@ class TableFields {
         let fld = this.getFieldInfo(field);
         if (typeof fld !== 'undefined' && fld.selectColumn !== -1) {
             return fld.selectColumn;
-        }
-
-        for (fld of this.getSelectFields()) {
-            if (fld.aliasNames.indexOf(field.toUpperCase()) !== -1) {
-                return fld.selectColumn;
-            }
         }
 
         return -1;
@@ -4190,37 +4156,6 @@ class TableFields {
             .setIsTempField(selectedFieldParms.isTempField);
 
         this.indexTableField(fieldInfo);
-    }
-
-    /**
-     * Fields in GROUP BY and ORDER BY might not be in the SELECT field list.  Add a TEMP version to that list.
-     * @param {Object} ast - AST to search for GROUP BY and ORDER BY.
-     */
-    addReferencedColumnstoSelectFieldList(ast) {
-        this.addTempMissingSelectedField(ast['ORDER BY']);
-    }
-
-    /**
-     * Add to Select field list as a temporary field for the fields in AST.
-     * @param {Object} astColumns - find columns mentioned not already in Select Field List
-     */
-    addTempMissingSelectedField(astColumns) {
-        if (typeof astColumns !== 'undefined') {
-            for (const order of astColumns) {
-                if (this.getSelectFieldColumn(order.name) === -1) {
-                    const fieldInfo = this.getFieldInfo(order.name);
-
-                    //  A new SELECT field, not from existing.
-                    const newFieldInfo = new TableField();
-                    Object.assign(newFieldInfo, fieldInfo);
-                    newFieldInfo
-                        .setSelectColumn(this.getNextSelectColumnNumber())
-                        .setIsTempField(true);
-
-                    this.allFields.push(newFieldInfo);
-                }
-            }
-        }
     }
 
     /**
@@ -4587,8 +4522,6 @@ class TableField {
      */
     getData(tableRow) {
         const columnNumber = this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
-        if (tableRow < 0 || columnNumber < 0)
-            return "";
 
         return this.tableInfo.tableData[tableRow][columnNumber];
     }
