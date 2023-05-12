@@ -4038,7 +4038,7 @@ class TableFields {
      * @returns {Number} - column number.
      */
     getSelectFieldColumn(field) {
-        let fld = this.getFieldInfo(field);
+        const fld = this.getFieldInfo(field);
         if (typeof fld !== 'undefined' && fld.selectColumn !== -1) {
             return fld.selectColumn;
         }
