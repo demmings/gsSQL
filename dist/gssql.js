@@ -3806,10 +3806,11 @@ class ConglomerateRecord {
      * @param {TableField} field - field with aggregate function
      * @param {any[]} groupRecords - group of records we apply function to.
      * @param {Number} columnIndex - the column index where data is read from and function is applied on.
-     * @returns {Number} - value of aggregate function for all group rows.
+     * @returns {any} - value of aggregate function for all group rows.
      */
     static aggregateColumn(field, groupRecords, columnIndex) {
         let groupValue = 0;
+        let groupConcat = [];
         let avgCounter = 0;
         let first = true;
         const distinctSet = new Set();
@@ -3848,14 +3849,31 @@ class ConglomerateRecord {
                     avgCounter++;
                     groupValue += numericData;
                     break;
+                case "GROUP_CONCAT":
+                    if (field.distinctSetting === "DISTINCT") {
+                        distinctSet.add(groupRow[columnIndex]);
+                    }
+                    else {
+                        groupConcat.push(groupRow[columnIndex]);
+                    }
+                    break;
                 default:
                     throw new Error(`Invalid aggregate function: ${field.aggregateFunction}`);
             }
             first = false;
         }
 
-        if (field.aggregateFunction === "AVG")
+        if (field.aggregateFunction === "AVG") {
             groupValue = groupValue / avgCounter;
+        }
+
+        if (field.aggregateFunction === "GROUP_CONCAT") {
+            if (field.distinctSetting === "DISTINCT") {
+                groupConcat = Array.from(distinctSet.keys());
+            }
+            groupConcat.sort();
+            return groupConcat.join();
+        }
 
         return groupValue;
     }
@@ -4309,6 +4327,17 @@ class TableFields {
                 columnName = distinctParts[1];
             }
         }
+
+        //  Edge case for group_concat(distinct(field))
+        if (fieldDistinct === '') {
+            const matches = SelectTables.parseForFunctions(columnName.toUpperCase(), "DISTINCT");
+
+            if (matches !== null && matches.length > 1) {
+                columnName = matches[1];
+                fieldDistinct = "DISTINCT";    
+            }
+        }
+        
 
         return [columnName, fieldDistinct];
     }
@@ -6173,7 +6202,7 @@ class SelectKeywordAnalysis {
         let terms = name.split(splitPattern);
 
         if (terms !== null) {
-            const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
+            const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
             terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
         }
         if (name !== "*" && terms !== null && terms.length > 1) {

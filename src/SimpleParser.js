@@ -965,7 +965,7 @@ class SelectKeywordAnalysis {
         let terms = name.split(splitPattern);
 
         if (terms !== null) {
-            const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT"];
+            const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
             terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
         }
         if (name !== "*" && terms !== null && terms.length > 1) {

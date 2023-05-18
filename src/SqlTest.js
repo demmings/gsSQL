@@ -3857,6 +3857,36 @@ class SqlTester {
         return this.isEqual("selectNotLikeInMiddle1", data, expected);
     }
 
+    selectGroupConcat() {
+        let stmt = "select group_concat(name) as concatenated from customers ";
+
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["concatenated"],
+        ["7th Heaven,Dewy Tuesdays,Fe Fi Fo Giant Tiger,ForMe Resellers,Numereo Uno,Sx in Cars,Tres Buon Goods"]];
+
+        return this.isEqual("selectGroupConcat", data, expected);
+
+    }
+
+    selectGroupConcat2() {
+        let stmt = "select customer_id, group_concat(distinct(book_id)) as Books from booksales group by customer_id ";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["customer_id", "Books"],
+        ["", "1"], ["C1", "7,9"], ["C2", "7,8"], ["C3", "9"], ["C4", "2,3,4"]];
+
+        return this.isEqual("selectGroupConcat2", data, expected);
+
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -4980,6 +5010,8 @@ function testerSql() {
     result = result && tester.selectBadHavingButStillWork();
     // result = result && tester.selectDateDiff();      // Test fails after 8pm local time.
     result = result && tester.selectNotLikeInMiddle1();
+    result = result && tester.selectGroupConcat();
+    result = result && tester.selectGroupConcat2();
 
     Logger.log("============================================================================");
 
