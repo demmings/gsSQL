@@ -2144,13 +2144,13 @@ class ConglomerateRecord {
      */
     static aggregateColumn(field, groupRecords, columnIndex) {
         let groupValue = 0;
-        let aggregator = new AggregateTrack(field);
+        const aggregator = new AggregateTrack(field);
 
         for (const groupRow of groupRecords) {
             if (groupRow[columnIndex] === 'null')
                 continue;
 
-            let numericData = ConglomerateRecord.aggregateColumnToNumeric(groupRow[columnIndex]);
+            const numericData = ConglomerateRecord.aggregateColumnToNumeric(groupRow[columnIndex]);
 
             switch (field.aggregateFunction) {
                 case "SUM":
@@ -2207,6 +2207,9 @@ class ConglomerateRecord {
     }
 }
 
+/**
+ * @classdesc Accumulator methods for the various aggregate functions.
+ */
 class AggregateTrack {
     constructor(field) {
         this.groupValue = 0;
@@ -2298,7 +2301,15 @@ class AggregateTrack {
         if (this.isDistinct) {
             this.groupConcat = Array.from(this.distinctSet.keys());
         }
-        this.groupConcat.sort();
+        this.groupConcat.sort((a, b) => {
+            if (a > b) {
+                return 1;
+            }
+            if (b > a) {
+                return -1;
+            }
+            return 0;
+        });
 
         return this.groupConcat.join();
     }
