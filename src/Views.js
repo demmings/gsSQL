@@ -2144,96 +2144,163 @@ class ConglomerateRecord {
      */
     static aggregateColumn(field, groupRecords, columnIndex) {
         let groupValue = 0;
-        let groupConcat = [];
-        let avgCounter = 0;
-        let first = true;
-        const distinctSet = new Set();
+        let aggregator = new AggregateTrack(field);
 
         for (const groupRow of groupRecords) {
             if (groupRow[columnIndex] === 'null')
                 continue;
 
-            let numericData = 0;
-            if (groupRow[columnIndex] instanceof Date) {
-                numericData = groupRow[columnIndex];
-            }
-            else {
-                numericData = Number(groupRow[columnIndex]);
-                numericData = (isNaN(numericData)) ? 0 : numericData;
-            }
+            let numericData = ConglomerateRecord.aggregateColumnToNumeric(groupRow[columnIndex]);
 
             switch (field.aggregateFunction) {
                 case "SUM":
-                    groupValue += numericData;
+                    groupValue = aggregator.sum(numericData);
                     break;
                 case "COUNT":
-                    groupValue++;
-                    if (field.distinctSetting === "DISTINCT") {
-                        distinctSet.add(groupRow[columnIndex]);
-                        groupValue = distinctSet.size;
-                    }
+                    groupValue = aggregator.count(groupRow[columnIndex]);
                     break;
                 case "MIN":
-                    groupValue = ConglomerateRecord.minCase(first, groupValue, numericData);
+                    groupValue = aggregator.minCase(numericData);
                     break;
                 case "MAX":
-                    groupValue = ConglomerateRecord.maxCase(first, groupValue, numericData);
+                    groupValue = aggregator.maxCase(numericData);
                     break;
                 case "AVG":
-                    avgCounter++;
-                    groupValue += numericData;
+                    aggregator.sum(numericData);
                     break;
                 case "GROUP_CONCAT":
-                    if (field.distinctSetting === "DISTINCT") {
-                        distinctSet.add(groupRow[columnIndex]);
-                    }
-                    else {
-                        groupConcat.push(groupRow[columnIndex]);
-                    }
+                    aggregator.addGroupConcatItem(groupRow[columnIndex]);
                     break;
                 default:
                     throw new Error(`Invalid aggregate function: ${field.aggregateFunction}`);
             }
-            first = false;
         }
 
         if (field.aggregateFunction === "AVG") {
-            groupValue = groupValue / avgCounter;
+            groupValue = aggregator.getAverage();
         }
 
         if (field.aggregateFunction === "GROUP_CONCAT") {
-            if (field.distinctSetting === "DISTINCT") {
-                groupConcat = Array.from(distinctSet.keys());
-            }
-            groupConcat.sort();
-            return groupConcat.join();
+            return aggregator.getGroupConcat();
         }
 
         return groupValue;
     }
 
     /**
-     * Find minimum value from group records.
-     * @param {Boolean} first - true if first record in set.
-     * @param {Number} value - cumulative data from all previous group records
-     * @param {Number} data - data from current group record
-     * @returns {Number} - minimum value from set.
+     * 
+     * @param {any} columnData 
+     * @returns {Number}
      */
-    static minCase(first, value, data) {
-        const groupValue = first ? data : value;
-        return data < groupValue ? data : groupValue;
+    static aggregateColumnToNumeric(columnData) {
+        /** @type {any} */
+        let numericData = 0;
+        if (columnData instanceof Date) {
+            numericData = columnData;
+        }
+        else {
+            numericData = Number(columnData);
+            numericData = (isNaN(numericData)) ? 0 : numericData;
+        }
+
+        return numericData;
+    }
+}
+
+class AggregateTrack {
+    constructor(field) {
+        this.groupValue = 0;
+        this.groupConcat = [];
+        this.isDistinct = field.distinctSetting === "DISTINCT";
+        this.distinctSet = new Set();
+        this.first = true;
+        this.avgCounter = 0;
     }
 
     /**
-     * Find max value from group records.
-     * @param {Boolean} first - true if first record in set.
-     * @param {Number} value - cumulative data from all previous group records.
-     * @param {Number} data - data from current group record
-     * @returns {Number} - max value from set.
+     * 
+     * @param {Number} numericData 
+     * @returns {Number}
      */
-    static maxCase(first, value, data) {
-        const groupValue = first ? data : value;
-        return data > groupValue ? data : groupValue;
+    minCase(numericData) {
+        this.groupValue = this.first ? numericData : this.groupValue;
+        this.first = false;
+        this.groupValue = numericData < this.groupValue ? numericData : this.groupValue;
+        return this.groupValue;
+    }
+
+    /**
+     * 
+     * @param {Number} numericData 
+     * @returns {Number}
+     */
+     maxCase(numericData) {
+        this.groupValue = this.first ? numericData : this.groupValue;
+        this.first = false;
+        this.groupValue = numericData > this.groupValue ? numericData : this.groupValue;
+        return this.groupValue;
+    }
+
+    /**
+     * 
+     * @param {Number} numericData 
+     * @returns {Number}
+     */
+    sum(numericData) {
+        this.avgCounter++;
+        this.groupValue += numericData;
+
+        return this.groupValue;
+    }
+
+    /**
+     * 
+     * @returns {Number}
+     */
+    getAverage() {
+        return this.groupValue / this.avgCounter;
+    }
+
+    /**
+     * 
+     * @param {any} columnData 
+     * @returns {Number}
+     */
+    count(columnData) {
+        this.groupValue++;
+        if (this.isDistinct) {
+            this.distinctSet.add(columnData);
+            this.groupValue = this.distinctSet.size;
+        }
+
+        return this.groupValue;
+    }
+
+    /**
+     * 
+     * @param {any} columnData 
+     * @returns {void}
+     */
+    addGroupConcatItem(columnData) {
+        if (this.isDistinct) {
+            this.distinctSet.add(columnData);
+        }
+        else {
+            this.groupConcat.push(columnData);
+        }
+    }
+
+    /**
+     * All data from column returned as single string with items separated by comma.
+     * @returns {String}
+     */
+    getGroupConcat() {
+        if (this.isDistinct) {
+            this.groupConcat = Array.from(this.distinctSet.keys());
+        }
+        this.groupConcat.sort();
+
+        return this.groupConcat.join();
     }
 }
 
@@ -2668,10 +2735,10 @@ class TableFields {
 
             if (matches !== null && matches.length > 1) {
                 columnName = matches[1];
-                fieldDistinct = "DISTINCT";    
+                fieldDistinct = "DISTINCT";
             }
         }
-        
+
 
         return [columnName, fieldDistinct];
     }
