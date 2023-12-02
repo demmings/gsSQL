@@ -3,147 +3,13 @@
 import { Sql, GasSql, gsSQL } from './Sql.js';
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
-export { CacheService };
-export { LockService };
-export { SpreadsheetApp };
+import { Logger, Utilities } from '../GasMocks.js';
 export { Range };
-export { Utilities };
-export { Logger };
-export { PropertiesService };
 export { SqlTester };
 export { TestSql };
+export { SpreadsheetApp };
 
 //  GAS Mock Ups.
-class CacheService {
-    constructor() {
-        // @type {Map<String, cacheItem>} 
-        this.cacheMap = new Map();
-    }
-    static cacheObject = null;
-
-    static getScriptCache() {
-        if (this.cacheObject === null)
-            this.cacheObject = new CacheService();
-
-        return this.cacheObject;
-    }
-
-    get(tagName) {
-        let cacheValue = this.cacheMap.get(tagName);
-        if (typeof cacheValue === 'undefined')
-            return null;
-
-        if (cacheValue.isExpired()) {
-            this.cacheMap.delete(tagName);
-            return null;
-        }
-
-        return cacheValue.dataValue;
-    }
-
-    put(namedRange, singleData, seconds) {
-        let dataItem = new cacheItem(singleData, seconds);
-        this.cacheMap.set(namedRange, dataItem);
-    }
-
-    putAll(putObject, cacheSeconds) {
-        for (let prop in putObject) {
-            this.put(prop, putObject[prop], cacheSeconds);
-        }
-    }
-
-    remove(tagName) {
-        if (this.get(tagName) !== null) {
-            this.cacheMap.delete(tagName);
-        }
-    }
-}
-
-class cacheItem {
-    constructor(dataValue, seconds) {
-        this.dataValue = dataValue;
-        this.startTime = new Date().getTime();
-        this.seconds = seconds;
-    }
-
-    isExpired() {
-        const endTime = new Date().getTime();
-        let timeDiff = endTime - this.startTime; //in ms
-        // strip the ms
-        timeDiff /= 1000;
-
-        return timeDiff > this.seconds;
-    }
-}
-
-class PropertiesService {
-    constructor() {
-        // @type {Map<String, cacheItem>} 
-        this.cacheMap = new Map();
-    }
-    static cacheObject = null;
-
-    static getScriptProperties() {
-        if (this.cacheObject === null)
-            this.cacheObject = new PropertiesService();
-
-        return this.cacheObject;
-    }
-
-    getProperty(tagName) {
-        let cacheValue = this.cacheMap.get(tagName);
-        if (typeof cacheValue === 'undefined')
-            return null;
-
-        if (cacheValue.isExpired()) {
-            this.cacheMap.delete(tagName);
-            return null;
-        }
-
-        return cacheValue.dataValue;
-    }
-
-    deleteProperty(tagName) {
-        if (this.cacheMap.has(tagName))
-            this.cacheMap.delete(tagName);
-    }
-
-    setProperty(namedRange, singleData, seconds = 999999) {
-        let dataItem = new cacheItem(singleData, seconds);
-        this.cacheMap.set(namedRange, dataItem);
-    }
-
-    getKeys() {
-        return Array.from(this.cacheMap.keys());
-    }
-}
-
-class LockService {
-    static isLocked = false;
-
-    static getScriptLock() {
-        return new LockService();
-    }
-
-    waitLock(ms) {
-        let startTime = new Date().getTime();
-        // @ts-ignore
-        while (this.isLocked || (new Date().getTime() - startTime) > ms) {
-            Utilities.sleep(250);
-        }
-
-        // @ts-ignore
-        if (this.isLocked) {
-            throw new Error("Failed to lock");
-        }
-
-        this.isLocked = true;
-    }
-
-    releaseLock() {
-        this.isLocked = false;
-    }
-}
 
 class SpreadsheetApp {
     static getActiveSpreadsheet() {
@@ -285,27 +151,6 @@ class Range {
     }
 }
 
-class Utilities {
-    static sleep(seconds) {
-        const startTime = new Date().getTime();
-
-        const waitMs = seconds * 1000;
-        while (new Date().getTime() - startTime < waitMs) {
-            //  waiting...
-        }
-    }
-
-    static formatDate(srcDate, option, format) {
-        return srcDate;
-    }
-}
-
-
-class Logger {
-    static log(msg) {
-        console.log(msg);
-    }
-}
 //  *** DEBUG END ***/
 
 /**
@@ -368,7 +213,7 @@ function customMenuGenerateTests() {
 }
 
 /**
- * 
+ * Needed by Google Sheets Testing app.
  * @param {String} functionName 
  * @param {any[][]} array1 
  * @param {any[][]} array2 
@@ -4105,7 +3950,7 @@ class SqlTester {
         result = result && this.isEqual("testTableData1.b", allTrans, masterTrans);
         result = result && this.isEqual("testTableData1.c", allTrans2, masterTrans);
         result = result && this.isEqual("testTableData1.d", allTrans3, masterTrans);
-        result = result && this.isEqual("testTableData1.d", allTrans4, masterTrans);
+        result = result && this.isEqual("testTableData1.e", allTrans4, masterTrans);
 
         let data = gsSQL("select Name_of_Institution, Transaction_Date, Description_1, Description_2, Amount, Expense_Category, Account, Gross, Balance " +
             "from 'Master Transactions' " +

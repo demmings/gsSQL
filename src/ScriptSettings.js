@@ -1,7 +1,7 @@
 /*  *** DEBUG START ***
 //  Remove comments for testing in NODE
 export { ScriptSettings };
-import { PropertiesService } from "./SqlTest.js";
+import { PropertiesService } from "../GasMocks.js";
 //  *** DEBUG END ***/
 
 /** @classdesc 
@@ -79,13 +79,26 @@ class ScriptSettings {      //  skipcq: JS-0128
                 }
                 catch (e) {
                     Logger.log(`Script property data is not JSON. key=${key}`);
+                    continue;
                 }
 
-                if (propertyValue !== null && (PropertyData.isExpired(propertyValue) || deleteAll)) {
+                const propertyOfThisApplication = propertyValue !== null && propertyValue.expiry !== undefined;
+
+                if (propertyOfThisApplication && (PropertyData.isExpired(propertyValue) || deleteAll)) {
                     this.scriptProperties.deleteProperty(key);
                     Logger.log(`Removing expired SCRIPT PROPERTY: key=${key}`);
                 }
             }
+        }
+    }
+
+    /**
+     * Delete a specific key in script properties.
+     * @param {String} key 
+     */
+    delete(key) {
+        if (this.scriptProperties.getProperty(key) !== null) {
+            this.scriptProperties.deleteProperty(key);
         }
     }
 }
