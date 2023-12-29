@@ -482,7 +482,7 @@ class CondLexer {
             this.currentChar = "";
         }
         else {
-            this.currentChar = this.source[this.cursor++] || "";
+            this.currentChar = this.source[this.cursor++] ?? "";
         }
     }
 
@@ -1053,7 +1053,7 @@ class SelectKeywordAnalysis {
         const table = strParts[0].split(' AS ');
         const joinResult = {};
         joinResult.table = subqueryAst !== null ? subqueryAst : SelectKeywordAnalysis.trim(table[0]);
-        joinResult.as = SelectKeywordAnalysis.trim(table[1]) || '';
+        joinResult.as = SelectKeywordAnalysis.trim(table[1]) ?? '';
         joinResult.cond = SelectKeywordAnalysis.trim(strParts[1]);
 
         return joinResult;

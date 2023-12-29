@@ -5797,7 +5797,7 @@ class CondLexer {
             this.currentChar = "";
         }
         else {
-            this.currentChar = this.source[this.cursor++] || "";
+            this.currentChar = this.source[this.cursor++] ?? "";
         }
     }
 
@@ -6368,7 +6368,7 @@ class SelectKeywordAnalysis {
         const table = strParts[0].split(' AS ');
         const joinResult = {};
         joinResult.table = subqueryAst !== null ? subqueryAst : SelectKeywordAnalysis.trim(table[0]);
-        joinResult.as = SelectKeywordAnalysis.trim(table[1]) || '';
+        joinResult.as = SelectKeywordAnalysis.trim(table[1]) ?? '';
         joinResult.cond = SelectKeywordAnalysis.trim(strParts[1]);
 
         return joinResult;
@@ -7203,12 +7203,6 @@ class PropertyData {
     }
 }
 
-function testSel() {
-    const mySql = new Select2Object();
-    mySql.addTableData("master", "master_transactions");
-    const tableData = mySql.execute("select * from master");
-}
-
 /**
  * @classdesc - Executes a SELECT statement on sheet data.  Returned data will be any array of objects,
  * where each item is one row of data.  The property values in the object are the column names.
@@ -7259,7 +7253,7 @@ class Select2Object {
         const parms = [];
 
         //  Add the table name and range.
-        for (let tab of this.tables) {
+        for (const tab of this.tables) {
             parms.push(tab.tableName);
             parms.push(tab.data);
         }
@@ -7268,7 +7262,7 @@ class Select2Object {
         parms.push(true);   //  We want column names returned.
 
         //  Add bind data.
-        for (let bind of this.bindVariables) {
+        for (const bind of this.bindVariables) {
             parms.push(bind);
         }
 
@@ -7279,7 +7273,7 @@ class Select2Object {
         }
 
         //  First item in return array is an array of column names.
-        const columnNames = this.cleanupColumnNames(tableDataArray[0]);
+        const columnNames = Select2Object.cleanupColumnNames(tableDataArray[0]);
 
         return this.createTableObjectArray(columnNames, tableDataArray);
     }
@@ -7289,13 +7283,13 @@ class Select2Object {
      * @param {String[]} cols 
      * @returns {String[]}
      */
-    cleanupColumnNames(cols) {
+    static cleanupColumnNames(cols) {
         const newColumns = cols.map(v => v.toLowerCase());
         const noTableColumns = [];
 
         const uniqueTables = new Set();
-        for (let col of newColumns) {
-            let splitColumn = col.split(".");
+        for (const col of newColumns) {
+            const splitColumn = col.split(".");
 
             if (splitColumn.length > 1) {
                 uniqueTables.add(splitColumn[0]);
@@ -7321,7 +7315,7 @@ class Select2Object {
      */
     createTableObjectArray(columnNames, tableDataArray) {
         //  Create empty table record object.
-        const emptyTableRecord = this.createEmptyRecordObject(columnNames);
+        const emptyTableRecord = Select2Object.createEmptyRecordObject(columnNames);
 
         //  Create table array with record data stored in an object.
         const tableData = [];
@@ -7344,10 +7338,10 @@ class Select2Object {
      * @param {String[]} columnNames 
      * @returns {Object}
      */
-    createEmptyRecordObject(columnNames) {
+    static createEmptyRecordObject(columnNames) {
         //  Create empty table record object.
         const dataObject = {};
-        for (let col of columnNames) {
+        for (const col of columnNames) {
             dataObject[col] = '';
         }
 
