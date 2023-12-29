@@ -321,6 +321,32 @@ let data = new Sql()
 4.  Documentation for using:
    * https://demmings.github.io/docs/gssql/index.html
 
+5.  Select2Object Class
+    * The Sql() class returns selected data as a double array.  The Select2Object() class returns the same data, but in the form of an array of objects.
+    * Each column is referenced as a property value rather than data in a column.  Using Sql() object, the column number of expected data would be the offset of select column in the SQL statement.  If the column position changed, your javascript code would require updating.
+    * Using Select2Object().
+      * Executes a SELECT statement on sheet data.  
+      * Returned data will be any array of objects, where each item is one row of data.  
+      * The property values in the object are the column names.  
+        * The column names will be in lower case.  
+        * If more than one table is referenced, the column name will be:  "table.column", otherwise it will just be the column name.  
+        * Spaces in the column name use the underscore, so something like "Transaction Date" would be referenced as "transaction_date".
+    * When defining each table (addTableData()), you set the name and the data source.  This source can be 
+      * a double array of data (with column titles)
+      * a sheet name
+      * a named range
+      * an A1 notation range.
+
+    * Example:
+
+```
+        let stmt = "select * from authors";
+
+        let data = new Select2Object()
+            .addTableData("authors", this.authorsTable())
+            .execute(stmt);
+```
+
 ---
 
 # Installing

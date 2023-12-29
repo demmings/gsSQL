@@ -4,6 +4,7 @@ import { Sql, GasSql, gsSQL } from './Sql.js';
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
 import { Logger, Utilities } from '../GasMocks.js';
+import { Select2Object } from './Select2Object.js';
 export { Range };
 export { SqlTester };
 export { TestSql };
@@ -737,6 +738,22 @@ class SqlTester {
         return this.isEqual(functionName, data, expected);
     }
 
+    selectAllAuthorsToObject(functionName) {
+        let stmt = "select * from authors";
+
+        let data = new Select2Object()
+            .addTableData("authors", this.authorsTable())
+            .execute(stmt);
+
+        let expected = [{ "id": "11", "first_name": "Ellen", "last_name": "Writer" },
+        { "id": "12", "first_name": "Olga", "last_name": "Savelieva" },
+        { "id": "13", "first_name": "Jack", "last_name": "Smart" },
+        { "id": "14", "first_name": "Donald", "last_name": "Brain" },
+        { "id": "15", "first_name": "Yao", "last_name": "Dou" }];
+
+        return this.isEqual("selectAllAuthorsToObject", data, expected);
+    }
+
     selectIsNull1() {
         let stmt = "select * from authors where id is null";
 
@@ -815,6 +832,37 @@ class SqlTester {
         ["7", "Applied AI", "translated", "Smart", "Edwards"]];
 
         return this.isEqual("innerJoin2", data, expected);
+    }
+
+    innerJoin2ToObject() {
+        let stmt = "SELECT books.id, books.title, books.type, authors.last_name, " +
+            "translators.last_name " +
+            "FROM books " +
+            "INNER JOIN authors " +
+            "ON books.author_id = authors.id " +
+            "INNER JOIN translators " +
+            "ON books.translator_id = translators.id " +
+            "ORDER BY books.id";
+
+
+        let data = new Select2Object()
+            .addTableData("books", this.bookTable())
+            .addTableData("translators", this.translatorsTable())
+            .addTableData("authors", this.authorsTable())
+            .execute(stmt);
+
+        let expected = [{"books.id":"2","books.title":"Your Trip","books.type":"translated","authors.last_name":"Dou","translators.last_name":"Weng"},
+        {"books.id":"5","books.title":"Oranges","books.type":"translated","authors.last_name":"Savelieva","translators.last_name":"Davies"},
+        {"books.id":"6","books.title":"Your Happy Life","books.type":"translated","authors.last_name":"Dou","translators.last_name":"Green"},
+        {"books.id":"7","books.title":"Applied AI","books.type":"translated","authors.last_name":"Smart","translators.last_name":"Edwards"}];
+
+        let test1 = this.isEqual("innerJoin2ToObject(a)", data, expected);
+
+        data = data.filter(v => v["authors.last_name"] === "Smart");
+        expected = [{"books.id":"7","books.title":"Applied AI","books.type":"translated","authors.last_name":"Smart","translators.last_name":"Edwards"}];
+        let test2 = this.isEqual("innerJoin2ToObject(b)", data, expected);;
+
+        return test1 && test2;
     }
 
     innerJoinAlias1() {
@@ -4716,10 +4764,12 @@ function testerSql() {
     result = result && tester.selectAll1();
     result = result && tester.selectAllCase1();
     result = result && tester.selectIsNotNull1();
+    result = result && tester.selectAllAuthorsToObject();
     result = result && tester.selectIsNull1();
     result = result && tester.innerJoin1a();
     result = result && tester.innerJoin1case();
     result = result && tester.innerJoin2();
+    result = result && tester.innerJoin2ToObject();
     result = result && tester.innerJoinAlias1();
     result = result && tester.innerJoinAlias2();
     result = result && tester.join2a();
