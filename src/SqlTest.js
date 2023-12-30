@@ -754,6 +754,19 @@ class SqlTester {
         return this.isEqual("selectAllAuthorsToObject", data, expected);
     }
 
+    selectAnAuthorsToObject(functionName) {
+        let stmt = "select * from authors where first_name = ?1";
+
+        let data = new Select2Object()
+            .addTableData("authors", this.authorsTable())
+            .addBindVariable("Jack")
+            .execute(stmt);
+
+        let expected = [{"id":"13","first_name":"Jack","last_name":"Smart"}];
+
+        return this.isEqual("selectAnAuthorsToObject", data, expected);
+    }
+
     selectIsNull1() {
         let stmt = "select * from authors where id is null";
 
@@ -4765,6 +4778,7 @@ function testerSql() {
     result = result && tester.selectAllCase1();
     result = result && tester.selectIsNotNull1();
     result = result && tester.selectAllAuthorsToObject();
+    result = result && tester.selectAnAuthorsToObject();
     result = result && tester.selectIsNull1();
     result = result && tester.innerJoin1a();
     result = result && tester.innerJoin1case();

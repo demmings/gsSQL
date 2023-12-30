@@ -18,7 +18,7 @@ class Logger {
  * "table.column", otherwise it will just be the column name.  Spaces in the column name use the underscore, so
  * something like "Transaction Date" would be referenced as "transaction_date".
  */
-class Select2Object {
+class Select2Object {           // skipcq: JS-0128
     constructor() {
         this.tables = [];
         this.bindVariables = [];
@@ -83,7 +83,7 @@ class Select2Object {
         //  First item in return array is an array of column names.
         const columnNames = Select2Object.cleanupColumnNames(tableDataArray[0]);
 
-        return this.createTableObjectArray(columnNames, tableDataArray);
+        return Select2Object.createTableObjectArray(columnNames, tableDataArray);
     }
 
     /**
@@ -121,7 +121,7 @@ class Select2Object {
      * @param {any[]} tableDataArray 
      * @returns {Object[]}
      */
-    createTableObjectArray(columnNames, tableDataArray) {
+    static createTableObjectArray(columnNames, tableDataArray) {
         //  Create empty table record object.
         const emptyTableRecord = Select2Object.createEmptyRecordObject(columnNames);
 
