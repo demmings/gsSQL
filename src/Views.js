@@ -480,15 +480,13 @@ class SelectTables {
                 groupedTableData = this.having(ast.HAVING, groupedTableData);
             }
         }
-        else {
-            //  If any conglomerate field functions (SUM, COUNT,...)
-            //  we summarize all records into ONE.
-            if (this.tableFields.getConglomerateFieldCount() > 0) {
-                const compressedData = [];
-                const conglomerate = new ConglomerateRecord(this.tableFields.getSelectFields());
-                compressedData.push(conglomerate.squish(viewTableData));
-                groupedTableData = compressedData;
-            }
+        //  If any conglomerate field functions (SUM, COUNT,...)
+        //  we summarize all records into ONE.
+        else if (this.tableFields.getConglomerateFieldCount() > 0) {
+            const compressedData = [];
+            const conglomerate = new ConglomerateRecord(this.tableFields.getSelectFields());
+            compressedData.push(conglomerate.squish(viewTableData));
+            groupedTableData = compressedData;
         }
 
         return groupedTableData;
@@ -2237,7 +2235,7 @@ class AggregateTrack {
      * @param {Number} numericData 
      * @returns {Number}
      */
-     maxCase(numericData) {
+    maxCase(numericData) {
         this.groupValue = this.first ? numericData : this.groupValue;
         this.first = false;
         this.groupValue = numericData > this.groupValue ? numericData : this.groupValue;

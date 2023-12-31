@@ -4,11 +4,6 @@
 import { GasSql } from "./Sql.js";
 export { Select2Object };
 
-class Logger {
-    static log(msg) {
-        console.log(msg);
-    }
-}
 //  *** DEBUG END ***/
 
 /**

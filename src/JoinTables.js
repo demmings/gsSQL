@@ -528,7 +528,7 @@ class JoinTablesRecordIds {
      * 
      * @param {String} calcField 
      * @param {String[]} columns 
-     * @returns {TableField}
+     * @returns {Object}
      */
     searchColumnsForTable(calcField, columns) {
         let fieldInfo = null;
@@ -537,7 +537,7 @@ class JoinTablesRecordIds {
         for (const col of columns) {
             fieldInfo = this.tableFields.getFieldInfo(col);
             if (typeof fieldInfo !== 'undefined') {
-                foundTableField = Object.assign({}, fieldInfo);
+                foundTableField = {...fieldInfo};
                 foundTableField.calculatedFormula = calcField;
                 return foundTableField;
             }

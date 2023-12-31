@@ -2146,15 +2146,13 @@ class SelectTables {
                 groupedTableData = this.having(ast.HAVING, groupedTableData);
             }
         }
-        else {
-            //  If any conglomerate field functions (SUM, COUNT,...)
-            //  we summarize all records into ONE.
-            if (this.tableFields.getConglomerateFieldCount() > 0) {
-                const compressedData = [];
-                const conglomerate = new ConglomerateRecord(this.tableFields.getSelectFields());
-                compressedData.push(conglomerate.squish(viewTableData));
-                groupedTableData = compressedData;
-            }
+        //  If any conglomerate field functions (SUM, COUNT,...)
+        //  we summarize all records into ONE.
+        else if (this.tableFields.getConglomerateFieldCount() > 0) {
+            const compressedData = [];
+            const conglomerate = new ConglomerateRecord(this.tableFields.getSelectFields());
+            compressedData.push(conglomerate.squish(viewTableData));
+            groupedTableData = compressedData;
         }
 
         return groupedTableData;
@@ -3903,7 +3901,7 @@ class AggregateTrack {
      * @param {Number} numericData 
      * @returns {Number}
      */
-     maxCase(numericData) {
+    maxCase(numericData) {
         this.groupValue = this.first ? numericData : this.groupValue;
         this.first = false;
         this.groupValue = numericData > this.groupValue ? numericData : this.groupValue;
@@ -5174,7 +5172,7 @@ class JoinTablesRecordIds {
      * 
      * @param {String} calcField 
      * @param {String[]} columns 
-     * @returns {TableField}
+     * @returns {Object}
      */
     searchColumnsForTable(calcField, columns) {
         let fieldInfo = null;
@@ -5183,7 +5181,7 @@ class JoinTablesRecordIds {
         for (const col of columns) {
             fieldInfo = this.tableFields.getFieldInfo(col);
             if (typeof fieldInfo !== 'undefined') {
-                foundTableField = Object.assign({}, fieldInfo);
+                foundTableField = {...fieldInfo};
                 foundTableField.calculatedFormula = calcField;
                 return foundTableField;
             }
@@ -7135,7 +7133,7 @@ class ScriptSettings {      //  skipcq: JS-0128
                     continue;
                 }
 
-                const propertyOfThisApplication = propertyValue !== null && propertyValue.expiry !== undefined;
+                const propertyOfThisApplication = propertyValue?.expiry !== undefined;
 
                 if (propertyOfThisApplication && (PropertyData.isExpired(propertyValue) || deleteAll)) {
                     this.scriptProperties.deleteProperty(key);
