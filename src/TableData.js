@@ -2,9 +2,10 @@
 //  Remove comments for testing in NODE
 
 export { TableData };
+import { SpreadsheetApp } from "./SqlTest.js";
 import { ScriptSettings } from "./ScriptSettings.js";
 import { Table } from "./Table.js";
-import { SpreadsheetApp, CacheService, LockService, Utilities } from "../GasMocks.js";
+import { CacheService, LockService, Utilities } from "../GasMocks.js";
 
 class Logger {
     static log(msg) {

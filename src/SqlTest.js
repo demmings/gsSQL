@@ -8,9 +8,31 @@ import { Select2Object } from './Select2Object.js';
 export { Range };
 export { SqlTester };
 export { TestSql };
+export { SpreadsheetApp };
 
 //  GAS Mock Ups.
 
+class SpreadsheetApp {
+    static getActiveSpreadsheet() {
+        return new SpreadsheetApp();
+    }
+
+    getRangeByName(tableNamedRange) {
+        const dataRange = new Range(tableNamedRange);
+        return dataRange.getMockData() === null ? null : dataRange;
+    }
+
+    getSheetByName(sheetTabName) {
+        let sheetObj = new Sheet(sheetTabName);
+        if (sheetObj.getSheetValues(1, 1, 1, 1) === null)
+            return null;
+        return sheetObj;
+    }
+
+    static getUi() {
+        return new Ui();
+    }
+}
 
 class Ui {
     createMenu(name) {
