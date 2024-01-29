@@ -6159,7 +6159,7 @@ class CondParser {
 
         const isSelectStatement = typeof astNode === "string" && astNode.toUpperCase() === 'SELECT';
 
-        if (operator === 'IN' || isSelectStatement) {
+        if (operator === 'IN' || operator === 'NOT IN' || isSelectStatement) {
             astNode = this.parseSelectIn(astNode, isSelectStatement);
         }
         
@@ -6178,6 +6178,10 @@ class CondParser {
         let astNode = startAstNode;
         let inCurrentToken = this.currentToken;
         let bracketCount = 1;
+
+        //  If only one item in list, we hit the end bracket immediately.
+        bracketCount += CondParser.groupBracketIncrementer(inCurrentToken);
+
         while (bracketCount !== 0 && inCurrentToken.type !== 'eot') {
             this.readNextToken();
             if (isSelectStatement) {

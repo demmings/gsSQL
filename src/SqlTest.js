@@ -8,31 +8,9 @@ import { Select2Object } from './Select2Object.js';
 export { Range };
 export { SqlTester };
 export { TestSql };
-export { SpreadsheetApp };
 
 //  GAS Mock Ups.
 
-class SpreadsheetApp {
-    static getActiveSpreadsheet() {
-        return new SpreadsheetApp();
-    }
-
-    getRangeByName(tableNamedRange) {
-        const dataRange = new Range(tableNamedRange);
-        return dataRange.getMockData() === null ? null : dataRange;
-    }
-
-    getSheetByName(sheetTabName) {
-        let sheetObj = new Sheet(sheetTabName);
-        if (sheetObj.getSheetValues(1, 1, 1, 1) === null)
-            return null;
-        return sheetObj;
-    }
-
-    static getUi() {
-        return new Ui();
-    }
-}
 
 class Ui {
     createMenu(name) {
@@ -1423,6 +1401,70 @@ class SqlTester {
         ["9", "Book with Mysterious Author", "1"]];
 
         return this.isEqual("whereNotIn1", data, expected);
+    }
+
+    whereNotIn2() {
+        let stmt = "SELECT * FROM editors  WHERE first_name NOT IN ('Jack', 'Daniel', 'Mark')";
+
+        let data = new TestSql()
+            .addTableData("editors", this.editorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["EDITORS.ID","EDITORS.FIRST_NAME","EDITORS.LAST_NAME"],
+        ["23","Maria","Evans"],
+        ["24","Cathrine","Roberts"],
+        ["25","Sebastian","Wright"],
+        ["26","Barbara","Jones"],
+        ["27","Matthew","Smith"]];
+
+        return this.isEqual("whereNotIn2", data, expected);
+    }
+
+    whereNotIn3() {
+        let stmt = "SELECT * FROM editors  WHERE first_name NOT IN ('JacK')";
+
+        let data = new TestSql()
+            .addTableData("editors", this.editorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        //  Depending on how your SQL is configured, the comparison is either
+        //  case or case insensitive.  For gsSQL() it is case senstive.
+        let expected = [["EDITORS.ID","EDITORS.FIRST_NAME","EDITORS.LAST_NAME"],
+        ["13","Jack","Smart"],
+        ["21","Daniel","Brown"],
+        ["22","Mark","Johnson"],
+        ["23","Maria","Evans"],
+        ["24","Cathrine","Roberts"],
+        ["25","Sebastian","Wright"],
+        ["26","Barbara","Jones"],
+        ["27","Matthew","Smith"],
+        ["50","Jack","Dumb"],
+        ["51","Daniel","Smart"]];
+
+        return this.isEqual("whereNotIn3", data, expected);
+    }
+
+    whereNotIn4() {
+        let stmt = "SELECT * FROM editors  WHERE first_name NOT IN ('Jack')";
+
+        let data = new TestSql()
+            .addTableData("editors", this.editorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["EDITORS.ID","EDITORS.FIRST_NAME","EDITORS.LAST_NAME"],
+        ["21","Daniel","Brown"],
+        ["22","Mark","Johnson"],
+        ["23","Maria","Evans"],
+        ["24","Cathrine","Roberts"],
+        ["25","Sebastian","Wright"],
+        ["26","Barbara","Jones"],
+        ["27","Matthew","Smith"],
+        ["51","Daniel","Smart"]];
+
+        return this.isEqual("whereNotIn4", data, expected);
     }
 
     whereAndOr1() {
@@ -4805,6 +4847,9 @@ function testerSql() {
     result = result && tester.whereIn6();
     result = result && tester.whereIn7();
     result = result && tester.whereNotIn1();
+    result = result && tester.whereNotIn2();
+    result = result && tester.whereNotIn3();
+    result = result && tester.whereNotIn4();
     result = result && tester.whereAndOr1();
     result = result && tester.whereAndOr2();
     result = result && tester.whereAndOr3();

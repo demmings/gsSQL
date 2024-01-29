@@ -2,7 +2,7 @@
 //  Remove comments for testing in NODE
 
 import { Table } from './Table.js';
-import { Sql, BindData } from './Sql.js';
+import { BindData } from './Sql.js';
 import { DerivedTable, TableFields, TableField, CalculatedField, SqlServerFunctions } from './Views.js';
 export { JoinTables, JoinTablesRecordIds };
 //  *** DEBUG END ***/
