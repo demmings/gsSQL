@@ -5,6 +5,7 @@ import { Table } from './Table.js';
 import { TableData } from './TableData.js';
 import { Logger, Utilities } from '../GasMocks.js';
 import { Select2Object } from './Select2Object.js';
+import { SelectTables } from './Views.js';
 export { Range };
 export { SqlTester };
 export { TestSql };
@@ -4781,6 +4782,12 @@ class SqlTester {
         return this.isFail("badFieldNames1", ex);
     }
 
+    viewsToUpperCaseExceptQuoted() {
+        const data = SelectTables.toUpperCaseExceptQuoted("stuff(email, 2, 3, 'Cjd') + stuff(email, 2, 3, 'Dd')");
+
+        return this.isEqual("viewsToUpperCaseExceptQuoted", data, "STUFF(EMAIL, 2, 3, 'Cjd') + STUFF(EMAIL, 2, 3, 'Dd')");
+    }
+
     isFail(functionName, exceptionErr) {
         if (exceptionErr != "") {
             Logger.log(functionName + "  Captured Error:  " + exceptionErr)
@@ -5043,6 +5050,8 @@ function testerSql() {
     result = result && tester.testTableData1();
     result = result && tester.testTableData2();
     result = result && tester.badParseTableSettings1();
+
+    result = result && tester.viewsToUpperCaseExceptQuoted();
 
     tester.isEqual("===  E N D   O F   T E S T S  ===", true, result);
 

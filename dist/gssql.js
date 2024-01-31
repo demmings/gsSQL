@@ -2100,13 +2100,12 @@ class SelectTables {
      * @returns {Number}
      */
     static functionBracketCounter(ch, startBracket, endBracket) {
-        let counter = 0;
         if (ch === startBracket)
-            counter = 1;
+            return 1;
         else if (ch === endBracket)
-            counter = -1;
+            return -1;
 
-        return counter;
+        return 0;
     }
 
     /**
