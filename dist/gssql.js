@@ -2516,6 +2516,9 @@ class FieldComparisons {
      }}
      */
     static getComparisonFunction(operator) {
+        /**
+         * @returns {Boolean}
+         */
         let keep =() => { return false };
 
         switch (operator.toUpperCase()) {
