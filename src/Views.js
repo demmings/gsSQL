@@ -850,7 +850,7 @@ class FieldComparisons {
      }}
      */
     static getComparisonFunction(operator) {
-        let keep;
+        let keep =(leftValue, rightValue) => { return false };
 
         switch (operator.toUpperCase()) {
             case "=":
