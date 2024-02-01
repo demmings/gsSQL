@@ -165,6 +165,7 @@ class SelectTables {
 
         const leftFieldConditions = this.resolveFieldCondition(condition.left);
         const rightFieldConditions = this.resolveFieldCondition(condition.right);
+        const conditionFunction = FieldComparisons.getComparisonFunction(condition.operator);
 
         /** @type {Table} */
         this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.primaryTableInfo;
@@ -179,7 +180,7 @@ class SelectTables {
                 rightValue = SelectTables.dateToMs(rightValue);
             }
 
-            if (SelectTables.isConditionTrue(leftValue, condition.operator, rightValue))
+            if (conditionFunction(leftValue, rightValue))
                 recordIDs.push(masterRecordID);
         }
 
@@ -198,103 +199,25 @@ class SelectTables {
      * @returns {any} - resolve value.
      */
     static getConditionValue(fieldConditions, calcSqlField, masterRecordID) {
-        let leftValue = fieldConditions.constantData;
+        let fieldValue = fieldConditions.constantData;
         if (fieldConditions.columnNumber >= 0) {
-            leftValue = fieldConditions.fieldConditionTableInfo.tableData[masterRecordID][fieldConditions.columnNumber];
+            fieldValue = fieldConditions.fieldConditionTableInfo.tableData[masterRecordID][fieldConditions.columnNumber];
         }
         else if (fieldConditions.calculatedField !== "") {
             if (fieldConditions.calculatedField.toUpperCase() === "NULL") {
-                leftValue = "NULL";
+                fieldValue = "NULL";
             }
             else {
-                leftValue = calcSqlField.evaluateCalculatedField(fieldConditions.calculatedField, masterRecordID);
+                fieldValue = calcSqlField.evaluateCalculatedField(fieldConditions.calculatedField, masterRecordID);
             }
         }
         else if (fieldConditions.subQuery !== null) {
             const arrayResult = fieldConditions.subQuery.select(masterRecordID, calcSqlField);
             if (typeof arrayResult !== 'undefined' && arrayResult !== null && arrayResult.length > 0)
-                leftValue = arrayResult[0][0];
+                fieldValue = arrayResult[0][0];
         }
 
-        return leftValue;
-    }
-
-    /**
-     * Compare where term values using operator and see if comparision is true.
-     * @param {any} leftValue - left value of condition
-     * @param {String} operator - operator for comparision
-     * @param {any} rightValue  - right value of condition
-     * @returns {Boolean} - is comparison true.
-     */
-    static isConditionTrue(leftValue, operator, rightValue) {
-        let keep = false;
-
-        switch (operator.toUpperCase()) {
-            case "=":
-                keep = leftValue == rightValue;         // skipcq: JS-0050
-                break;
-
-            case ">":
-                keep = leftValue > rightValue;
-                break;
-
-            case "<":
-                keep = leftValue < rightValue;
-                break;
-
-            case ">=":
-                keep = leftValue >= rightValue;
-                break;
-
-            case "<=":
-                keep = leftValue <= rightValue;
-                break;
-
-            case "<>":
-                keep = leftValue != rightValue;         // skipcq: JS-0050
-                break;
-
-            case "!=":
-                keep = leftValue != rightValue;         // skipcq: JS-0050
-                break;
-
-            case "LIKE":
-                keep = SelectTables.likeCondition(leftValue, rightValue);
-                break;
-
-            case "NOT LIKE":
-                keep = SelectTables.notLikeCondition(leftValue, rightValue);
-                break;
-
-            case "IN":
-                keep = SelectTables.inCondition(leftValue, rightValue);
-                break;
-
-            case "NOT IN":
-                keep = !(SelectTables.inCondition(leftValue, rightValue));
-                break;
-
-            case "IS NOT":
-                keep = !(SelectTables.isCondition(leftValue, rightValue));
-                break;
-
-            case "IS":
-                keep = SelectTables.isCondition(leftValue, rightValue);
-                break;
-
-            case "EXISTS":
-                keep = SelectTables.existsCondition(rightValue);
-                break;
-
-            case "NOT EXISTS":
-                keep = !(SelectTables.existsCondition(rightValue));
-                break;
-
-            default:
-                throw new Error(`Invalid Operator: ${operator}`);
-        }
-
-        return keep;
+        return fieldValue;
     }
 
     /**
@@ -904,6 +827,100 @@ class SelectTables {
     }
 
     /**
+     * Return a list of column titles for this table.
+     * @param {String} columnTableNameReplacement
+     * @returns {String[]} - column titles
+     */
+    getColumnTitles(columnTableNameReplacement) {
+        return this.tableFields.getColumnTitles(columnTableNameReplacement);
+    }
+}
+
+/**
+ * @classdesc
+ * Finds a function to be used for doing data comparisons.
+ * The WHERE condition needs to execute the exact same data comparison for all records, so
+ * there is no need to find (through the switch) what to execute for every record.
+ */
+class FieldComparisons {
+    /**
+     * Returns a function to be used for data comparisons.
+     * @param {String} operator SQL comparison operator.
+     * @returns {function}
+     }}
+     */
+    static getComparisonFunction(operator) {
+        let keep;
+
+        switch (operator.toUpperCase()) {
+            case "=":
+                keep = (leftValue, rightValue) => { return leftValue == rightValue };         // skipcq: JS-0050
+                break;
+
+            case ">":
+                keep = (leftValue, rightValue) => { return leftValue > rightValue };
+                break;
+
+            case "<":
+                keep = (leftValue, rightValue) => { return leftValue < rightValue };
+                break;
+
+            case ">=":
+                keep = (leftValue, rightValue) => { return leftValue >= rightValue };
+                break;
+
+            case "<=":
+                keep = (leftValue, rightValue) => { return leftValue <= rightValue };
+                break;
+
+            case "<>":
+                keep = (leftValue, rightValue) => { return leftValue != rightValue };         // skipcq: JS-0050
+                break;
+
+            case "!=":
+                keep = (leftValue, rightValue) => { return leftValue != rightValue };         // skipcq: JS-0050
+                break;
+
+            case "LIKE":
+                keep = (leftValue, rightValue) => { return FieldComparisons.likeCondition(leftValue, rightValue) };
+                break;
+
+            case "NOT LIKE":
+                keep = (leftValue, rightValue) => { return FieldComparisons.notLikeCondition(leftValue, rightValue) };
+                break;
+
+            case "IN":
+                keep = (leftValue, rightValue) => { return FieldComparisons.inCondition(leftValue, rightValue) };
+                break;
+
+            case "NOT IN":
+                keep = (leftValue, rightValue) => { return !(FieldComparisons.inCondition(leftValue, rightValue)) };
+                break;
+
+            case "IS NOT":
+                keep = (leftValue, rightValue) => { return !(FieldComparisons.isCondition(leftValue, rightValue)) };
+                break;
+
+            case "IS":
+                keep = (leftValue, rightValue) => { return FieldComparisons.isCondition(leftValue, rightValue) };
+                break;
+
+            case "EXISTS":
+                keep = (leftValue, rightValue) => { return FieldComparisons.existsCondition(rightValue) };
+                break;
+
+            case "NOT EXISTS":
+                keep = (leftValue, rightValue) => { return !(FieldComparisons.existsCondition(rightValue)) };
+                break;
+
+            default:
+                throw new Error(`Invalid Operator: ${operator}`);
+        }
+
+        return keep;
+    }
+
+    /**
      * Compare strings in LIKE condition
      * @param {String} leftValue - string for comparison
      * @param {String} rightValue - string with wildcard
@@ -914,7 +931,7 @@ class SelectTables {
             return false;
         }
 
-        return SelectTables.likeConditionMatch(leftValue, rightValue) !== -1;
+        return FieldComparisons.likeConditionMatch(leftValue, rightValue) !== -1;
     }
 
     /**
@@ -928,7 +945,7 @@ class SelectTables {
             return false;
         }
 
-        return SelectTables.likeConditionMatch(leftValue, rightValue) === -1;
+        return FieldComparisons.likeConditionMatch(leftValue, rightValue) === -1;
     }
 
     /**
@@ -990,15 +1007,6 @@ class SelectTables {
      */
     static existsCondition(rightValue) {
         return rightValue !== '';
-    }
-
-    /**
-     * Return a list of column titles for this table.
-     * @param {String} columnTableNameReplacement
-     * @returns {String[]} - column titles
-     */
-    getColumnTitles(columnTableNameReplacement) {
-        return this.tableFields.getColumnTitles(columnTableNameReplacement);
     }
 }
 

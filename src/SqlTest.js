@@ -3674,14 +3674,14 @@ class SqlTester {
         const bigBookSalesTable = this.bookSalesTable(recCount);
         const bigBookTable = this.bookTable(recCount);
 
-        //const startTime = performance.now();
+        const startTime = performance.now();
         let data = new TestSql()
             .addTableData("booksales", bigBookSalesTable)
             .addTableData("books", bigBookTable)
             .enableColumnTitle(true)
             .execute(stmt);
-        //const endtime = performance.now();
-        //Logger.log(`Big Table Join.  ms=${(endtime - startTime).toString()}`);
+        const endtime = performance.now();
+        Logger.log(`Big Table Join.  ms=${(endtime - startTime).toString()}`);
 
         let expected = recCount + 11;
 
