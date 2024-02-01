@@ -2516,77 +2516,55 @@ class FieldComparisons {
      }}
      */
     static getComparisonFunction(operator) {
-        /**
-         * @returns {Boolean}
-         */
-        let keep =() => { return false };
-
         switch (operator.toUpperCase()) {
             case "=":
-                keep = (leftValue, rightValue) => { return leftValue == rightValue };         // skipcq: JS-0050
-                break;
+                return (leftValue, rightValue) => { return leftValue == rightValue };         // skipcq: JS-0050
 
             case ">":
-                keep = (leftValue, rightValue) => { return leftValue > rightValue };
-                break;
+                return (leftValue, rightValue) => { return leftValue > rightValue };
 
             case "<":
-                keep = (leftValue, rightValue) => { return leftValue < rightValue };
-                break;
+                return (leftValue, rightValue) => { return leftValue < rightValue };
 
             case ">=":
-                keep = (leftValue, rightValue) => { return leftValue >= rightValue };
-                break;
+                return (leftValue, rightValue) => { return leftValue >= rightValue };
 
             case "<=":
-                keep = (leftValue, rightValue) => { return leftValue <= rightValue };
-                break;
+                return (leftValue, rightValue) => { return leftValue <= rightValue };
 
             case "<>":
-                keep = (leftValue, rightValue) => { return leftValue != rightValue };         // skipcq: JS-0050
-                break;
+                return (leftValue, rightValue) => { return leftValue != rightValue };         // skipcq: JS-0050
 
             case "!=":
-                keep = (leftValue, rightValue) => { return leftValue != rightValue };         // skipcq: JS-0050
-                break;
+                return (leftValue, rightValue) => { return leftValue != rightValue };         // skipcq: JS-0050
 
             case "LIKE":
-                keep = (leftValue, rightValue) => { return FieldComparisons.likeCondition(leftValue, rightValue) };
-                break;
+                return (leftValue, rightValue) => { return FieldComparisons.likeCondition(leftValue, rightValue) };
 
             case "NOT LIKE":
-                keep = (leftValue, rightValue) => { return FieldComparisons.notLikeCondition(leftValue, rightValue) };
-                break;
+                return (leftValue, rightValue) => { return FieldComparisons.notLikeCondition(leftValue, rightValue) };
 
             case "IN":
-                keep = (leftValue, rightValue) => { return FieldComparisons.inCondition(leftValue, rightValue) };
-                break;
+                return (leftValue, rightValue) => { return FieldComparisons.inCondition(leftValue, rightValue) };
 
             case "NOT IN":
-                keep = (leftValue, rightValue) => { return !(FieldComparisons.inCondition(leftValue, rightValue)) };
-                break;
+                return (leftValue, rightValue) => { return !(FieldComparisons.inCondition(leftValue, rightValue)) };
 
             case "IS NOT":
-                keep = (leftValue, rightValue) => { return !(FieldComparisons.isCondition(leftValue, rightValue)) };
-                break;
+                return (leftValue, rightValue) => { return !(FieldComparisons.isCondition(leftValue, rightValue)) };
 
             case "IS":
-                keep = (leftValue, rightValue) => { return FieldComparisons.isCondition(leftValue, rightValue) };
-                break;
+                return (leftValue, rightValue) => { return FieldComparisons.isCondition(leftValue, rightValue) };
 
             case "EXISTS":
-                keep = (leftValue, rightValue) => { return FieldComparisons.existsCondition(rightValue) };
-                break;
+                return (leftValue, rightValue) => { return FieldComparisons.existsCondition(rightValue) };
 
             case "NOT EXISTS":
-                keep = (leftValue, rightValue) => { return !(FieldComparisons.existsCondition(rightValue)) };
-                break;
+                return (leftValue, rightValue) => { return !(FieldComparisons.existsCondition(rightValue)) };
 
             default:
                 throw new Error(`Invalid Operator: ${operator}`);
         }
-
-        return keep;
     }
 
     /**
