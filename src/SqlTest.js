@@ -3808,6 +3808,26 @@ class SqlTester {
         return this.isEqual("selectDateDiff", data, expected);
     }
 
+    selectDateDiff2() {
+        //  This will never test.
+        let stmt = "select date as 'Invoice Date', adddate(date, 30) as 'Overdue', datediff(adddate(date, 30), date) from booksales where date <= adddate('05/01/2022',1)";
+
+        let data = new TestSql()
+            .addTableData("BookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["Invoice Date","Overdue","datediff(adddate(date, 30), date)"],
+        ["05/01/2022","2022-05-31T04:00:00.000Z",30],
+        ["05/01/2022","2022-05-31T04:00:00.000Z",30],
+        ["05/01/2022","2022-05-31T04:00:00.000Z",30],
+        ["05/02/2022","2022-06-01T04:00:00.000Z",30],
+        ["05/02/2022","2022-06-01T04:00:00.000Z",30]];
+
+        return this.isEqual("selectDateDiff2", data, expected);
+    }
+
+
     selectNotLikeInMiddle1() {
         let stmt = "select * from books where title not like 'Your%'";
 
@@ -4992,6 +5012,7 @@ function testerSql() {
     result = result && tester.selectConcat1();
     result = result && tester.selectBadHavingButStillWork();
     // result = result && tester.selectDateDiff();      // Test fails after 8pm local time.
+    result = result && tester.selectDateDiff2();
     result = result && tester.selectNotLikeInMiddle1();
     result = result && tester.selectGroupConcat();
     result = result && tester.selectGroupConcat2();
