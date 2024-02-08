@@ -977,8 +977,8 @@ class Sql {
 
                 switch (type) {
                     case "UNION":
-                        //  Remove duplicates.
-                        unionTableData = Sql.appendUniqueRows(unionTableData, unionData);
+                        unionTableData = unionTableData.concat(unionData);
+                        unionTableData = Sql.removeDuplicateRows(unionTableData);
                         break;
 
                     case "UNION ALL":
@@ -1000,32 +1000,30 @@ class Sql {
                         throw new Error(`Internal error.  Unsupported UNION type: ${type}`);
                 }
             }
-
         }
 
         return unionTableData;
     }
 
     /**
-     * Appends any row in newData that does not exist in srcData.
-     * @param {any[][]} srcData - existing table data
-     * @param {any[][]} newData - new table data
-     * @returns {any[][]} - srcData rows PLUS any row in newData that is NOT in srcData.
+     * Remove all duplicate table rows
+     * @param {any[][]} srcData 
+     * @returns {any[][]}
      */
-    static appendUniqueRows(srcData, newData) {
+    static removeDuplicateRows(srcData) {
+        const newTableData = [];
         const srcDataRecordKeys = new Map();
 
-        //  Create a unique key for every record in source data.
-        srcData.forEach(srcRow => srcDataRecordKeys.set(srcRow.join("::"), true));
+        for (const row of srcData) {
+            const key = row.join("::");
 
-        for (const newRow of newData) {
-            const key = newRow.join("::");
             if (!srcDataRecordKeys.has(key)) {
-                srcData.push(newRow);
+                newTableData.push(row);
                 srcDataRecordKeys.set(key, true);
             }
         }
-        return srcData;
+
+        return newTableData;
     }
 
     /**
@@ -5419,7 +5417,7 @@ class SqlParse {
     }
 
     /**
-     * 
+     * Returns a list of all keywords used in their original CASE.
      * @param {String} query
      * @returns {String[]} 
      */
@@ -5427,18 +5425,14 @@ class SqlParse {
         const generatedList = new Set();
         // Define which words can act as separator
         const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
-
         const modifiedQuery = query.toUpperCase();
 
         for (const word of keywords) {
-            let pos = 0;
+            let pos = modifiedQuery.indexOf(word, 0);
             while (pos !== -1) {
+                generatedList.add(query.substring(pos, pos + word.length));
+                pos++;
                 pos = modifiedQuery.indexOf(word, pos);
-
-                if (pos !== -1) {
-                    generatedList.add(query.substring(pos, pos + word.length));
-                    pos++;
-                }
             }
         }
 
@@ -6150,7 +6144,7 @@ class CondParser {
         if (operator === 'IN' || operator === 'NOT IN' || isSelectStatement) {
             astNode = this.parseSelectIn(astNode, isSelectStatement);
         }
-        
+
         this.readNextToken();
 
         return astNode;

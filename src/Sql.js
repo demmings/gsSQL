@@ -991,8 +991,8 @@ class Sql {
 
                 switch (type) {
                     case "UNION":
-                        //  Remove duplicates.
-                        unionTableData = Sql.appendUniqueRows(unionTableData, unionData);
+                        unionTableData = unionTableData.concat(unionData);
+                        unionTableData = Sql.removeDuplicateRows(unionTableData);
                         break;
 
                     case "UNION ALL":
@@ -1014,32 +1014,30 @@ class Sql {
                         throw new Error(`Internal error.  Unsupported UNION type: ${type}`);
                 }
             }
-
         }
 
         return unionTableData;
     }
 
     /**
-     * Appends any row in newData that does not exist in srcData.
-     * @param {any[][]} srcData - existing table data
-     * @param {any[][]} newData - new table data
-     * @returns {any[][]} - srcData rows PLUS any row in newData that is NOT in srcData.
+     * Remove all duplicate table rows
+     * @param {any[][]} srcData 
+     * @returns {any[][]}
      */
-    static appendUniqueRows(srcData, newData) {
+    static removeDuplicateRows(srcData) {
+        const newTableData = [];
         const srcDataRecordKeys = new Map();
 
-        //  Create a unique key for every record in source data.
-        srcData.forEach(srcRow => srcDataRecordKeys.set(srcRow.join("::"), true));
+        for (const row of srcData) {
+            const key = row.join("::");
 
-        for (const newRow of newData) {
-            const key = newRow.join("::");
             if (!srcDataRecordKeys.has(key)) {
-                srcData.push(newRow);
+                newTableData.push(row);
                 srcDataRecordKeys.set(key, true);
             }
         }
-        return srcData;
+
+        return newTableData;
     }
 
     /**

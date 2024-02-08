@@ -118,7 +118,7 @@ class SqlParse {
     }
 
     /**
-     * 
+     * Returns a list of all keywords used in their original CASE.
      * @param {String} query
      * @returns {String[]} 
      */
@@ -126,18 +126,14 @@ class SqlParse {
         const generatedList = new Set();
         // Define which words can act as separator
         const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
-
         const modifiedQuery = query.toUpperCase();
 
         for (const word of keywords) {
-            let pos = 0;
+            let pos = modifiedQuery.indexOf(word, 0);
             while (pos !== -1) {
+                generatedList.add(query.substring(pos, pos + word.length));
+                pos++;
                 pos = modifiedQuery.indexOf(word, pos);
-
-                if (pos !== -1) {
-                    generatedList.add(query.substring(pos, pos + word.length));
-                    pos++;
-                }
             }
         }
 
@@ -849,7 +845,7 @@ class CondParser {
         if (operator === 'IN' || operator === 'NOT IN' || isSelectStatement) {
             astNode = this.parseSelectIn(astNode, isSelectStatement);
         }
-        
+
         this.readNextToken();
 
         return astNode;

@@ -132,7 +132,10 @@ class Range {
         return this;
     }
 
-    //  Set data to be returned for any named range tested.
+    /**
+     * Set data to be returned for any named range tested.
+     * @returns {any}
+     */
     getMockData() {
         let tester = new SqlTester();
 
@@ -1896,8 +1899,7 @@ class SqlTester {
     }
 
     unionBind1() {
-        let stmt = "select * from authors where id = ?1 UNION select * from editors where id = ?2 UNION select * from translators where id = ?3";
-
+        let stmt = "select * from authors where id = ?1 UNION Select * From editors Where id = ?2 UNION select * from translators where id = ?3";
         let data = new TestSql()
             .addTableData("authors", this.authorsTable())
             .addTableData("editors", this.editorsTable())
@@ -1977,6 +1979,39 @@ class SqlTester {
         ["34", "Roman", "Edwards"]];
 
         return this.isEqual("unionAll2", data, expected);
+    }
+
+    unionAll3() {
+        let stmt = "select * from authors UNION ALL select * from editors UNION select * from translators";
+
+        let data = new TestSql()
+            .addTableData("authors", this.authorsTable())
+            .addTableData("editors", this.editorsTable())
+            .addTableData("translators", this.translatorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["AUTHORS.ID", "AUTHORS.FIRST_NAME", "AUTHORS.LAST_NAME"],
+        ["11", "Ellen", "Writer"],
+        ["12", "Olga", "Savelieva"],
+        ["13", "Jack", "Smart"],
+        ["14", "Donald", "Brain"],
+        ["15", "Yao", "Dou"],
+        ["21", "Daniel", "Brown"],
+        ["22", "Mark", "Johnson"],
+        ["23", "Maria", "Evans"],
+        ["24", "Cathrine", "Roberts"],
+        ["25", "Sebastian", "Wright"],
+        ["26", "Barbara", "Jones"],
+        ["27", "Matthew", "Smith"],
+        ["50", "Jack", "Dumb"],
+        ["51", "Daniel", "Smart"],
+        ["31", "Ira", "Davies"],
+        ["32", "Ling", "Weng"],
+        ["33", "Kristian", "Green"],
+        ["34", "Roman", "Edwards"]];
+
+        return this.isEqual("unionAll3", data, expected);
     }
 
     unionJoin1() {
@@ -4920,6 +4955,7 @@ function testerSql() {
     result = result && tester.unionBind1();
     result = result && tester.unionAll1();
     result = result && tester.unionAll2();
+    // result = result && tester.unionAll3();
     result = result && tester.unionJoin1();
     result = result && tester.except1();
     result = result && tester.intersect1();
