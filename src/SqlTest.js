@@ -132,10 +132,7 @@ class Range {
         return this;
     }
 
-    /**
-     * Set data to be returned for any named range tested.
-     * @returns {any}
-     */
+    //  Set data to be returned for any named range tested.
     getMockData() {
         let tester = new SqlTester();
 
