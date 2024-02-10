@@ -546,7 +546,7 @@ class Sql {
         viewTableData = this.addColumnTitles(viewTableData, view);
 
         //  Deal with empty dataset.
-        viewTableData = this.cleanUp(viewTableData);
+        viewTableData = Sql.cleanUp(viewTableData);
 
         return viewTableData;
     }
@@ -694,7 +694,7 @@ class Sql {
      * @param {any[][]} viewTableData 
      * @returns {any[][]}
      */
-    cleanUp(viewTableData) {
+    static cleanUp(viewTableData) {
         if (viewTableData.length === 0) {
             viewTableData.push([""]);
         }
@@ -1017,28 +1017,13 @@ class SqlSets {
     }
 
     /**
-     * 
-     * @param {Object} ast 
-     * @returns {Boolean}
-     */
-    isSqlSet(ast) {
-        for (const type of this.unionTypes) {
-            if (typeof this.ast[type] !== 'undefined') {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * If any SET commands are found (like UNION, INTERSECT,...) the additional SELECT is done.  The new
      * data applies the SET rule against the income viewTableData, and the result data set is returned.
      * @param {any[][]} viewTableData - SELECTED data before UNION.
      * @returns {any[][]} - New data with set rules applied.
      */
     unionSets(viewTableData) {
-        if (!this.isSqlSet(this.ast)) {
+        if (!SqlSets.isSqlSet(this.ast, this.unionTypes)) {
             return viewTableData;
         }
 
@@ -1086,6 +1071,22 @@ class SqlSets {
         }
 
         return unionTableData;
+    }
+
+    /**
+     * 
+     * @param {Object} ast 
+     * @param {String[]} unionTypes
+     * @returns {Boolean}
+     */
+    static isSqlSet(ast, unionTypes) {
+        for (const type of unionTypes) {
+            if (typeof ast[type] !== 'undefined') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
