@@ -1,7 +1,7 @@
 // @author Chris Demmings - https://demmings.github.io/
 /*  *** DEBUG START ***
 //  Remove comments for testing in NODE
-export { Sql, gsSQL, GasSql, BindData };
+export { Sql, gsSQL, GasSql, BindData, TableExtract };
 import { Table } from './Table.js';
 import { TableData } from './TableData.js';
 import { SqlParse } from './SimpleParser.js';
@@ -367,75 +367,10 @@ class Sql {
         //  updated to use the new table.
         this.selectJoinSubQuery();
 
-        Sql.setTableAlias(this.tables, this.ast);
+        TableAlias.setTableAlias(this.tables, this.ast);
         Sql.loadSchema(this.tables);
 
-        if (typeof this.ast.SELECT === 'undefined') {
-            throw new Error("Only SELECT statements are supported.");
-        }
-
         return this.select(this.ast);
-    }
-
-    /**
-     * Updates 'tables' with table column information.
-     * @param {Map<String,Table>} tables 
-     */
-    static loadSchema(tables) {
-        // @ts-ignore
-        for (const table of tables.keys()) {
-            const tableInfo = tables.get(table.toUpperCase());
-            tableInfo.loadSchema();
-        }
-    }
-
-    /**
-     * Updates 'tables' with associated table ALIAS name found in ast.
-     * @param {Map<String,Table>} tables 
-     * @param {Object} ast 
-     */
-    static setTableAlias(tables, ast) {
-        // @ts-ignore
-        for (const table of tables.keys()) {
-            const tableAlias = Sql.getTableAlias(table, ast);
-            const tableInfo = tables.get(table.toUpperCase());
-            tableInfo.setTableAlias(tableAlias);
-        }
-    }
-
-    /**
-     * Sets all tables referenced SELECT.
-     * @param {Map<String,Table>} mapOfTables - Map of referenced tables indexed by TABLE name.
-     */
-    setTables(mapOfTables) {
-        this.tables = mapOfTables;
-        return this;
-    }
-
-    /**
-     * Returns a map of all tables configured for this SELECT.
-     * @returns {Map<String,Table>} - Map of referenced tables indexed by TABLE name.
-     */
-    getTables() {
-        return this.tables;
-    }
-
-    /**
-    * Find table alias name (if any) for input actual table name.
-    * @param {String} tableName - Actual table name.
-    * @param {Object} ast - Abstract Syntax Tree for SQL.
-    * @returns {String} - Table alias.  Empty string if not found.
-    */
-    static getTableAlias(tableName, ast) {
-        let tableAlias = "";
-        const ucTableName = tableName.toUpperCase();
-
-        tableAlias = Sql.getTableAliasFromJoin(tableAlias, ucTableName, ast);
-        tableAlias = Sql.getTableAliasUnion(tableAlias, ucTableName, ast);
-        tableAlias = Sql.getTableAliasWhereIn(tableAlias, ucTableName, ast);
-        tableAlias = Sql.getTableAliasWhereTerms(tableAlias, ucTableName, ast);
-
-        return tableAlias;
     }
 
     /**
@@ -460,6 +395,7 @@ class Sql {
             this.ast.FROM.as = '';
         }
     }
+
 
     /**
      * Checks if the JOINed table is a sub-query.  
@@ -493,89 +429,32 @@ class Sql {
     }
 
     /**
-     * Searches the FROM and JOIN components of a SELECT to find the table alias.
-     * @param {String} tableAlias - Default alias name
-     * @param {String} tableName - table name to search for.
-     * @param {Object} ast - Abstract Syntax Tree to search
-     * @returns {String} - Table alias name.
+     * Updates 'tables' with table column information.
+     * @param {Map<String,Table>} tables 
      */
-    static getTableAliasFromJoin(tableAlias, tableName, ast) {
-        const astTableBlocks = ['FROM', 'JOIN'];
-        let aliasNameFound = tableAlias;
-
-        let i = 0;
-        while (aliasNameFound === "" && i < astTableBlocks.length) {
-            aliasNameFound = Sql.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
-            i++;
+    static loadSchema(tables) {
+        // @ts-ignore
+        for (const table of tables.keys()) {
+            const tableInfo = tables.get(table.toUpperCase());
+            tableInfo.loadSchema();
         }
-
-        return aliasNameFound;
     }
 
     /**
-     * Searches the UNION portion of the SELECT to locate the table alias.
-     * @param {String} tableAlias - default table alias.
-     * @param {String} tableName - table name to search for.
-     * @param {Object} ast - Abstract Syntax Tree to search
-     * @returns {String} - table alias
+     * Sets all tables referenced SELECT.
+     * @param {Map<String,Table>} mapOfTables - Map of referenced tables indexed by TABLE name.
      */
-    static getTableAliasUnion(tableAlias, tableName, ast) {
-        const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
-        let extractedAlias = tableAlias;
-
-        let i = 0;
-        while (extractedAlias === "" && i < astRecursiveTableBlocks.length) {
-            if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
-                for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
-                    extractedAlias = Sql.getTableAlias(tableName, unionAst);
-
-                    if (extractedAlias !== "")
-                        break;
-                }
-            }
-            i++;
-        }
-
-        return extractedAlias;
+    setTables(mapOfTables) {
+        this.tables = mapOfTables;
+        return this;
     }
 
     /**
-     * Search WHERE IN component of SELECT to find table alias.
-     * @param {String} tableAlias - default table alias
-     * @param {String} tableName - table name to search for
-     * @param {Object} ast - Abstract Syntax Tree to search
-     * @returns {String} - table alias
+     * Returns a map of all tables configured for this SELECT.
+     * @returns {Map<String,Table>} - Map of referenced tables indexed by TABLE name.
      */
-    static getTableAliasWhereIn(tableAlias, tableName, ast) {
-        let extractedAlias = tableAlias;
-        if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
-            extractedAlias = Sql.getTableAlias(tableName, ast.WHERE.right);
-        }
-
-        if (extractedAlias === "" && ast.operator === "IN") {
-            extractedAlias = Sql.getTableAlias(tableName, ast.right);
-        }
-
-        return extractedAlias;
-    }
-
-    /**
-     * Search WHERE terms of SELECT to find table alias.
-     * @param {String} tableAlias - default table alias
-     * @param {String} tableName  - table name to search for.
-     * @param {Object} ast - Abstract Syntax Tree to search.
-     * @returns {String} - table alias
-     */
-    static getTableAliasWhereTerms(tableAlias, tableName, ast) {
-        let extractedTableAlias = tableAlias;
-        if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
-            for (const term of ast.WHERE.terms) {
-                if (extractedTableAlias === "")
-                    extractedTableAlias = Sql.getTableAlias(tableName, term);
-            }
-        }
-
-        return extractedTableAlias;
+    getTables() {
+        return this.tables;
     }
 
     /**
@@ -602,7 +481,7 @@ class Sql {
         const DEFAULT_COLUMNS_OUTPUT = true;
         const tableSet = new Map();
 
-        Sql.extractAstTables(ast, tableSet);
+        TableExtract.extractAstTables(ast, tableSet);
 
         const tableList = [];
         // @ts-ignore
@@ -616,178 +495,6 @@ class Sql {
     }
 
     /**
-     * Search for all referenced tables in SELECT.
-     * @param {Object} ast - AST for SELECT.
-     * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
-     */
-    static extractAstTables(ast, tableSet) {
-        Sql.getTableNamesFrom(ast, tableSet);
-        Sql.getTableNamesJoin(ast, tableSet);
-        Sql.getTableNamesUnion(ast, tableSet);
-        Sql.getTableNamesWhereIn(ast, tableSet);
-        Sql.getTableNamesWhereTerms(ast, tableSet);
-        Sql.getTableNamesCorrelatedSelect(ast, tableSet);
-    }
-
-    /**
-     * Search for referenced table in FROM or JOIN part of select.
-     * @param {Object} ast - AST for SELECT.
-     * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
-     */
-    static getTableNamesFrom(ast, tableSet) {
-        let fromAst = ast.FROM;
-        while (typeof fromAst !== 'undefined') {
-            if (typeof fromAst.isDerived === 'undefined') {
-                tableSet.set(fromAst.table.toUpperCase(), typeof fromAst.as === 'undefined' ? '' : fromAst.as.toUpperCase());
-            }
-            else {
-                Sql.extractAstTables(fromAst.FROM, tableSet);
-            }
-            fromAst = fromAst.FROM;
-        }
-    }
-
-    /**
-    * Search for referenced table in FROM or JOIN part of select.
-    * @param {Object} ast - AST for SELECT.
-    * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
-    */
-    static getTableNamesJoin(ast, tableSet) {
-        if (typeof ast.JOIN === 'undefined')
-            return;
-
-        for (const astItem of ast.JOIN) {
-            if (typeof astItem.table === 'string') {
-                tableSet.set(astItem.table.toUpperCase(), typeof astItem.as === 'undefined' ? '' : astItem.as.toUpperCase());
-            }
-            else {
-                Sql.extractAstTables(astItem.table, tableSet);
-            }
-        }
-    }
-
-    /**
-     * Check if input is iterable.
-     * @param {any} input - Check this object to see if it can be iterated. 
-     * @returns {Boolean} - true - can be iterated.  false - cannot be iterated.
-     */
-    static isIterable(input) {
-        if (input === null || input === undefined) {
-            return false
-        }
-
-        return typeof input[Symbol.iterator] === 'function'
-    }
-
-    /**
-     * Searches for table names within SELECT (union, intersect, except) statements.
-     * @param {Object} ast - AST for SELECT
-     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
-     */
-    static getTableNamesUnion(ast, tableSet) {
-        const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
-
-        for (const block of astRecursiveTableBlocks) {
-            if (typeof ast[block] !== 'undefined') {
-                for (const unionAst of ast[block]) {
-                    this.extractAstTables(unionAst, tableSet);
-                }
-            }
-        }
-    }
-
-    /**
-     * Searches for tables names within SELECT (in, exists) statements.
-     * @param {Object} ast - AST for SELECT
-     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
-     */
-    static getTableNamesWhereIn(ast, tableSet) {
-        //  where IN ().
-        const subQueryTerms = ["IN", "NOT IN", "EXISTS", "NOT EXISTS"]
-        if (typeof ast.WHERE !== 'undefined' && (subQueryTerms.indexOf(ast.WHERE.operator) !== -1)) {
-            this.extractAstTables(ast.WHERE.right, tableSet);
-        }
-
-        if (subQueryTerms.indexOf(ast.operator) !== -1) {
-            this.extractAstTables(ast.right, tableSet);
-        }
-    }
-
-    /**
-     * Search WHERE to find referenced table names.
-     * @param {Object} ast -  AST to search.
-     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
-     */
-    static getTableNamesWhereTerms(ast, tableSet) {
-        if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
-            for (const term of ast.WHERE.terms) {
-                this.extractAstTables(term, tableSet);
-            }
-        }
-    }
-
-    /**
-     * Search for table references in the WHERE condition.
-     * @param {Object} ast -  AST to search.
-     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name. 
-     */
-    static getTableNamesWhereCondition(ast, tableSet) {
-        const lParts = typeof ast.left === 'string' ? ast.left.split(".") : [];
-        if (lParts.length > 1) {
-            tableSet.set(lParts[0].toUpperCase(), "");
-        }
-        const rParts = typeof ast.right === 'string' ? ast.right.split(".") : [];
-        if (rParts.length > 1) {
-            tableSet.set(rParts[0].toUpperCase(), "");
-        }
-        if (typeof ast.terms !== 'undefined') {
-            for (const term of ast.terms) {
-                Sql.getTableNamesWhereCondition(term, tableSet);
-            }
-        }
-    }
-
-    /**
-     * Search CORRELATES sub-query for table names.
-     * @param {*} ast - AST to search
-     * @param {*} tableSet - Function updates this map of table names and alias name.
-     */
-    static getTableNamesCorrelatedSelect(ast, tableSet) {
-        if (typeof ast.SELECT !== 'undefined') {
-            for (const term of ast.SELECT) {
-                if (typeof term.subQuery !== 'undefined' && term.subQuery !== null) {
-                    this.extractAstTables(term.subQuery, tableSet);
-                }
-            }
-        }
-    }
-
-    /**
-     * Search a property of AST for table alias name.
-     * @param {String} tableName - Table name to find in AST.
-     * @param {Object} ast - AST of SELECT.
-     * @param {String} astBlock - AST property to search.
-     * @returns {String} - Alias name or "" if not found.
-     */
-    static locateAstTableAlias(tableName, ast, astBlock) {
-        if (typeof ast[astBlock] === 'undefined')
-            return "";
-
-        let block = [ast[astBlock]];
-        if (this.isIterable(ast[astBlock])) {
-            block = ast[astBlock];
-        }
-
-        for (const astItem of block) {
-            if (typeof astItem.table === 'string' && tableName === astItem.table.toUpperCase() && astItem.as !== "") {
-                return astItem.as;
-            }
-        }
-
-        return "";
-    }
-
-    /**
      * Load SELECT data and return in double array.
      * @param {Object} selectAst - Abstract Syntax Tree of SELECT
      * @returns {any[][]} - double array useable by Google Sheet in custom function return value.
@@ -796,12 +503,9 @@ class Sql {
      * * Second Array Index - COLUMN
      */
     select(selectAst) {
-        let recordIDs = [];
-        let viewTableData = [];
         let ast = selectAst;
 
-        if (typeof ast.FROM === 'undefined')
-            throw new Error("Missing keyword FROM");
+        Sql.errorCheckSelectAST(ast);
 
         //  Manipulate AST to add GROUP BY if DISTINCT keyword.
         ast = Sql.distinctField(ast);
@@ -817,10 +521,10 @@ class Sql {
         view.updateSelectedFields(ast);
 
         //  Get the record ID's of all records matching WHERE condition.
-        recordIDs = view.whereCondition(ast);
+        const recordIDs = view.whereCondition(ast);
 
         //  Get selected data records.
-        viewTableData = view.getViewData(recordIDs);
+        let viewTableData = view.getViewData(recordIDs);
 
         //  Compress the data.
         viewTableData = view.groupBy(ast, viewTableData);
@@ -835,23 +539,30 @@ class Sql {
         viewTableData = SelectTables.limit(ast, viewTableData);
 
         //  Apply SET rules for various union types.
-        viewTableData = this.unionSets(ast, viewTableData);
+        const sqlSet = new SqlSets(ast, this.bindData, this.getTables());
+        viewTableData = sqlSet.unionSets(viewTableData);
 
         //  Add column titles
-        if (this.columnTitle) {
-            viewTableData.unshift(view.getColumnTitles(this.columnTableNameReplacement));
-        }
+        viewTableData = this.addColumnTitles(viewTableData, view);
 
-        //  If no data and no titles, create empty double array so sheets function does not have an error.
-        if (viewTableData.length === 0) {
-            viewTableData.push([""]);
-        }
-
-        if (viewTableData.length === 1 && viewTableData[0].length === 0) {
-            viewTableData[0] = [""];
-        }
+        //  Deal with empty dataset.
+        viewTableData = this.cleanUp(viewTableData);
 
         return viewTableData;
+    }
+
+    /**
+     * Basic sanity check of AST for a SELECT statement.
+     * @param {object} ast 
+     */
+    static errorCheckSelectAST(ast) {
+        if (typeof ast.SELECT === 'undefined') {
+            throw new Error("Only SELECT statements are supported.");
+        }
+
+        if (typeof ast.FROM === 'undefined') {
+            throw new Error("Missing keyword FROM");
+        }
     }
 
     /**
@@ -965,26 +676,384 @@ class Sql {
     }
 
     /**
+     * Add column titles to data if needed.
+     * @param {any[][]} viewTableData 
+     * @param {SelectTables} view 
+     * @returns {any[][]}
+     */
+    addColumnTitles(viewTableData, view) {
+        if (this.columnTitle) {
+            viewTableData.unshift(view.getColumnTitles(this.columnTableNameReplacement));
+        }
+
+        return viewTableData;
+    }
+
+    /**
+     * If no data and no titles, create empty double array so sheets function does not have an error.
+     * @param {any[][]} viewTableData 
+     * @returns {any[][]}
+     */
+    cleanUp(viewTableData) {
+        if (viewTableData.length === 0) {
+            viewTableData.push([""]);
+        }
+
+        if (viewTableData.length === 1 && viewTableData[0].length === 0) {
+            viewTableData[0] = [""];
+        }
+
+        return viewTableData;
+    }
+}
+
+class TableAlias {
+    /**
+     * Updates 'tables' with associated table ALIAS name found in ast.
+     * @param {Map<String,Table>} tables 
+     * @param {Object} ast 
+     */
+    static setTableAlias(tables, ast) {
+        // @ts-ignore
+        for (const table of tables.keys()) {
+            const tableAlias = TableAlias.getTableAlias(table, ast);
+            const tableInfo = tables.get(table.toUpperCase());
+            tableInfo.setTableAlias(tableAlias);
+        }
+    }
+
+    /**
+    * Find table alias name (if any) for input actual table name.
+    * @param {String} tableName - Actual table name.
+    * @param {Object} ast - Abstract Syntax Tree for SQL.
+    * @returns {String} - Table alias.  Empty string if not found.
+    */
+    static getTableAlias(tableName, ast) {
+        let tableAlias = "";
+        const ucTableName = tableName.toUpperCase();
+
+        tableAlias = TableAlias.getTableAliasFromJoin(tableAlias, ucTableName, ast);
+        tableAlias = TableAlias.getTableAliasUnion(tableAlias, ucTableName, ast);
+        tableAlias = TableAlias.getTableAliasWhereIn(tableAlias, ucTableName, ast);
+        tableAlias = TableAlias.getTableAliasWhereTerms(tableAlias, ucTableName, ast);
+
+        return tableAlias;
+    }
+
+    /**
+     * Searches the FROM and JOIN components of a SELECT to find the table alias.
+     * @param {String} tableAlias - Default alias name
+     * @param {String} tableName - table name to search for.
+     * @param {Object} ast - Abstract Syntax Tree to search
+     * @returns {String} - Table alias name.
+     */
+    static getTableAliasFromJoin(tableAlias, tableName, ast) {
+        const astTableBlocks = ['FROM', 'JOIN'];
+        let aliasNameFound = tableAlias;
+
+        let i = 0;
+        while (aliasNameFound === "" && i < astTableBlocks.length) {
+            aliasNameFound = TableAlias.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
+            i++;
+        }
+
+        return aliasNameFound;
+    }
+
+
+    /**
+     * Search a property of AST for table alias name.
+     * @param {String} tableName - Table name to find in AST.
+     * @param {Object} ast - AST of SELECT.
+     * @param {String} astBlock - AST property to search.
+     * @returns {String} - Alias name or "" if not found.
+     */
+    static locateAstTableAlias(tableName, ast, astBlock) {
+        if (typeof ast[astBlock] === 'undefined')
+            return "";
+
+        let block = [ast[astBlock]];
+        if (TableAlias.isIterable(ast[astBlock])) {
+            block = ast[astBlock];
+        }
+
+        for (const astItem of block) {
+            if (typeof astItem.table === 'string' && tableName === astItem.table.toUpperCase() && astItem.as !== "") {
+                return astItem.as;
+            }
+        }
+
+        return "";
+    }
+
+    /**
+     * Check if input is iterable.
+     * @param {any} input - Check this object to see if it can be iterated. 
+     * @returns {Boolean} - true - can be iterated.  false - cannot be iterated.
+     */
+    static isIterable(input) {
+        if (input === null || input === undefined) {
+            return false
+        }
+
+        return typeof input[Symbol.iterator] === 'function'
+    }
+
+    /**
+     * Searches the UNION portion of the SELECT to locate the table alias.
+     * @param {String} tableAlias - default table alias.
+     * @param {String} tableName - table name to search for.
+     * @param {Object} ast - Abstract Syntax Tree to search
+     * @returns {String} - table alias
+     */
+    static getTableAliasUnion(tableAlias, tableName, ast) {
+        const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+        let extractedAlias = tableAlias;
+
+        let i = 0;
+        while (extractedAlias === "" && i < astRecursiveTableBlocks.length) {
+            if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
+                for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
+                    extractedAlias = TableAlias.getTableAlias(tableName, unionAst);
+
+                    if (extractedAlias !== "")
+                        break;
+                }
+            }
+            i++;
+        }
+
+        return extractedAlias;
+    }
+
+    /**
+     * Search WHERE IN component of SELECT to find table alias.
+     * @param {String} tableAlias - default table alias
+     * @param {String} tableName - table name to search for
+     * @param {Object} ast - Abstract Syntax Tree to search
+     * @returns {String} - table alias
+     */
+    static getTableAliasWhereIn(tableAlias, tableName, ast) {
+        let extractedAlias = tableAlias;
+        if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
+            extractedAlias = TableAlias.getTableAlias(tableName, ast.WHERE.right);
+        }
+
+        if (extractedAlias === "" && ast.operator === "IN") {
+            extractedAlias = TableAlias.getTableAlias(tableName, ast.right);
+        }
+
+        return extractedAlias;
+    }
+
+    /**
+     * Search WHERE terms of SELECT to find table alias.
+     * @param {String} tableAlias - default table alias
+     * @param {String} tableName  - table name to search for.
+     * @param {Object} ast - Abstract Syntax Tree to search.
+     * @returns {String} - table alias
+     */
+    static getTableAliasWhereTerms(tableAlias, tableName, ast) {
+        let extractedTableAlias = tableAlias;
+        if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
+            for (const term of ast.WHERE.terms) {
+                if (extractedTableAlias === "")
+                    extractedTableAlias = TableAlias.getTableAlias(tableName, term);
+            }
+        }
+
+        return extractedTableAlias;
+    }
+}
+
+class TableExtract {
+    /**
+     * Search for all referenced tables in SELECT.
+     * @param {Object} ast - AST for SELECT.
+     * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
+     */
+    static extractAstTables(ast, tableSet) {
+        TableExtract.getTableNamesFrom(ast, tableSet);
+        TableExtract.getTableNamesJoin(ast, tableSet);
+        TableExtract.getTableNamesUnion(ast, tableSet);
+        TableExtract.getTableNamesWhereIn(ast, tableSet);
+        TableExtract.getTableNamesWhereTerms(ast, tableSet);
+        TableExtract.getTableNamesCorrelatedSelect(ast, tableSet);
+    }
+
+    /**
+     * Search for referenced table in FROM or JOIN part of select.
+     * @param {Object} ast - AST for SELECT.
+     * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
+     */
+    static getTableNamesFrom(ast, tableSet) {
+        let fromAst = ast.FROM;
+        while (typeof fromAst !== 'undefined') {
+            if (typeof fromAst.isDerived === 'undefined') {
+                tableSet.set(fromAst.table.toUpperCase(), typeof fromAst.as === 'undefined' ? '' : fromAst.as.toUpperCase());
+            }
+            else {
+                TableExtract.extractAstTables(fromAst.FROM, tableSet);
+            }
+            fromAst = fromAst.FROM;
+        }
+    }
+
+    /**
+    * Search for referenced table in FROM or JOIN part of select.
+    * @param {Object} ast - AST for SELECT.
+    * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
+    */
+    static getTableNamesJoin(ast, tableSet) {
+        if (typeof ast.JOIN === 'undefined')
+            return;
+
+        for (const astItem of ast.JOIN) {
+            if (typeof astItem.table === 'string') {
+                tableSet.set(astItem.table.toUpperCase(), typeof astItem.as === 'undefined' ? '' : astItem.as.toUpperCase());
+            }
+            else {
+                TableExtract.extractAstTables(astItem.table, tableSet);
+            }
+        }
+    }
+
+    /**
+     * Searches for table names within SELECT (union, intersect, except) statements.
+     * @param {Object} ast - AST for SELECT
+     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
+     */
+    static getTableNamesUnion(ast, tableSet) {
+        const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+
+        for (const block of astRecursiveTableBlocks) {
+            if (typeof ast[block] !== 'undefined') {
+                for (const unionAst of ast[block]) {
+                    this.extractAstTables(unionAst, tableSet);
+                }
+            }
+        }
+    }
+
+    /**
+     * Searches for tables names within SELECT (in, exists) statements.
+     * @param {Object} ast - AST for SELECT
+     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
+     */
+    static getTableNamesWhereIn(ast, tableSet) {
+        //  where IN ().
+        const subQueryTerms = ["IN", "NOT IN", "EXISTS", "NOT EXISTS"]
+        if (typeof ast.WHERE !== 'undefined' && (subQueryTerms.indexOf(ast.WHERE.operator) !== -1)) {
+            this.extractAstTables(ast.WHERE.right, tableSet);
+        }
+
+        if (subQueryTerms.indexOf(ast.operator) !== -1) {
+            this.extractAstTables(ast.right, tableSet);
+        }
+    }
+
+    /**
+     * Search WHERE to find referenced table names.
+     * @param {Object} ast -  AST to search.
+     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
+     */
+    static getTableNamesWhereTerms(ast, tableSet) {
+        if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
+            for (const term of ast.WHERE.terms) {
+                this.extractAstTables(term, tableSet);
+            }
+        }
+    }
+
+    /**
+     * Search for table references in the WHERE condition.
+     * @param {Object} ast -  AST to search.
+     * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name. 
+     */
+    static getTableNamesWhereCondition(ast, tableSet) {
+        const lParts = typeof ast.left === 'string' ? ast.left.split(".") : [];
+        if (lParts.length > 1) {
+            tableSet.set(lParts[0].toUpperCase(), "");
+        }
+        const rParts = typeof ast.right === 'string' ? ast.right.split(".") : [];
+        if (rParts.length > 1) {
+            tableSet.set(rParts[0].toUpperCase(), "");
+        }
+        if (typeof ast.terms !== 'undefined') {
+            for (const term of ast.terms) {
+                TableExtract.getTableNamesWhereCondition(term, tableSet);
+            }
+        }
+    }
+
+    /**
+     * Search CORRELATES sub-query for table names.
+     * @param {*} ast - AST to search
+     * @param {*} tableSet - Function updates this map of table names and alias name.
+     */
+    static getTableNamesCorrelatedSelect(ast, tableSet) {
+        if (typeof ast.SELECT !== 'undefined') {
+            for (const term of ast.SELECT) {
+                if (typeof term.subQuery !== 'undefined' && term.subQuery !== null) {
+                    this.extractAstTables(term.subQuery, tableSet);
+                }
+            }
+        }
+    }
+}
+
+class SqlSets {
+    /**
+     * 
+     * @param {Object} ast 
+     * @param {BindData} bindData 
+     * @param {Map<String, Table>} tableMap 
+     */
+    constructor(ast, bindData, tableMap) {
+        this.ast = ast;
+        this.bindData = bindData;
+        this.tableMap = tableMap;
+        this.unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+    }
+
+    /**
+     * 
+     * @param {Object} ast 
+     * @returns {Boolean}
+     */
+    isSqlSet(ast) {
+        for (const type of this.unionTypes) {
+            if (typeof this.ast[type] !== 'undefined') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * If any SET commands are found (like UNION, INTERSECT,...) the additional SELECT is done.  The new
      * data applies the SET rule against the income viewTableData, and the result data set is returned.
-     * @param {Object} ast - SELECT AST.
      * @param {any[][]} viewTableData - SELECTED data before UNION.
      * @returns {any[][]} - New data with set rules applied.
      */
-    unionSets(ast, viewTableData) {
-        const unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+    unionSets(viewTableData) {
+        if (!this.isSqlSet(this.ast)) {
+            return viewTableData;
+        }
+
         let unionTableData = viewTableData;
 
-        for (const type of unionTypes) {
-            if (typeof ast[type] === 'undefined') {
+        for (const type of this.unionTypes) {
+            if (typeof this.ast[type] === 'undefined') {
                 continue;
             }
 
             const unionSQL = new Sql()
                 .setBindValues(this.bindData)
-                .copyTableData(this.getTables());
+                .copyTableData(this.tableMap);
 
-            for (const union of ast[type]) {
+            for (const union of this.ast[type]) {
                 const unionData = unionSQL.execute(union);
                 if (unionTableData.length > 0 && unionData.length > 0 && unionTableData[0].length !== unionData[0].length)
                     throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
@@ -992,7 +1061,7 @@ class Sql {
                 switch (type) {
                     case "UNION":
                         unionTableData = unionTableData.concat(unionData);
-                        unionTableData = Sql.removeDuplicateRows(unionTableData);
+                        unionTableData = SqlSets.removeDuplicateRows(unionTableData);
                         break;
 
                     case "UNION ALL":
@@ -1002,12 +1071,12 @@ class Sql {
 
                     case "INTERSECT":
                         //  Must exist in BOTH tables.
-                        unionTableData = Sql.intersectRows(unionTableData, unionData);
+                        unionTableData = SqlSets.intersectRows(unionTableData, unionData);
                         break;
 
                     case "EXCEPT":
                         //  Remove from first table all rows that match in second table.
-                        unionTableData = Sql.exceptRows(unionTableData, unionData);
+                        unionTableData = SqlSets.exceptRows(unionTableData, unionData);
                         break;
 
                     default:

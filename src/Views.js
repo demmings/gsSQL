@@ -3,7 +3,7 @@
 
 export { DERIVEDTABLE, VirtualFields, VirtualField, SelectTables, TableFields, TableField, CalculatedField, SqlServerFunctions, DerivedTable };
 import { Table } from './Table.js';
-import { Sql, BindData } from './Sql.js';
+import { Sql, BindData, TableExtract } from './Sql.js';
 import { SqlParse } from './SimpleParser.js';
 import { JoinTables } from './JoinTables.js';
 //  *** DEBUG END ***/
@@ -727,11 +727,11 @@ class SelectTables {
      */
     static isCorrelatedSubQuery(ast) {
         const tableSet = new Map();
-        Sql.extractAstTables(ast, tableSet);
+        TableExtract.extractAstTables(ast, tableSet);
 
         const tableSetCorrelated = new Map();
         if (typeof ast.WHERE !== 'undefined') {
-            Sql.getTableNamesWhereCondition(ast.WHERE, tableSetCorrelated);
+            TableExtract.getTableNamesWhereCondition(ast.WHERE, tableSetCorrelated);
         }
 
         // @ts-ignore
