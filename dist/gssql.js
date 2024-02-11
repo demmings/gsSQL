@@ -141,7 +141,7 @@ class GasSql {
 
         //  Get table names from the SELECT statement when no table range info is given.
         if (tableArr.length === 0 && statement !== "") {
-            referencedTableSettings = Sql.getReferencedTableNames(statement);
+            referencedTableSettings = TableExtract.getReferencedTableNames(statement);
         }
 
         if (referencedTableSettings.length === 0) {
@@ -187,6 +187,167 @@ class Sql {
         this.bindData = new BindData();
         /** @property {String} - derived table name to output in column title replacing source table name. */
         this.columnTableNameReplacement = null;
+    }
+
+    /**
+    * Parse SQL SELECT statement, performs SQL query and returns data ready for custom function return.
+    * <br>Execute() can be called multiple times for different SELECT statements, provided that all required
+    * table data was loaded in the constructor.  
+    * Methods that would be used PRIOR to execute are:
+    * <br>**enableColumnTitle()** - turn on/off column title in output
+    * <br>**addBindParameter()** - If bind data is needed in select.  e.g. "select * from table where id = ?"
+    * <br>**addTableData()** - At least ONE table needs to be added prior to execute. This tells **execute** where to find the data.
+    * <br>**Example SELECT and RETURN Data**
+    * ```js
+    *   let stmt = "SELECT books.id, books.title, books.author_id " +
+    *        "FROM books " +
+    *        "WHERE books.author_id IN ('11','12') " +
+    *        "ORDER BY books.title";
+    *
+    *    let data = new Sql()
+    *        .addTableData("books", this.bookTable())
+    *        .enableColumnTitle(true)
+    *        .execute(stmt);
+    * 
+    *    Logger.log(data);
+    * 
+    * [["books.id", "books.title", "books.author_id"],
+    *    ["4", "Dream Your Life", "11"],
+    *    ["8", "My Last Book", "11"],
+    *    ["5", "Oranges", "12"],
+    *    ["1", "Time to Grow Up!", "11"]]
+    * ```
+    * @param {any} statement - SELECT statement as STRING or AST of SELECT statement.
+    * @returns {any[][]} - Double array where first index is ROW and second index is COLUMN.
+    */
+    execute(statement) {
+        this.ast = (typeof statement === 'string') ? SqlParse.sql2ast(statement) : statement;
+
+        //  "SELECT * from (select a,b,c from table) as derivedtable"
+        //  Sub query data is loaded and given the name 'derivedtable' (using ALIAS from AS)
+        //  The AST.FROM is updated from the sub-query to the new derived table name. 
+        this.selectFromSubQuery();
+
+        //  A JOIN table can a sub-query.  When this is the case, the sub-query SELECT is
+        //  evaluated and the return data is given the ALIAS (as) name.  The AST is then
+        //  updated to use the new table.
+        this.selectJoinSubQuery();
+
+        TableAlias.setTableAlias(this.tables, this.ast);
+        Sql.loadSchema(this.tables);
+
+        return this.select(this.ast);
+    }
+
+    /**
+     * Modifies AST when FROM is a sub-query rather than a table name.
+     */
+    selectFromSubQuery() {
+        if (typeof this.ast.FROM !== 'undefined' && typeof this.ast.FROM.SELECT !== 'undefined') {
+            const data = new Sql()
+                .setTables(this.tables)
+                .enableColumnTitle(true)
+                .replaceColumnTableNameWith(this.ast.FROM.table)
+                .execute(this.ast.FROM);
+
+            if (typeof this.ast.FROM.table !== 'undefined') {
+                this.addTableData(this.ast.FROM.table, data);
+            }
+
+            if (this.ast.FROM.table === '') {
+                throw new Error("Every derived table must have its own alias");
+            }
+
+            this.ast.FROM.as = '';
+        }
+    }
+
+    /**
+     * Checks if the JOINed table is a sub-query.  
+     * The sub-query is evaluated and assigned the alias name.
+     * The AST is adjusted to use the new JOIN TABLE.
+     * @returns {void}
+     */
+    selectJoinSubQuery() {
+        if (typeof this.ast.JOIN === 'undefined')
+            return;
+
+        for (const joinAst of this.ast.JOIN) {
+            if (typeof joinAst.table !== 'string') {
+                const data = new Sql()
+                    .setTables(this.tables)
+                    .enableColumnTitle(true)
+                    .replaceColumnTableNameWith(joinAst.as)
+                    .execute(joinAst.table);
+
+                if (typeof joinAst.as !== 'undefined') {
+                    this.addTableData(joinAst.as, data);
+                }
+
+                if (joinAst.as === '') {
+                    throw new Error("Every derived table must have its own alias");
+                }
+                joinAst.table = joinAst.as;
+                joinAst.as = '';
+            }
+        }
+    }
+
+    /**
+     * Load SELECT data and return in double array.
+     * @param {Object} selectAst - Abstract Syntax Tree of SELECT
+     * @returns {any[][]} - double array useable by Google Sheet in custom function return value.
+     * * First row of data will be column name if column title output was requested.
+     * * First Array Index - ROW
+     * * Second Array Index - COLUMN
+     */
+    select(selectAst) {
+        let ast = selectAst;
+
+        Sql.errorCheckSelectAST(ast);
+
+        //  Manipulate AST to add GROUP BY if DISTINCT keyword.
+        ast = Sql.distinctField(ast);
+
+        //  Manipulate AST add pivot fields.
+        ast = Pivot.pivotField(ast, this.tables, this.bindData);
+
+        const view = new SelectTables(ast, this.tables, this.bindData);
+
+        //  JOIN tables to create a derived table.
+        view.join(ast);                 // skipcq: JS-D008
+
+        view.updateSelectedFields(ast);
+
+        //  Get the record ID's of all records matching WHERE condition.
+        const recordIDs = view.whereCondition(ast);
+
+        //  Get selected data records.
+        let viewTableData = view.getViewData(recordIDs);
+
+        //  Compress the data.
+        viewTableData = view.groupBy(ast, viewTableData);
+
+        //  Sort our selected data.
+        view.orderBy(ast, viewTableData);
+
+        //  Remove fields referenced but not included in SELECT field list.
+        view.removeTempColumns(viewTableData);
+
+        //  Limit rows returned.
+        viewTableData = SelectTables.limit(ast, viewTableData);
+
+        //  Apply SET rules for various union types.
+        const sqlSet = new SqlSets(ast, this.bindData, this.tables);
+        viewTableData = sqlSet.unionSets(viewTableData);
+
+        //  Add column titles
+        viewTableData = this.addColumnTitles(viewTableData, view);
+
+        //  Deal with empty dataset.
+        viewTableData = Sql.cleanUp(viewTableData);
+
+        return viewTableData;
     }
 
     /**
@@ -310,111 +471,6 @@ class Sql {
     }
 
     /**
-    * Parse SQL SELECT statement, performs SQL query and returns data ready for custom function return.
-    * <br>Execute() can be called multiple times for different SELECT statements, provided that all required
-    * table data was loaded in the constructor.  
-    * Methods that would be used PRIOR to execute are:
-    * <br>**enableColumnTitle()** - turn on/off column title in output
-    * <br>**addBindParameter()** - If bind data is needed in select.  e.g. "select * from table where id = ?"
-    * <br>**addTableData()** - At least ONE table needs to be added prior to execute. This tells **execute** where to find the data.
-    * <br>**Example SELECT and RETURN Data**
-    * ```js
-    *   let stmt = "SELECT books.id, books.title, books.author_id " +
-    *        "FROM books " +
-    *        "WHERE books.author_id IN ('11','12') " +
-    *        "ORDER BY books.title";
-    *
-    *    let data = new Sql()
-    *        .addTableData("books", this.bookTable())
-    *        .enableColumnTitle(true)
-    *        .execute(stmt);
-    * 
-    *    Logger.log(data);
-    * 
-    * [["books.id", "books.title", "books.author_id"],
-    *    ["4", "Dream Your Life", "11"],
-    *    ["8", "My Last Book", "11"],
-    *    ["5", "Oranges", "12"],
-    *    ["1", "Time to Grow Up!", "11"]]
-    * ```
-    * @param {any} statement - SELECT statement as STRING or AST of SELECT statement.
-    * @returns {any[][]} - Double array where first index is ROW and second index is COLUMN.
-    */
-    execute(statement) {
-        this.ast = (typeof statement === 'string') ? SqlParse.sql2ast(statement) : statement;
-
-        //  "SELECT * from (select a,b,c from table) as derivedtable"
-        //  Sub query data is loaded and given the name 'derivedtable' (using ALIAS from AS)
-        //  The AST.FROM is updated from the sub-query to the new derived table name. 
-        this.selectFromSubQuery();
-
-        //  A JOIN table can a sub-query.  When this is the case, the sub-query SELECT is
-        //  evaluated and the return data is given the ALIAS (as) name.  The AST is then
-        //  updated to use the new table.
-        this.selectJoinSubQuery();
-
-        TableAlias.setTableAlias(this.tables, this.ast);
-        Sql.loadSchema(this.tables);
-
-        return this.select(this.ast);
-    }
-
-    /**
-     * Modifies AST when FROM is a sub-query rather than a table name.
-     */
-    selectFromSubQuery() {
-        if (typeof this.ast.FROM !== 'undefined' && typeof this.ast.FROM.SELECT !== 'undefined') {
-            const data = new Sql()
-                .setTables(this.tables)
-                .enableColumnTitle(true)
-                .replaceColumnTableNameWith(this.ast.FROM.table)
-                .execute(this.ast.FROM);
-
-            if (typeof this.ast.FROM.table !== 'undefined') {
-                this.addTableData(this.ast.FROM.table, data);
-            }
-
-            if (this.ast.FROM.table === '') {
-                throw new Error("Every derived table must have its own alias");
-            }
-
-            this.ast.FROM.as = '';
-        }
-    }
-
-
-    /**
-     * Checks if the JOINed table is a sub-query.  
-     * The sub-query is evaluated and assigned the alias name.
-     * The AST is adjusted to use the new JOIN TABLE.
-     * @returns {void}
-     */
-    selectJoinSubQuery() {
-        if (typeof this.ast.JOIN === 'undefined')
-            return;
-
-        for (const joinAst of this.ast.JOIN) {
-            if (typeof joinAst.table !== 'string') {
-                const data = new Sql()
-                    .setTables(this.tables)
-                    .enableColumnTitle(true)
-                    .replaceColumnTableNameWith(joinAst.as)
-                    .execute(joinAst.table);
-
-                if (typeof joinAst.as !== 'undefined') {
-                    this.addTableData(joinAst.as, data);
-                }
-
-                if (joinAst.as === '') {
-                    throw new Error("Every derived table must have its own alias");
-                }
-                joinAst.table = joinAst.as;
-                joinAst.as = '';
-            }
-        }
-    }
-
-    /**
      * Updates 'tables' with table column information.
      * @param {Map<String,Table>} tables 
      */
@@ -441,100 +497,6 @@ class Sql {
      */
     getTables() {
         return this.tables;
-    }
-
-    /**
-     * Create table definition array from select string.
-     * @param {String} statement - full sql select statement.
-     * @returns {String[][]} - table definition array.
-     */
-    static getReferencedTableNames(statement) {
-        const ast = SqlParse.sql2ast(statement);
-        return this.getReferencedTableNamesFromAst(ast);
-    }
-
-    /**
-     * Create table definition array from select AST.
-     * @param {Object} ast - AST for SELECT. 
-     * @returns {any[]} - table definition array.
-     * * [0] - table name.
-     * * [1] - sheet tab name
-     * * [2] - cache seconds
-     * * [3] - output column title flag
-     */
-    static getReferencedTableNamesFromAst(ast) {
-        const DEFAULT_CACHE_SECONDS = 60;
-        const DEFAULT_COLUMNS_OUTPUT = true;
-        const tableSet = new Map();
-
-        TableExtract.extractAstTables(ast, tableSet);
-
-        const tableList = [];
-        // @ts-ignore
-        for (const key of tableSet.keys()) {
-            const tableDef = [key, key, DEFAULT_CACHE_SECONDS, DEFAULT_COLUMNS_OUTPUT];
-
-            tableList.push(tableDef);
-        }
-
-        return tableList;
-    }
-
-    /**
-     * Load SELECT data and return in double array.
-     * @param {Object} selectAst - Abstract Syntax Tree of SELECT
-     * @returns {any[][]} - double array useable by Google Sheet in custom function return value.
-     * * First row of data will be column name if column title output was requested.
-     * * First Array Index - ROW
-     * * Second Array Index - COLUMN
-     */
-    select(selectAst) {
-        let ast = selectAst;
-
-        Sql.errorCheckSelectAST(ast);
-
-        //  Manipulate AST to add GROUP BY if DISTINCT keyword.
-        ast = Sql.distinctField(ast);
-
-        //  Manipulate AST add pivot fields.
-        ast = this.pivotField(ast);
-
-        const view = new SelectTables(ast, this.tables, this.bindData);
-
-        //  JOIN tables to create a derived table.
-        view.join(ast);                 // skipcq: JS-D008
-
-        view.updateSelectedFields(ast);
-
-        //  Get the record ID's of all records matching WHERE condition.
-        const recordIDs = view.whereCondition(ast);
-
-        //  Get selected data records.
-        let viewTableData = view.getViewData(recordIDs);
-
-        //  Compress the data.
-        viewTableData = view.groupBy(ast, viewTableData);
-
-        //  Sort our selected data.
-        view.orderBy(ast, viewTableData);
-
-        //  Remove fields referenced but not included in SELECT field list.
-        view.removeTempColumns(viewTableData);
-
-        //  Limit rows returned.
-        viewTableData = SelectTables.limit(ast, viewTableData);
-
-        //  Apply SET rules for various union types.
-        const sqlSet = new SqlSets(ast, this.bindData, this.getTables());
-        viewTableData = sqlSet.unionSets(viewTableData);
-
-        //  Add column titles
-        viewTableData = this.addColumnTitles(viewTableData, view);
-
-        //  Deal with empty dataset.
-        viewTableData = Sql.cleanUp(viewTableData);
-
-        return viewTableData;
     }
 
     /**
@@ -581,87 +543,6 @@ class Sql {
     }
 
     /**
-     * Add new column to AST for every AGGREGATE function and unique pivot column data.
-     * @param {Object} ast - AST which is checked to see if a PIVOT is used.
-     * @returns {Object} - Updated AST containing SELECT FIELDS for the pivot data OR original AST if no pivot.
-     */
-    pivotField(ast) {
-        //  If we are doing a PIVOT, it then requires a GROUP BY.
-        if (typeof ast.PIVOT !== 'undefined') {
-            if (typeof ast['GROUP BY'] === 'undefined')
-                throw new Error("PIVOT requires GROUP BY");
-        }
-        else {
-            return ast;
-        }
-
-        // These are all of the unique PIVOT field data points.
-        const pivotFieldData = this.getUniquePivotData(ast);
-
-        ast.SELECT = Sql.addCalculatedPivotFieldsToAst(ast, pivotFieldData);
-
-        return ast;
-    }
-
-    /**
-     * Find distinct pivot column data.
-     * @param {Object} ast - Abstract Syntax Tree containing the PIVOT option.
-     * @returns {any[][]} - All unique data points found in the PIVOT field for the given SELECT.
-     */
-    getUniquePivotData(ast) {
-        const pivotAST = {};
-
-        pivotAST.SELECT = ast.PIVOT;
-        pivotAST.SELECT[0].name = `DISTINCT ${pivotAST.SELECT[0].name}`;
-        pivotAST.FROM = ast.FROM;
-        pivotAST.WHERE = ast.WHERE;
-
-        const pivotSql = new Sql()
-            .enableColumnTitle(false)
-            .setBindValues(this.bindData)
-            .copyTableData(this.getTables());
-
-        // These are all of the unique PIVOT field data points.
-        const tableData = pivotSql.execute(pivotAST);
-
-        return tableData;
-    }
-
-    /**
-     * Add new calculated fields to the existing SELECT fields.  A field is add for each combination of
-     * aggregate function and unqiue pivot data points.  The CASE function is used for each new field.
-     * A test is made if the column data equal the pivot data.  If it is, the aggregate function data 
-     * is returned, otherwise null.  The GROUP BY is later applied and the appropiate pivot data will
-     * be calculated.
-     * @param {Object} ast - AST to be updated.
-     * @param {any[][]} pivotFieldData - Table data with unique pivot field data points. 
-     * @returns {Object} - Abstract Sytax Tree with new SELECT fields with a CASE for each pivot data and aggregate function.
-     */
-    static addCalculatedPivotFieldsToAst(ast, pivotFieldData) {
-        const newPivotAstFields = [];
-
-        for (const selectField of ast.SELECT) {
-            //  If this is an aggregrate function, we will add one for every pivotFieldData item
-            const functionNameRegex = /^\w+\s*(?=\()/;
-            const matches = selectField.name.match(functionNameRegex)
-            if (matches !== null && matches.length > 0) {
-                const args = SelectTables.parseForFunctions(selectField.name, matches[0].trim());
-
-                for (const fld of pivotFieldData) {
-                    const caseTxt = `${matches[0]}(CASE WHEN ${ast.PIVOT[0].name} = '${fld}' THEN ${args[1]} ELSE 'null' END)`;
-                    const asField = `${fld[0]} ${typeof selectField.as !== 'undefined' && selectField.as !== "" ? selectField.as : selectField.name}`;
-                    newPivotAstFields.push({ name: caseTxt, as: asField });
-                }
-            }
-            else {
-                newPivotAstFields.push(selectField);
-            }
-        }
-
-        return newPivotAstFields;
-    }
-
-    /**
      * Add column titles to data if needed.
      * @param {any[][]} viewTableData 
      * @param {SelectTables} view 
@@ -693,6 +574,9 @@ class Sql {
     }
 }
 
+/**
+ * @classdesc Deals with the table ALIAS inside select AST.
+ */
 class TableAlias {
     /**
      * Updates 'tables' with associated table ALIAS name found in ast.
@@ -745,7 +629,6 @@ class TableAlias {
 
         return aliasNameFound;
     }
-
 
     /**
      * Search a property of AST for table alias name.
@@ -852,7 +735,47 @@ class TableAlias {
     }
 }
 
+/**
+ * @classdesc Deals with extracting all TABLE names referenece inside SELECT.
+ */
 class TableExtract {
+    /**
+     * Create table definition array from select string.
+     * @param {String} statement - full sql select statement.
+     * @returns {String[][]} - table definition array.
+     */
+    static getReferencedTableNames(statement) {
+        const ast = SqlParse.sql2ast(statement);
+        return TableExtract.getReferencedTableNamesFromAst(ast);
+    }
+
+    /**
+     * Create table definition array from select AST.
+     * @param {Object} ast - AST for SELECT. 
+     * @returns {any[]} - table definition array.
+     * * [0] - table name.
+     * * [1] - sheet tab name
+     * * [2] - cache seconds
+     * * [3] - output column title flag
+     */
+    static getReferencedTableNamesFromAst(ast) {
+        const DEFAULT_CACHE_SECONDS = 60;
+        const DEFAULT_COLUMNS_OUTPUT = true;
+        const tableSet = new Map();
+
+        TableExtract.extractAstTables(ast, tableSet);
+
+        const tableList = [];
+        // @ts-ignore
+        for (const key of tableSet.keys()) {
+            const tableDef = [key, key, DEFAULT_CACHE_SECONDS, DEFAULT_COLUMNS_OUTPUT];
+
+            tableList.push(tableDef);
+        }
+
+        return tableList;
+    }
+
     /**
      * Search for all referenced tables in SELECT.
      * @param {Object} ast - AST for SELECT.
@@ -988,6 +911,95 @@ class TableExtract {
     }
 }
 
+class Pivot {
+    /**
+     * Add new column to AST for every AGGREGATE function and unique pivot column data.
+     * @param {Object} ast - AST which is checked to see if a PIVOT is used.
+     * @param {Map<String,Table>} tables - Map of table info.
+     * @param {BindData} bindData - List of bind data.
+     * @returns {Object} - Updated AST containing SELECT FIELDS for the pivot data OR original AST if no pivot.
+     */
+    static pivotField(ast, tables, bindData) {
+        //  If we are doing a PIVOT, it then requires a GROUP BY.
+        if (typeof ast.PIVOT !== 'undefined') {
+            if (typeof ast['GROUP BY'] === 'undefined')
+                throw new Error("PIVOT requires GROUP BY");
+        }
+        else {
+            return ast;
+        }
+
+        // These are all of the unique PIVOT field data points.
+        const pivotFieldData = Pivot.getUniquePivotData(ast, tables, bindData);
+
+        ast.SELECT = Pivot.addCalculatedPivotFieldsToAst(ast, pivotFieldData);
+
+        return ast;
+    }
+
+    /**
+     * Find distinct pivot column data.
+     * @param {Object} ast - Abstract Syntax Tree containing the PIVOT option.
+     * @returns {any[][]} - All unique data points found in the PIVOT field for the given SELECT.
+     */
+    static getUniquePivotData(ast, tables, bindData) {
+        const pivotAST = {};
+
+        pivotAST.SELECT = ast.PIVOT;
+        pivotAST.SELECT[0].name = `DISTINCT ${pivotAST.SELECT[0].name}`;
+        pivotAST.FROM = ast.FROM;
+        pivotAST.WHERE = ast.WHERE;
+
+        const pivotSql = new Sql()
+            .enableColumnTitle(false)
+            .setBindValues(bindData)
+            .copyTableData(tables);
+
+        // These are all of the unique PIVOT field data points.
+        const tableData = pivotSql.execute(pivotAST);
+
+        return tableData;
+    }
+
+    /**
+     * Add new calculated fields to the existing SELECT fields.  A field is add for each combination of
+     * aggregate function and unqiue pivot data points.  The CASE function is used for each new field.
+     * A test is made if the column data equal the pivot data.  If it is, the aggregate function data 
+     * is returned, otherwise null.  The GROUP BY is later applied and the appropiate pivot data will
+     * be calculated.
+     * @param {Object} ast - AST to be updated.
+     * @param {any[][]} pivotFieldData - Table data with unique pivot field data points. 
+     * @returns {Object} - Abstract Sytax Tree with new SELECT fields with a CASE for each pivot data and aggregate function.
+     */
+    static addCalculatedPivotFieldsToAst(ast, pivotFieldData) {
+        const newPivotAstFields = [];
+
+        for (const selectField of ast.SELECT) {
+            //  If this is an aggregrate function, we will add one for every pivotFieldData item
+            const functionNameRegex = /^\w+\s*(?=\()/;
+            const matches = selectField.name.match(functionNameRegex)
+            if (matches !== null && matches.length > 0) {
+                const args = SelectTables.parseForFunctions(selectField.name, matches[0].trim());
+
+                for (const fld of pivotFieldData) {
+                    const caseTxt = `${matches[0]}(CASE WHEN ${ast.PIVOT[0].name} = '${fld}' THEN ${args[1]} ELSE 'null' END)`;
+                    const asField = `${fld[0]} ${typeof selectField.as !== 'undefined' && selectField.as !== "" ? selectField.as : selectField.name}`;
+                    newPivotAstFields.push({ name: caseTxt, as: asField });
+                }
+            }
+            else {
+                newPivotAstFields.push(selectField);
+            }
+        }
+
+        return newPivotAstFields;
+    }
+
+}
+
+/**
+ * @classdesc Deals with processing SET theory on SELECT table results.
+ */
 class SqlSets {
     /**
      * 
@@ -2494,7 +2506,7 @@ class SelectTables {
      */
     static getSubQueryTableSet(ast, tableInfo) {
         const tableSubSet = new Map();
-        const selectTables = Sql.getReferencedTableNamesFromAst(ast);
+        const selectTables = TableExtract.getReferencedTableNamesFromAst(ast);
 
         for (const found of selectTables) {
             if (found[0] !== "" && !tableSubSet.has(found[0])) {

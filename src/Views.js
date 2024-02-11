@@ -760,7 +760,7 @@ class SelectTables {
      */
     static getSubQueryTableSet(ast, tableInfo) {
         const tableSubSet = new Map();
-        const selectTables = Sql.getReferencedTableNamesFromAst(ast);
+        const selectTables = TableExtract.getReferencedTableNamesFromAst(ast);
 
         for (const found of selectTables) {
             if (found[0] !== "" && !tableSubSet.has(found[0])) {
