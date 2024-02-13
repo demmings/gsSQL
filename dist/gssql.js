@@ -320,7 +320,7 @@ class Sql {
         while (SqlSets.isSqlSet(ast)) {
             const setType = SqlSets.getSetType(ast);
             ast = ast[setType][0];
-            let rightTableData = this.select(ast);
+            const rightTableData = this.select(ast);
             leftTableData = SqlSets.applySet(setType, leftTableData, rightTableData);
         }
 
