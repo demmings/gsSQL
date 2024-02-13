@@ -236,7 +236,12 @@ class Sql {
         TableAlias.setTableAlias(this.tables, this.ast);
         Sql.loadSchema(this.tables);
 
-        return this.select(this.ast);
+        let selectResults = this.select(this.ast);
+
+        //  Apply SET rules to SELECTs (UNION, UNION ALL, EXCEPT, INTERSECT)
+        selectResults = this.selectSet(selectResults, this.ast);
+
+        return selectResults;
     }
 
     /**
@@ -294,6 +299,39 @@ class Sql {
     }
 
     /**
+     * Apply set rules to each select result.
+     * @param {any[][]} leftTableData 
+     * @param {Object} unionAst 
+     * @returns {any[][]}
+     */
+    selectSet(leftTableData, unionAst) {
+        if (! SqlSets.isSqlSet(unionAst)) {
+            return leftTableData;
+        }
+
+        //  If the column titles are in the data, we need to remove and add back in later.
+        let columnTitles = [];
+        if (this.areColumnTitlesOutput() && leftTableData.length > 0) {
+            columnTitles = leftTableData.shift();
+        }
+
+        this.enableColumnTitle(false);
+        let ast = unionAst;
+        while (SqlSets.isSqlSet(ast)) {
+            const setType = SqlSets.getSetType(ast);
+            ast = ast[setType][0];
+            let rightTableData = this.select(ast);
+            leftTableData = SqlSets.applySet(setType, leftTableData, rightTableData);
+        }
+
+        if (columnTitles.length > 0) {
+            leftTableData.unshift(columnTitles);
+        }
+
+        return leftTableData;
+    }
+
+    /**
      * Load SELECT data and return in double array.
      * @param {Object} selectAst - Abstract Syntax Tree of SELECT
      * @returns {any[][]} - double array useable by Google Sheet in custom function return value.
@@ -336,10 +374,6 @@ class Sql {
 
         //  Limit rows returned.
         viewTableData = SelectTables.limit(ast, viewTableData);
-
-        //  Apply SET rules for various union types.
-        const sqlSet = new SqlSets(ast, this.bindData, this.tables);
-        viewTableData = sqlSet.unionSets(viewTableData);
 
         //  Add column titles
         viewTableData = this.addColumnTitles(viewTableData, view);
@@ -1002,83 +1036,75 @@ class Pivot {
  */
 class SqlSets {
     /**
-     * 
-     * @param {Object} ast 
-     * @param {BindData} bindData 
-     * @param {Map<String, Table>} tableMap 
+     * Get list of valid set types.
+     * @returns {String[]}
      */
-    constructor(ast, bindData, tableMap) {
-        this.ast = ast;
-        this.bindData = bindData;
-        this.tableMap = tableMap;
-        this.unionTypes = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
+    static getUnionTypes() {
+        return ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
     }
 
     /**
-     * If any SET commands are found (like UNION, INTERSECT,...) the additional SELECT is done.  The new
-     * data applies the SET rule against the income viewTableData, and the result data set is returned.
-     * @param {any[][]} viewTableData - SELECTED data before UNION.
-     * @returns {any[][]} - New data with set rules applied.
+     * Determine what set type is applied to the select results.
+     * @param {Object} ast 
+     * @returns {String}
      */
-    unionSets(viewTableData) {
-        if (!SqlSets.isSqlSet(this.ast, this.unionTypes)) {
-            return viewTableData;
+    static getSetType(ast) {
+        for (const type of SqlSets.getUnionTypes()) {
+            if (typeof ast[type] !== 'undefined') {
+                return type;
+            }   
+        }    
+
+        return "";
+    }
+
+    /**
+     * Apply set theory to data.
+     * @param {String} type ("UNION", "UNION ALL", "INTERSECT", "EXCEPT")
+     * @param {any[][]} leftTableData 
+     * @param {any[][]} rightTableData 
+     * @returns {any[][]}
+     */
+    static applySet(type, leftTableData, rightTableData) {
+        if (leftTableData.length > 0 && rightTableData.length > 0 && leftTableData[0].length !== rightTableData[0].length) {
+            throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
         }
 
-        let unionTableData = viewTableData;
+        switch (type) {
+            case "UNION":
+                leftTableData = leftTableData.concat(rightTableData);
+                leftTableData = SqlSets.removeDuplicateRows(leftTableData);
+                break;
 
-        for (const type of this.unionTypes) {
-            if (typeof this.ast[type] === 'undefined') {
-                continue;
-            }
+            case "UNION ALL":
+                //  Allow duplicates.
+                leftTableData = leftTableData.concat(rightTableData);
+                break;
 
-            const unionSQL = new Sql()
-                .setBindValues(this.bindData)
-                .copyTableData(this.tableMap);
+            case "INTERSECT":
+                //  Must exist in BOTH tables.
+                leftTableData = SqlSets.intersectRows(leftTableData, rightTableData);
+                break;
 
-            for (const union of this.ast[type]) {
-                const unionData = unionSQL.execute(union);
-                if (unionTableData.length > 0 && unionData.length > 0 && unionTableData[0].length !== unionData[0].length)
-                    throw new Error(`Invalid ${type}.  Selected field counts do not match.`);
+            case "EXCEPT":
+                //  Remove from first table all rows that match in second table.
+                leftTableData = SqlSets.exceptRows(leftTableData, rightTableData);
+                break;
 
-                switch (type) {
-                    case "UNION":
-                        unionTableData = unionTableData.concat(unionData);
-                        unionTableData = SqlSets.removeDuplicateRows(unionTableData);
-                        break;
-
-                    case "UNION ALL":
-                        //  Allow duplicates.
-                        unionTableData = unionTableData.concat(unionData);
-                        break;
-
-                    case "INTERSECT":
-                        //  Must exist in BOTH tables.
-                        unionTableData = SqlSets.intersectRows(unionTableData, unionData);
-                        break;
-
-                    case "EXCEPT":
-                        //  Remove from first table all rows that match in second table.
-                        unionTableData = SqlSets.exceptRows(unionTableData, unionData);
-                        break;
-
-                    default:
-                        throw new Error(`Internal error.  Unsupported UNION type: ${type}`);
-                }
-            }
+            default:
+                throw new Error(`Internal error.  Unsupported UNION type: ${type}`);
         }
 
-        return unionTableData;
+        return leftTableData;
     }
 
     /**
      * 
      * @param {Object} ast 
-     * @param {String[]} unionTypes
      * @returns {Boolean}
      */
-    static isSqlSet(ast, unionTypes) {
-        for (const type of unionTypes) {
+    static isSqlSet(ast) {
+        for (const type of SqlSets.getUnionTypes()) {
             if (typeof ast[type] !== 'undefined') {
                 return true;
             }

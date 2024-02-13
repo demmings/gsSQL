@@ -2011,6 +2011,35 @@ class SqlTester {
         return this.isEqual("unionAll3", data, expected);
     }
 
+    unionAll4() {
+        let stmt = "select * from authors UNION ALL select * from editors UNION select * from translators EXCEPT select * from editors where first_name like 'M%'";
+
+        let data = new TestSql()
+            .addTableData("authors", this.authorsTable())
+            .addTableData("editors", this.editorsTable())
+            .addTableData("translators", this.translatorsTable())
+            .enableColumnTitle(false)
+            .execute(stmt);
+
+        let expected = [["11","Ellen","Writer"],
+        ["12","Olga","Savelieva"],
+        ["13","Jack","Smart"],
+        ["14","Donald","Brain"],
+        ["15","Yao","Dou"],
+        ["21","Daniel","Brown"],
+        ["24","Cathrine","Roberts"],
+        ["25","Sebastian","Wright"],
+        ["26","Barbara","Jones"],
+        ["50","Jack","Dumb"],
+        ["51","Daniel","Smart"],
+        ["31","Ira","Davies"],
+        ["32","Ling","Weng"],
+        ["33","Kristian","Green"],
+        ["34","Roman","Edwards"]];
+
+        return this.isEqual("unionAll4", data, expected);
+    }
+
     unionJoin1() {
         let stmt = "select booksales.invoice as 'Invoice', booksales.quantity as 'Quantity', booksales.price as 'Price', booksales.quantity * booksales.price as 'Sales', booksales.date, books.title, customers.name, authors.first_name + ' ' + authors.last_name as 'Author', translators.first_name + ' ' + translators.last_name as 'Translator', editors.first_name + ' ' + editors.last_name as 'Editor' " +
             "from booksales left join books on booksales.book_id = books.id " +
@@ -4952,7 +4981,6 @@ function testerSql() {
     result = result && tester.unionBind1();
     result = result && tester.unionAll1();
     result = result && tester.unionAll2();
-    // result = result && tester.unionAll3();
     result = result && tester.unionJoin1();
     result = result && tester.except1();
     result = result && tester.intersect1();
@@ -5049,6 +5077,8 @@ function testerSql() {
     result = result && tester.selectNotLikeInMiddle1();
     result = result && tester.selectGroupConcat();
     result = result && tester.selectGroupConcat2();
+    result = result && tester.unionAll3();
+    result = result && tester.unionAll4();
 
     Logger.log("============================================================================");
 
