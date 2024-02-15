@@ -42,11 +42,16 @@ class SqlParse {
         const myKeyWords = SqlParse.generateUsedKeywordList(query);
         const [parts_name, parts_name_escaped] = SqlParse.generateSqlSeparatorWords(myKeyWords);
 
-        //  Include brackets around separate selects used in things like UNION, INTERSECT...
-        let modifiedQuery = SqlParse.sqlStatementSplitter(query);
-
         // Hide words defined as separator but written inside brackets in the query
-        modifiedQuery = SqlParse.hideInnerSql(modifiedQuery, parts_name_escaped, SqlParse.protect);
+        const hiddenQuery = SqlParse.hideInnerSql(query, parts_name_escaped, SqlParse.protect);
+
+        //  Include brackets around separate selects used in things like UNION, INTERSECT...
+        let modifiedQuery = SqlUnionParse.sqlSetStatementSplitter(hiddenQuery);
+
+        //  The SET statement splitter creates a bracketed sub-query, which we need to hide.
+        if (modifiedQuery !== hiddenQuery) {
+            modifiedQuery = SqlParse.hideInnerSql(modifiedQuery, parts_name_escaped, SqlParse.protect);
+        }
 
         // Write the position(s) in query of these separators
         const parts_order = SqlParse.getPositionsOfSqlParts(modifiedQuery, parts_name);
@@ -61,7 +66,7 @@ class SqlParse {
         // Split parts
         const parts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
 
-        // Unhide words precedently hidden with protect()
+        // Unhide words previously hidden with protect()
         for (let i = 0; i < parts.length; i++) {
             parts[i] = SqlParse.hideInnerSql(parts[i], words, SqlParse.unprotect);
         }
@@ -152,48 +157,6 @@ class SqlParse {
         const parts_name_escaped = parts_name.map(item => item.replace('(', '[\\(]'));
 
         return [parts_name, parts_name_escaped];
-    }
-
-    /**
-     * 
-     * @param {String} src 
-     * @returns {String}
-     */
-    static sqlStatementSplitter(src) {
-        let newStr = src;
-
-        // Define which words can act as separator
-        const reg = SqlParse.makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
-
-        const matchedUnions = reg.exec(newStr);
-        if (matchedUnions === null || matchedUnions.length === 0) {
-            return newStr;
-        }
-
-        let prefix = "";
-        const parts = [];
-        let pos = newStr.search(matchedUnions[0]);
-        if (pos > 0) {
-            prefix = newStr.substring(0, pos);
-            newStr = newStr.substring(pos + matchedUnions[0].length);
-        }
-
-        for (let i = 1; i < matchedUnions.length; i++) {
-            const match = matchedUnions[i];
-            pos = newStr.search(match);
-
-            parts.push(newStr.substring(0, pos));
-            newStr = newStr.substring(pos + match.length);
-        }
-        if (newStr.length > 0)
-            parts.push(newStr);
-
-        newStr = prefix;
-        for (let i = 0; i < matchedUnions.length; i++) {
-            newStr += `${matchedUnions[i]} (${parts[i]}) `;
-        }
-
-        return newStr;
     }
 
     /**
@@ -375,7 +338,7 @@ class SqlParse {
             result.JOIN.forEach((item, key) => { result.JOIN[key].cond = CondParser.parse(item.cond) });
         }
 
-        SqlParse.reorganizeUnions(result);
+        SqlUnionParse.reorganizeUnions(result);
 
         return result;
     }
@@ -420,6 +383,65 @@ class SqlParse {
             delete result[joinName];
         }
     }
+}
+
+class SqlUnionParse {
+    /**
+     * 
+     * @param {String} src 
+     * @returns {String}
+     */
+    static sqlSetStatementSplitter(src) {
+        let newStr = src;
+
+        // Define which words can act as separator
+        const reg = SqlUnionParse.makeSqlPartsSplitterRegEx(["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]);
+
+        const matchedUnions = reg.exec(newStr);
+        if (matchedUnions === null || matchedUnions.length === 0) {
+            return newStr;
+        }
+
+        let prefix = "";
+        const parts = [];
+        let pos = newStr.search(matchedUnions[0]);
+        if (pos > 0) {
+            prefix = newStr.substring(0, pos);
+            newStr = newStr.substring(pos + matchedUnions[0].length);
+        }
+
+        for (let i = 1; i < matchedUnions.length; i++) {
+            const match = matchedUnions[i];
+            pos = newStr.search(match);
+
+            parts.push(newStr.substring(0, pos));
+            newStr = newStr.substring(pos + match.length);
+        }
+        if (newStr.length > 0)
+            parts.push(newStr);
+
+        newStr = prefix;
+        for (let i = 0; i < matchedUnions.length; i++) {
+            newStr += `${matchedUnions[i]} (${parts[i]}) `;
+        }
+
+        return newStr;
+    }
+
+    /**
+     * 
+     * @param {String[]} keywords 
+     * @returns {RegExp}
+     */
+    static makeSqlPartsSplitterRegEx(keywords) {
+        // Define which words can act as separator
+        let parts_name = keywords.map(item => `${item} `);
+        parts_name = parts_name.concat(keywords.map(item => `${item}(`));
+        parts_name = parts_name.concat(parts_name.map(item => item.toLowerCase()));
+        const parts_name_escaped = parts_name.map(item => item.replace('(', '[\\(]'));
+
+        return new RegExp(parts_name_escaped.join('|'), 'gi');
+    }
 
     /**
      * 
@@ -430,11 +452,11 @@ class SqlParse {
 
         for (const union of astRecursiveTableBlocks) {
             if (typeof result[union] === 'string') {
-                result[union] = [SqlParse.sql2ast(SqlParse.parseUnion(result[union]))];
+                result[union] = [SqlParse.sql2ast(SqlUnionParse.parseUnion(result[union]))];
             }
             else if (typeof result[union] !== 'undefined') {
                 for (let i = 0; i < result[union].length; i++) {
-                    result[union][i] = SqlParse.sql2ast(SqlParse.parseUnion(result[union][i]));
+                    result[union][i] = SqlParse.sql2ast(SqlUnionParse.parseUnion(result[union][i]));
                 }
             }
         }
@@ -453,6 +475,7 @@ class SqlParse {
 
         return unionString;
     }
+
 }
 
 /*

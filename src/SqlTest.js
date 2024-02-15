@@ -1712,6 +1712,39 @@ class SqlTester {
     }
 
 
+    groupBy5() {
+        let stmt = "select id,  first_name, last_name, count(*) from (select id, first_name, last_name from editors union all select id, first_name, last_name from authors union all select id, first_name, last_name from translators) as test group by id, first_name, last_name";
+
+        let data = new TestSql()
+            .addTableData("editors", this.editorsTable())
+            .addTableData("authors", this.authorsTable())
+            .addTableData("translators", this.translatorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["id","first_name","last_name","count(*)"],
+        ["11","Ellen","Writer",1],
+        ["12","Olga","Savelieva",1],
+        ["13","Jack","Smart",2],
+        ["14","Donald","Brain",1],
+        ["15","Yao","Dou",1],
+        ["21","Daniel","Brown",1],
+        ["22","Mark","Johnson",1],
+        ["23","Maria","Evans",1],
+        ["24","Cathrine","Roberts",1],
+        ["25","Sebastian","Wright",1],
+        ["26","Barbara","Jones",1],
+        ["27","Matthew","Smith",1],
+        ["31","Ira","Davies",1],
+        ["32","Ling","Weng",1],
+        ["33","Kristian","Green",1],
+        ["34","Roman","Edwards",1],
+        ["50","Jack","Dumb",1],
+        ["51","Daniel","Smart",1]];
+
+        return this.isEqual("groupBy5", data, expected);
+    }
+
     avgSelect1() {
         let stmt = "select AVG(quantity) from booksales";
 
@@ -4130,6 +4163,17 @@ class SqlTester {
         return this.isEqual("parseTableSettings15", data, expected);
     }
 
+    parseTableSettings16() {
+        let stmt = "select id, first_name, last_name, count(*) from (select id, first_name, last_name from editors union all select id, first_name, last_name from Authors union all select id, first_name, last_name from translators) as test group by id, first_name, last_name";
+
+        let data = GasSql.parseTableSettings([], stmt, false);
+        let expected = [["AUTHORS","AUTHORS",60,true],
+        ["TRANSLATORS","TRANSLATORS",60,true],
+        ["EDITORS","EDITORS",60,true]];
+
+        return this.isEqual("parseTableSettings16", data, expected);
+    }
+
     //  Mock the GAS sheets functions required to load.
     testTableData1() {
         try {
@@ -5079,6 +5123,7 @@ function testerSql() {
     result = result && tester.selectGroupConcat2();
     result = result && tester.unionAll3();
     result = result && tester.unionAll4();
+    result = result && tester.groupBy5();
 
     Logger.log("============================================================================");
 
@@ -5130,6 +5175,7 @@ function testerSql() {
     result = result && tester.parseTableSettings13();
     result = result && tester.parseTableSettings14();
     result = result && tester.parseTableSettings15();
+    result = result && tester.parseTableSettings16();
 
     result = result && tester.testTableData1();
     result = result && tester.testTableData2();

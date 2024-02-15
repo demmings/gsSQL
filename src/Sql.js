@@ -851,6 +851,7 @@ class TableExtract {
             }
             else {
                 TableExtract.extractAstTables(fromAst.FROM, tableSet);
+                TableExtract.getTableNamesUnion(fromAst, tableSet);
             }
             fromAst = fromAst.FROM;
         }
