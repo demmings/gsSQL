@@ -161,21 +161,6 @@ class SqlParse {
 
     /**
      * 
-     * @param {String[]} keywords 
-     * @returns {RegExp}
-     */
-    static makeSqlPartsSplitterRegEx(keywords) {
-        // Define which words can act as separator
-        let parts_name = keywords.map(item => `${item} `);
-        parts_name = parts_name.concat(keywords.map(item => `${item}(`));
-        parts_name = parts_name.concat(parts_name.map(item => item.toLowerCase()));
-        const parts_name_escaped = parts_name.map(item => item.replace('(', '[\\(]'));
-
-        return new RegExp(parts_name_escaped.join('|'), 'gi');
-    }
-
-    /**
-     * 
      * @param {String} str 
      * @param {String[]} parts_name_escaped
      * @param {Object} replaceFunction
@@ -475,7 +460,6 @@ class SqlUnionParse {
 
         return unionString;
     }
-
 }
 
 /*

@@ -1,6 +1,6 @@
 {
   "name": "@demmings/gssql",
-  "version": "1.3.29",
+  "version": "1.3.30",
   "description": "Google Sheets QUERY function replacement using real SQL select syntax.",
   "main": "testGsSql.js",
   "files": ["./src", "src", "img", "dist"],
