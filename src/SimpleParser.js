@@ -370,6 +370,9 @@ class SqlParse {
     }
 }
 
+/**
+ * @classdesc Parsing SQL set commands into AST.
+ */
 class SqlUnionParse {
     /**
      * 
