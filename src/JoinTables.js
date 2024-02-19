@@ -34,7 +34,7 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * Add info about all known tables and their fields.
      * @param {TableFields} tableFields 
      * @returns {JoinTables}
      */
@@ -45,7 +45,7 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * Add data set on command line to be used when evaulating SELECT WHERE
      * @param {BindData} bindVariables - Bind variable data. 
      * @returns {JoinTables}
      */
@@ -96,7 +96,7 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 
     /**
-     *
+     * Find the record ID's from table that match specified conditions.
      * @param {Object} conditions
      * @param {String} leftTableName
      * @returns {MatchingJoinRecordIDs}
@@ -117,7 +117,7 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 
     /**
-     *
+     * Apply logic and conditions between the two tables to find the record ID's from LEFT and RIGHT tables.
      * @param {String} logic - AND, OR
      * @param {Object} astConditions
      * @param {String} joinType - inner, full, left, right
@@ -434,7 +434,7 @@ class JoinTablesRecordIds {
      */
 
     /**
-     *
+     * Find the LEFT table and RIGHT table joining fields from AST.
      * @param {Object} astJoin
      * @returns {LeftRightJoinFields}
      */
@@ -489,7 +489,7 @@ class JoinTablesRecordIds {
     }
 
     /**
-     * 
+     * Find the referenced table within the calculated field.
      * @param {String} calcField 
      * @returns {TableField}
      */
@@ -553,7 +553,7 @@ class JoinTablesRecordIds {
      */
 
     /**
-     *
+     * Apply JOIN TYPE logic on left and right tables to find the matching record ID's from both left and right tables.
      * @returns {MatchingJoinRecordIDs}
      */
     getMatchedRecordIds() {
@@ -627,7 +627,7 @@ class JoinTablesRecordIds {
     }
 
     /**
-     * 
+     * Find (or calculate) the field data for the specified record number.
      * @param {JoinSideInfo} fieldInfo 
      * @param {Number} recordNumber
      * @returns {String}
@@ -651,7 +651,7 @@ class JoinTablesRecordIds {
     }
 
     /**
-     * 
+     * Find all KEYS in table mapped to an array of record ID's where key is located in table.
      * @param {JoinSideInfo} rightField 
      * @returns {Map<String, Number[]>}
      */

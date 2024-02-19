@@ -162,7 +162,7 @@ class TableData {       //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * For updating a sheet array that may be later read from cache.
      * @param {String} namedRange 
      * @param {any[][]} arrData 
      * @param {Number} seconds 
@@ -424,7 +424,7 @@ class TableData {       //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * Dates retrieved from a JSON structure need to be converted to JS date.
      * @param {any[][]} arrData 
      */
     static fixJSONdates(arrData) {

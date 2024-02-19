@@ -960,6 +960,9 @@ class TableExtract {
     }
 }
 
+/**
+ * @classdesc Manipulation of AST to handle PIVOT statement.
+ */
 class Pivot {
     /**
      * Add new column to AST for every AGGREGATE function and unique pivot column data.

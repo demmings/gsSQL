@@ -440,13 +440,7 @@ class Schema {
     * @returns {Number[]} - column numbers for each specified field.
     */
     getFieldColumns(fieldNames) {
-        /** @type {Number[]} */
-        const fieldIndex = [];
-
-        for (const field of fieldNames) {
-            const i = this.fields.has(field.trim().toUpperCase()) ? this.fields.get(field.trim().toUpperCase()) : -1;
-            fieldIndex.push(i);
-        }
+        const fieldIndex = fieldNames.map(f => this.fields.has(f.trim().toUpperCase()) ? this.fields.get(f.trim().toUpperCase()) : -1)
 
         return fieldIndex;
     }

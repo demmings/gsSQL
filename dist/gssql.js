@@ -946,6 +946,9 @@ class TableExtract {
     }
 }
 
+/**
+ * @classdesc Manipulation of AST to handle PIVOT statement.
+ */
 class Pivot {
     /**
      * Add new column to AST for every AGGREGATE function and unique pivot column data.
@@ -1678,13 +1681,7 @@ class Schema {
     * @returns {Number[]} - column numbers for each specified field.
     */
     getFieldColumns(fieldNames) {
-        /** @type {Number[]} */
-        const fieldIndex = [];
-
-        for (const field of fieldNames) {
-            const i = this.fields.has(field.trim().toUpperCase()) ? this.fields.get(field.trim().toUpperCase()) : -1;
-            fieldIndex.push(i);
-        }
+        const fieldIndex = fieldNames.map(f => this.fields.has(f.trim().toUpperCase()) ? this.fields.get(f.trim().toUpperCase()) : -1)
 
         return fieldIndex;
     }
@@ -4773,7 +4770,7 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * Add info about all known tables and their fields.
      * @param {TableFields} tableFields 
      * @returns {JoinTables}
      */
@@ -4784,7 +4781,7 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * Add data set on command line to be used when evaulating SELECT WHERE
      * @param {BindData} bindVariables - Bind variable data. 
      * @returns {JoinTables}
      */
@@ -4835,7 +4832,7 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 
     /**
-     *
+     * Find the record ID's from table that match specified conditions.
      * @param {Object} conditions
      * @param {String} leftTableName
      * @returns {MatchingJoinRecordIDs}
@@ -4856,7 +4853,7 @@ class JoinTables {                                   //  skipcq: JS-0128
     }
 
     /**
-     *
+     * Apply logic and conditions between the two tables to find the record ID's from LEFT and RIGHT tables.
      * @param {String} logic - AND, OR
      * @param {Object} astConditions
      * @param {String} joinType - inner, full, left, right
@@ -5173,7 +5170,7 @@ class JoinTablesRecordIds {
      */
 
     /**
-     *
+     * Find the LEFT table and RIGHT table joining fields from AST.
      * @param {Object} astJoin
      * @returns {LeftRightJoinFields}
      */
@@ -5228,7 +5225,7 @@ class JoinTablesRecordIds {
     }
 
     /**
-     * 
+     * Find the referenced table within the calculated field.
      * @param {String} calcField 
      * @returns {TableField}
      */
@@ -5292,7 +5289,7 @@ class JoinTablesRecordIds {
      */
 
     /**
-     *
+     * Apply JOIN TYPE logic on left and right tables to find the matching record ID's from both left and right tables.
      * @returns {MatchingJoinRecordIDs}
      */
     getMatchedRecordIds() {
@@ -5366,7 +5363,7 @@ class JoinTablesRecordIds {
     }
 
     /**
-     * 
+     * Find (or calculate) the field data for the specified record number.
      * @param {JoinSideInfo} fieldInfo 
      * @param {Number} recordNumber
      * @returns {String}
@@ -5390,7 +5387,7 @@ class JoinTablesRecordIds {
     }
 
     /**
-     * 
+     * Find all KEYS in table mapped to an array of record ID's where key is located in table.
      * @param {JoinSideInfo} rightField 
      * @returns {Map<String, Number[]>}
      */
@@ -5873,12 +5870,9 @@ class SqlUnionParse {
     }
 }
 
-/*
- * LEXER & PARSER FOR SQL CONDITIONS
- * Inspired by https://github.com/DmitrySoshnikov/Essentials-of-interpretation
+/**
+ * @classdesc Lexical analyzer for SELECT statement.
  */
-
-/** Lexical analyzer for SELECT statement. */
 class CondLexer {
     constructor(source) {
         this.source = source;
@@ -6093,7 +6087,9 @@ class CondLexer {
     }
 }
 
-/** SQL Condition parser class. */
+/**
+ * @classdesc SQL Condition parser class
+ */
 class CondParser {
     constructor(source) {
         this.lexer = new CondLexer(source);
@@ -6323,7 +6319,9 @@ class CondParser {
     }
 }
 
-/** Analyze each distinct component of SELECT statement. */
+/**
+ * @classdesc Analyze each distinct component of SELECT statement.
+ */
 class SelectKeywordAnalysis {
     /**
      * 
@@ -6864,7 +6862,7 @@ class TableData {       //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * For updating a sheet array that may be later read from cache.
      * @param {String} namedRange 
      * @param {any[][]} arrData 
      * @param {Number} seconds 
@@ -7126,7 +7124,7 @@ class TableData {       //  skipcq: JS-0128
     }
 
     /**
-     * 
+     * Dates retrieved from a JSON structure need to be converted to JS date.
      * @param {any[][]} arrData 
      */
     static fixJSONdates(arrData) {
@@ -7259,7 +7257,9 @@ class ScriptSettings {      //  skipcq: JS-0128
     }
 }
 
-/** Converts data into JSON for getting/setting in ScriptSettings. */
+/**
+ * @classdesc Converts data into JSON for getting/setting in ScriptSettings.
+ */
 class PropertyData {
     /**
      * 

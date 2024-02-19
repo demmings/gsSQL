@@ -465,12 +465,9 @@ class SqlUnionParse {
     }
 }
 
-/*
- * LEXER & PARSER FOR SQL CONDITIONS
- * Inspired by https://github.com/DmitrySoshnikov/Essentials-of-interpretation
+/**
+ * @classdesc Lexical analyzer for SELECT statement.
  */
-
-/** Lexical analyzer for SELECT statement. */
 class CondLexer {
     constructor(source) {
         this.source = source;
@@ -685,7 +682,9 @@ class CondLexer {
     }
 }
 
-/** SQL Condition parser class. */
+/**
+ * @classdesc SQL Condition parser class
+ */
 class CondParser {
     constructor(source) {
         this.lexer = new CondLexer(source);
@@ -915,7 +914,9 @@ class CondParser {
     }
 }
 
-/** Analyze each distinct component of SELECT statement. */
+/**
+ * @classdesc Analyze each distinct component of SELECT statement.
+ */
 class SelectKeywordAnalysis {
     /**
      * 
