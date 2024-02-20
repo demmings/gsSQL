@@ -329,7 +329,7 @@ class JoinTablesRecordIds {
 
     /**
      *
-     * @param {Object} conditionAst
+     * @param {Object} conditionAst The condition to JOIN our two tables.
      * @returns {MatchingJoinRecordIDs}
      */
     getRecordIDs(conditionAst) {

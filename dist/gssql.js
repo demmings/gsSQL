@@ -1908,20 +1908,27 @@ class SelectTables {
             }
         }
 
-        let result = [];
+        return SelectTables.applyLogicOperatorToRecordIds(logic, recordIDs);
+    }
+
+    /**
+     * Each array element in recordIDs is an array of record ID's.
+     * Either 'AND' or 'OR' logic is applied to the ID's to find the final set of record ID's.
+     * @param {String} logic  ["AND", "OR"]
+     * @param {Number[][]} recordIDs 
+     * @returns {Number[]}
+     */
+    static applyLogicOperatorToRecordIds(logic, recordIDs) {
+        let results = [];
+
         if (logic === "AND") {
-            result = recordIDs.reduce((a, b) => a.filter(c => b.includes(c)));
+            results = recordIDs.reduce((a, b) => a.filter(c => b.includes(c)));
         }
         if (logic === "OR") {
-            //  OR Logic
-            let tempArr = [];
-            for (const arr of recordIDs) {
-                tempArr = tempArr.concat(arr);
-            }
-            result = Array.from(new Set(tempArr));
-        }
-
-        return result;
+            results = Array.from(new Set(recordIDs.reduce((a, b) => a.concat(b))));
+        } 
+        
+        return results;
     }
 
     /**
@@ -2325,9 +2332,10 @@ class SelectTables {
     }
 
     /**
-     * @param {Object} ast 
-     * @param {any[][]} viewTableData 
-     * @returns {any[][]}
+     * Returns the first 'x' records from table if a LIMIT is defined.
+     * @param {Object} ast AST that may contain a LIMIT clause
+     * @param {any[][]} viewTableData Table data before limit is applied.
+     * @returns {any[][]} Table data after limit is applied.
      */
     static limit(ast, viewTableData) {
         if (typeof ast.LIMIT !== 'undefined') {
@@ -2491,9 +2499,11 @@ class SelectTables {
     }
 
     /**
-     * 
+     * Check if correlated sub-query is used.
+     * Check all table references in WHERE clause.  
+     * Any table found NOT in FROM is deemed a reference to correlated subquery.
      * @param {Object} ast 
-     * @returns {Boolean}
+     * @returns {Boolean} - TRUE if a reference to a WHERE table field not in FROM.
      */
     static isCorrelatedSubQuery(ast) {
         const tableSet = new Map();
@@ -2910,9 +2920,11 @@ class CalculatedField {
     }
 
     /**
-     * 
-     * @param {String} calculatedFormula 
-     * @returns {String}
+     * Anything 'calculated' in SQL statement is converted to equivalent Javascript code.
+     * The input 'calculatedFormula' and resulting JS is placed in map so it does not need to be
+     * recalculated over and over again.
+     * @param {String} calculatedFormula - SQL statement calculation.
+     * @returns {String} - Equivalent SQL calculation in Javascript.
      */
     sqlServerFunctions(calculatedFormula) {
         //  If this calculated field formula has already been put into the required format,
@@ -5065,7 +5077,7 @@ class JoinTablesRecordIds {
 
     /**
      *
-     * @param {Object} conditionAst
+     * @param {Object} conditionAst The condition to JOIN our two tables.
      * @returns {MatchingJoinRecordIDs}
      */
     getRecordIDs(conditionAst) {
