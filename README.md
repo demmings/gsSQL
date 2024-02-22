@@ -390,6 +390,32 @@ let data = new Sql()
         * In your existing local Google Sheet project, create a folder called **SQL** below your existing javascript source folder.
         * **clasp push** all your source files to Google.
 
+  1.  **Library**
+       * Add the library to your project.
+       * For detailed install notes see:  https://demmings.github.io/gssql/2024/02/15/gsSQL-Library.html
+       * The Library Script ID:  
+         * **1ZfedAgGG2K5kPLC2NPfe0Kb1xAg-0gvmliR3V8pRNk6DZMTUQyCbMW1W**
+       * After adding the library, you have access to gsSQL() function in your Google Apps Script javascript code like:  
+```
+gsSqlLibrary.gsSQL("select * from authorts");
+```
+   * To add the ability to use as a custom function within your sheets, you need to add the following code:
+```
+/**
+ * @param {String} sqlStatement - e.g. "select * from authors"
+ * @param {...any} parms - Optional ["tableName", range, "tableName2", range2,...][addTitle][bindVariables]
+ * @returns {any[][]}
+ * @customfunction
+ */
+    function gsSQL(sqlStatement, ...parms) {
+        return gsSqlLibrary.gsSQL(sqlStatement, ...parms);
+    }
+```
+* After saving this to any apps script code file, you will have the ability to perform SQL SELECT statements on your sheet by typing into any cell code like this example:
+```
+=gsSQL("select * from authors", "authors", authors!A1:C, true)
+```
+
 
 ---
 
