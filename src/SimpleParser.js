@@ -540,7 +540,7 @@ class CondLexer {
             return { type: 'logic', value: tokenValue.toUpperCase() };
         }
 
-        if (/^(IN|IS|NOT|LIKE|NOT EXISTS|EXISTS)$/i.test(tokenValue)) {
+        if (/^(IN|IS|NOT|LIKE|EXISTS|EXISTS|BETWEEN)$/i.test(tokenValue)) {
             return { type: 'operator', value: tokenValue.toUpperCase() };
         }
 
@@ -729,14 +729,24 @@ class CondParser {
         let leftNode = this.parseConditionExpression();
 
         while (this.currentToken.type === 'logic') {
-            const logic = this.currentToken.value;
+            let logic = this.currentToken.value;
             this.readNextToken();
 
             const rightNode = this.parseConditionExpression();
 
             // If we are chaining the same logical operator, add nodes to existing object instead of creating another one
-            if (typeof leftNode.logic !== 'undefined' && leftNode.logic === logic && typeof leftNode.terms !== 'undefined')
+            if (typeof leftNode.logic !== 'undefined' && leftNode.logic === logic && typeof leftNode.terms !== 'undefined') {
                 leftNode.terms.push(rightNode);
+            }
+            else if (leftNode.operator === "BETWEEN" || leftNode.operator === "NOT BETWEEN") {
+                const firstOp = leftNode.operator === "BETWEEN" ? ">=" : "<";
+                const secondOp = leftNode.operator === "BETWEEN" ? "<=" : ">";
+                logic = leftNode.operator === "BETWEEN" ? "AND" : "OR";
+                const terms = [];
+                terms.push({ left: leftNode.left, right: leftNode.right, operator: firstOp });
+                terms.push({ left: leftNode.left, right: rightNode, operator: secondOp });
+                leftNode = { logic, terms };
+            }
             else {
                 const terms = [leftNode, rightNode].slice(0);
                 leftNode = { logic, terms };
@@ -935,7 +945,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql SELECT
      * @param {String} str 
      * @param {Boolean} isOrderBy 
      * @returns {Object[]}
@@ -988,7 +998,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql FROM
      * @param {String} str 
      * @returns {Object}
      */
@@ -1017,7 +1027,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql LEFT JOIN
      * @param {String} str 
      * @returns {Object}
      */
@@ -1026,7 +1036,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql INNER JOIN
      * @param {String} str 
      * @returns {Object}
      */
@@ -1035,7 +1045,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql RIGHT JOIN
      * @param {String} str 
      * @returns {Object}
      */
@@ -1044,7 +1054,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql FULL JOIN
      * @param {String} str 
      * @returns {Object}
      */
@@ -1071,7 +1081,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql WHERE
      * @param {String} str 
      * @returns {Object}
      */
@@ -1080,7 +1090,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql ORDER BY
      * @param {String} str 
      * @returns {Object[]}
      */
@@ -1089,7 +1099,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql GROUP BY
      * @param {String} str 
      * @returns {Object[]}
      */
@@ -1098,7 +1108,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql PIVOT
      * @param {String} str 
      * @returns {Object[]}
      */
@@ -1121,7 +1131,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql LIMIT
      * @param {String} str 
      * @returns {Object}
      */
@@ -1133,7 +1143,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql HAVING
      * @param {String} str 
      * @returns {Object}
      */
@@ -1142,7 +1152,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql UNION
      * @param {String} str 
      * @returns {String}
      */
@@ -1151,7 +1161,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql UNION ALL
      * @param {String} str 
      * @returns {String}
      */
@@ -1160,7 +1170,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql INTERSECT
      * @param {String} str 
      * @returns {String}
      */
@@ -1169,7 +1179,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * Sql EXCEPT
      * @param {String} str 
      * @returns {String}
      */
@@ -1178,7 +1188,7 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
+     * If we find 'SELECT ' within brackets, parse the string within brackets as a correlated sub-query. 
      * @param {String} selectField 
      * @returns {Object}
      */
@@ -1195,9 +1205,8 @@ class SelectKeywordAnalysis {
         return subQueryAst;
     }
 
-    // Split a string using a separator, only if this separator isn't beetween brackets
     /**
-     * 
+     * Split a string using a separator, only if this separator isn't beetween brackets
      * @param {String} separator 
      * @param {String} str 
      * @returns {String[]}
@@ -1239,37 +1248,37 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
-     * @param {any} str 
-     * @returns {any}
+     * Trim input if input is a string.
+     * @param {any} data trim() if a string.
+     * @returns {any} Trimmed input OR original data if not a string.
      */
-    static trim(str) {
-        if (typeof str === 'string')
-            return str.trim();
-        return str;
+    static trim(data) {
+        return typeof data === 'string' ? data.trim() : data;
     }
 
     /**
     * If an ALIAS is specified after 'AS', return the field/table name and the alias.
     * @param {String} item 
-    * @returns {String[]}
+    * @returns {String[]} Two items:  Real Name, Alias
     */
     static getNameAndAlias(item) {
+        const NAME_AS_ALIAS = " AS ";
         let realName = item;
         let alias = "";
-        const lastAs = SelectKeywordAnalysis.lastIndexOfOutsideLiteral(item.toUpperCase(), " AS ");
-        if (lastAs !== -1) {
-            const subStr = item.substring(lastAs + 4).trim();
+        const lastAsIndex = SelectKeywordAnalysis.lastIndexOfOutsideLiteral(item.toUpperCase(), NAME_AS_ALIAS);
+        if (lastAsIndex !== -1) {
+            const subStr = item.substring(lastAsIndex + NAME_AS_ALIAS.length).trim();
             if (subStr.length > 0) {
                 alias = subStr;
                 //  Remove quotes, if any.
                 if ((subStr.startsWith("'") && subStr.endsWith("'")) ||
                     (subStr.startsWith('"') && subStr.endsWith('"')) ||
-                    (subStr.startsWith('[') && subStr.endsWith(']')))
+                    (subStr.startsWith('[') && subStr.endsWith(']'))) {
                     alias = subStr.substring(1, subStr.length - 1);
+                }
 
                 //  Remove everything after 'AS'.
-                realName = item.substring(0, lastAs).trim();
+                realName = item.substring(0, lastAsIndex).trim();
             }
         }
 
@@ -1277,20 +1286,23 @@ class SelectKeywordAnalysis {
     }
 
     /**
-     * 
-     * @param {String} srcString 
-     * @param {String} searchString 
-     * @returns {Number}
+     * Search for last occurence of a string that is NOT inside a quoted string literal.
+     * @param {String} srcString String to search
+     * @param {String} searchString String to find outside of a string constant.
+     * @returns {Number} -1 indicates search string not found.  Otherwise it is start position of found string.
      */
     static lastIndexOfOutsideLiteral(srcString, searchString) {
-        let index = -1;
-        let inQuote = "";
+        let index = srcString.indexOf(searchString);
+        if (index === -1) {
+            return index;
+        }
 
+        let inQuote = "";
         for (let i = 0; i < srcString.length; i++) {
             const ch = srcString.charAt(i);
 
             if (inQuote !== "") {
-                //  The ending quote.
+                //  Is this the end of string literal?
                 if ((inQuote === "'" && ch === "'") || (inQuote === '"' && ch === '"') || (inQuote === "[" && ch === "]"))
                     inQuote = "";
             }

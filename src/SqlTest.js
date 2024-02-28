@@ -763,7 +763,7 @@ class SqlTester {
             .addBindVariable("Jack")
             .execute(stmt);
 
-        let expected = [{"id":"13","first_name":"Jack","last_name":"Smart"}];
+        let expected = [{ "id": "13", "first_name": "Jack", "last_name": "Smart" }];
 
         return this.isEqual("selectAnAuthorsToObject", data, expected);
     }
@@ -865,15 +865,15 @@ class SqlTester {
             .addTableData("authors", this.authorsTable())
             .execute(stmt);
 
-        let expected = [{"books.id":"2","books.title":"Your Trip","books.type":"translated","authors.last_name":"Dou","translators.last_name":"Weng"},
-        {"books.id":"5","books.title":"Oranges","books.type":"translated","authors.last_name":"Savelieva","translators.last_name":"Davies"},
-        {"books.id":"6","books.title":"Your Happy Life","books.type":"translated","authors.last_name":"Dou","translators.last_name":"Green"},
-        {"books.id":"7","books.title":"Applied AI","books.type":"translated","authors.last_name":"Smart","translators.last_name":"Edwards"}];
+        let expected = [{ "books.id": "2", "books.title": "Your Trip", "books.type": "translated", "authors.last_name": "Dou", "translators.last_name": "Weng" },
+        { "books.id": "5", "books.title": "Oranges", "books.type": "translated", "authors.last_name": "Savelieva", "translators.last_name": "Davies" },
+        { "books.id": "6", "books.title": "Your Happy Life", "books.type": "translated", "authors.last_name": "Dou", "translators.last_name": "Green" },
+        { "books.id": "7", "books.title": "Applied AI", "books.type": "translated", "authors.last_name": "Smart", "translators.last_name": "Edwards" }];
 
         let test1 = this.isEqual("innerJoin2ToObject(a)", data, expected);
 
         data = data.filter(v => v["authors.last_name"] === "Smart");
-        expected = [{"books.id":"7","books.title":"Applied AI","books.type":"translated","authors.last_name":"Smart","translators.last_name":"Edwards"}];
+        expected = [{ "books.id": "7", "books.title": "Applied AI", "books.type": "translated", "authors.last_name": "Smart", "translators.last_name": "Edwards" }];
         let test2 = this.isEqual("innerJoin2ToObject(b)", data, expected);;
 
         return test1 && test2;
@@ -1434,12 +1434,12 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["EDITORS.ID","EDITORS.FIRST_NAME","EDITORS.LAST_NAME"],
-        ["23","Maria","Evans"],
-        ["24","Cathrine","Roberts"],
-        ["25","Sebastian","Wright"],
-        ["26","Barbara","Jones"],
-        ["27","Matthew","Smith"]];
+        let expected = [["EDITORS.ID", "EDITORS.FIRST_NAME", "EDITORS.LAST_NAME"],
+        ["23", "Maria", "Evans"],
+        ["24", "Cathrine", "Roberts"],
+        ["25", "Sebastian", "Wright"],
+        ["26", "Barbara", "Jones"],
+        ["27", "Matthew", "Smith"]];
 
         return this.isEqual("whereNotIn2", data, expected);
     }
@@ -1454,17 +1454,17 @@ class SqlTester {
 
         //  Depending on how your SQL is configured, the comparison is either
         //  case or case insensitive.  For gsSQL() it is case senstive.
-        let expected = [["EDITORS.ID","EDITORS.FIRST_NAME","EDITORS.LAST_NAME"],
-        ["13","Jack","Smart"],
-        ["21","Daniel","Brown"],
-        ["22","Mark","Johnson"],
-        ["23","Maria","Evans"],
-        ["24","Cathrine","Roberts"],
-        ["25","Sebastian","Wright"],
-        ["26","Barbara","Jones"],
-        ["27","Matthew","Smith"],
-        ["50","Jack","Dumb"],
-        ["51","Daniel","Smart"]];
+        let expected = [["EDITORS.ID", "EDITORS.FIRST_NAME", "EDITORS.LAST_NAME"],
+        ["13", "Jack", "Smart"],
+        ["21", "Daniel", "Brown"],
+        ["22", "Mark", "Johnson"],
+        ["23", "Maria", "Evans"],
+        ["24", "Cathrine", "Roberts"],
+        ["25", "Sebastian", "Wright"],
+        ["26", "Barbara", "Jones"],
+        ["27", "Matthew", "Smith"],
+        ["50", "Jack", "Dumb"],
+        ["51", "Daniel", "Smart"]];
 
         return this.isEqual("whereNotIn3", data, expected);
     }
@@ -1477,15 +1477,15 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["EDITORS.ID","EDITORS.FIRST_NAME","EDITORS.LAST_NAME"],
-        ["21","Daniel","Brown"],
-        ["22","Mark","Johnson"],
-        ["23","Maria","Evans"],
-        ["24","Cathrine","Roberts"],
-        ["25","Sebastian","Wright"],
-        ["26","Barbara","Jones"],
-        ["27","Matthew","Smith"],
-        ["51","Daniel","Smart"]];
+        let expected = [["EDITORS.ID", "EDITORS.FIRST_NAME", "EDITORS.LAST_NAME"],
+        ["21", "Daniel", "Brown"],
+        ["22", "Mark", "Johnson"],
+        ["23", "Maria", "Evans"],
+        ["24", "Cathrine", "Roberts"],
+        ["25", "Sebastian", "Wright"],
+        ["26", "Barbara", "Jones"],
+        ["27", "Matthew", "Smith"],
+        ["51", "Daniel", "Smart"]];
 
         return this.isEqual("whereNotIn4", data, expected);
     }
@@ -1722,25 +1722,25 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["id","first_name","last_name","count(*)"],
-        ["11","Ellen","Writer",1],
-        ["12","Olga","Savelieva",1],
-        ["13","Jack","Smart",2],
-        ["14","Donald","Brain",1],
-        ["15","Yao","Dou",1],
-        ["21","Daniel","Brown",1],
-        ["22","Mark","Johnson",1],
-        ["23","Maria","Evans",1],
-        ["24","Cathrine","Roberts",1],
-        ["25","Sebastian","Wright",1],
-        ["26","Barbara","Jones",1],
-        ["27","Matthew","Smith",1],
-        ["31","Ira","Davies",1],
-        ["32","Ling","Weng",1],
-        ["33","Kristian","Green",1],
-        ["34","Roman","Edwards",1],
-        ["50","Jack","Dumb",1],
-        ["51","Daniel","Smart",1]];
+        let expected = [["id", "first_name", "last_name", "count(*)"],
+        ["11", "Ellen", "Writer", 1],
+        ["12", "Olga", "Savelieva", 1],
+        ["13", "Jack", "Smart", 2],
+        ["14", "Donald", "Brain", 1],
+        ["15", "Yao", "Dou", 1],
+        ["21", "Daniel", "Brown", 1],
+        ["22", "Mark", "Johnson", 1],
+        ["23", "Maria", "Evans", 1],
+        ["24", "Cathrine", "Roberts", 1],
+        ["25", "Sebastian", "Wright", 1],
+        ["26", "Barbara", "Jones", 1],
+        ["27", "Matthew", "Smith", 1],
+        ["31", "Ira", "Davies", 1],
+        ["32", "Ling", "Weng", 1],
+        ["33", "Kristian", "Green", 1],
+        ["34", "Roman", "Edwards", 1],
+        ["50", "Jack", "Dumb", 1],
+        ["51", "Daniel", "Smart", 1]];
 
         return this.isEqual("groupBy5", data, expected);
     }
@@ -2054,21 +2054,21 @@ class SqlTester {
             .enableColumnTitle(false)
             .execute(stmt);
 
-        let expected = [["11","Ellen","Writer"],
-        ["12","Olga","Savelieva"],
-        ["13","Jack","Smart"],
-        ["14","Donald","Brain"],
-        ["15","Yao","Dou"],
-        ["21","Daniel","Brown"],
-        ["24","Cathrine","Roberts"],
-        ["25","Sebastian","Wright"],
-        ["26","Barbara","Jones"],
-        ["50","Jack","Dumb"],
-        ["51","Daniel","Smart"],
-        ["31","Ira","Davies"],
-        ["32","Ling","Weng"],
-        ["33","Kristian","Green"],
-        ["34","Roman","Edwards"]];
+        let expected = [["11", "Ellen", "Writer"],
+        ["12", "Olga", "Savelieva"],
+        ["13", "Jack", "Smart"],
+        ["14", "Donald", "Brain"],
+        ["15", "Yao", "Dou"],
+        ["21", "Daniel", "Brown"],
+        ["24", "Cathrine", "Roberts"],
+        ["25", "Sebastian", "Wright"],
+        ["26", "Barbara", "Jones"],
+        ["50", "Jack", "Dumb"],
+        ["51", "Daniel", "Smart"],
+        ["31", "Ira", "Davies"],
+        ["32", "Ling", "Weng"],
+        ["33", "Kristian", "Green"],
+        ["34", "Roman", "Edwards"]];
 
         return this.isEqual("unionAll4", data, expected);
     }
@@ -3911,12 +3911,12 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["Invoice Date","Overdue","datediff(adddate(date, 30), date)"],
-        ["05/01/2022","2022-05-31T04:00:00.000Z",30],
-        ["05/01/2022","2022-05-31T04:00:00.000Z",30],
-        ["05/01/2022","2022-05-31T04:00:00.000Z",30],
-        ["05/02/2022","2022-06-01T04:00:00.000Z",30],
-        ["05/02/2022","2022-06-01T04:00:00.000Z",30]];
+        let expected = [["Invoice Date", "Overdue", "datediff(adddate(date, 30), date)"],
+        ["05/01/2022", "2022-05-31T04:00:00.000Z", 30],
+        ["05/01/2022", "2022-05-31T04:00:00.000Z", 30],
+        ["05/01/2022", "2022-05-31T04:00:00.000Z", 30],
+        ["05/02/2022", "2022-06-01T04:00:00.000Z", 30],
+        ["05/02/2022", "2022-06-01T04:00:00.000Z", 30]];
 
         return this.isEqual("selectDateDiff2", data, expected);
     }
@@ -3970,6 +3970,75 @@ class SqlTester {
 
         return this.isEqual("selectGroupConcat2", data, expected);
 
+    }
+
+    selectBetween1() {
+        let stmt = "select * from booksales where price between 10 and 24.95 order by quantity";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022"]];
+
+        return this.isEqual("selectBetween1", data, expected);
+    }
+
+    selectNotBetween1() {
+        let stmt = "select * from booksales where price not between 10 and 24.95 order by quantity";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"]];
+
+        return this.isEqual("selectNotBetween1", data, expected);
+    }
+
+    selectNotBetweenAndIN() {
+        let stmt = "select * from booksales where price not between 10 and 24.95 and invoice in ('I7202', 'I7201')";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022"]];
+
+        return this.isEqual("selectNotBetweenAndIN", data, expected);
+    }
+
+    selectBetweenFromFunction() {
+        let stmt = "select * from booksales where day(date) between 2 and 3";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+        ["I7203", "1", "", 1, 90, "05/02/2022"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022"]];
+
+        return this.isEqual("selectBetweenFromFunction", data, expected);
     }
 
     //  S T A R T   O T H E R   T E S T S
@@ -4167,9 +4236,9 @@ class SqlTester {
         let stmt = "select id, first_name, last_name, count(*) from (select id, first_name, last_name from editors union all select id, first_name, last_name from Authors union all select id, first_name, last_name from translators) as test group by id, first_name, last_name";
 
         let data = GasSql.parseTableSettings([], stmt, false);
-        let expected = [["AUTHORS","AUTHORS",60,true],
-        ["TRANSLATORS","TRANSLATORS",60,true],
-        ["EDITORS","EDITORS",60,true]];
+        let expected = [["AUTHORS", "AUTHORS", 60, true],
+        ["TRANSLATORS", "TRANSLATORS", 60, true],
+        ["EDITORS", "EDITORS", 60, true]];
 
         return this.isEqual("parseTableSettings16", data, expected);
     }
@@ -5124,6 +5193,10 @@ function testerSql() {
     result = result && tester.unionAll3();
     result = result && tester.unionAll4();
     result = result && tester.groupBy5();
+    result = result && tester.selectBetween1();
+    result = result && tester.selectNotBetween1();
+    result = result && tester.selectNotBetweenAndIN();
+    result = result && tester.selectBetweenFromFunction();
 
     Logger.log("============================================================================");
 

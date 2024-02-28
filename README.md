@@ -507,6 +507,8 @@ gsSqlLibrary.gsSQL("select * from authorts");
   *  'NOT IN'
   *  'IS NOT'
   *  'IS'
+  *  'BETWEEN'
+  *  'NOT BETWEEN'
         
 
 # NOTES
@@ -540,5 +542,5 @@ Most all SELECT functionality is implemented, however if you want to do anything
 
 ```=gsSQL("select a, B, C, D, E, F from invoice where c = 'C4'", {{"invoice", "BookSales", 0, false}}, true )```
 
-5)  The resolution of MULTIPLE sets (UNION, UNION ALL,...) is being executed from right to left.  This is causing a problem when the last set operator is **UNION** and the derived table to the left contains duplicate rows.  Those duplicates are not removed.  This requires some future design changes for how the SELECT is resolved.  
+ 
 
