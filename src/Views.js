@@ -2268,6 +2268,10 @@ class AggregateTrack {
      * @returns {Number}
      */
     count(columnData) {
+        if (columnData === null) {
+            return this.groupValue;
+        }
+        
         this.groupValue++;
         if (this.isDistinct) {
             this.distinctSet.add(columnData);

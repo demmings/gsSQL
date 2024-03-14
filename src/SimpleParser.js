@@ -739,13 +739,7 @@ class CondParser {
                 leftNode.terms.push(rightNode);
             }
             else if (leftNode.operator === "BETWEEN" || leftNode.operator === "NOT BETWEEN") {
-                const firstOp = leftNode.operator === "BETWEEN" ? ">=" : "<";
-                const secondOp = leftNode.operator === "BETWEEN" ? "<=" : ">";
-                logic = leftNode.operator === "BETWEEN" ? "AND" : "OR";
-                const terms = [];
-                terms.push({ left: leftNode.left, right: leftNode.right, operator: firstOp });
-                terms.push({ left: leftNode.left, right: rightNode, operator: secondOp });
-                leftNode = { logic, terms };
+               leftNode = CondParser.createWhereBetweenAstLogic(leftNode, rightNode);
             }
             else {
                 const terms = [leftNode, rightNode].slice(0);
@@ -784,6 +778,23 @@ class CondParser {
         }
 
         return { operator, left, right };
+    }
+
+    /**
+     * Modify AST for BETWEEN logic.  Create two comparisons connected with AND/OR 
+     * (AND - BETWEEN, OR - NOT BETWEEN)
+     * @param {Object} leftNode - contains field to compare AND the low value.
+     * @param {Object} rightNode - contains high value. 
+     * @returns {Object} - AST with logic and terms for comparison.
+     */
+    static createWhereBetweenAstLogic(leftNode, rightNode) {
+        const firstOp = leftNode.operator === "BETWEEN" ? ">=" : "<";
+        const secondOp = leftNode.operator === "BETWEEN" ? "<=" : ">";
+        const logic = leftNode.operator === "BETWEEN" ? "AND" : "OR";
+        const terms = [];
+        terms.push({ left: leftNode.left, right: leftNode.right, operator: firstOp });
+        terms.push({ left: leftNode.left, right: rightNode, operator: secondOp });
+        return { logic, terms };
     }
 
     /**

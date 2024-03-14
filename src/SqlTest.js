@@ -4041,6 +4041,47 @@ class SqlTester {
         return this.isEqual("selectBetweenFromFunction", data, expected);
     }
 
+    selectCountWithNullOnJoin() {
+        let stmt = "select author_id, count(translators.id) from books left join translators on books.translator_id = translators.id group by  author_id";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("translators", this.translatorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["author_id", "count(translators.id)"],
+        ["1", 1],
+        ["11", 0],
+        ["12", 1],
+        ["13", 1],
+        ["14", 0],
+        ["15", 2]];
+
+        return this.isEqual("selectCountWithNullOnJoin", data, expected);
+    }
+
+    selectCalculatedFieldWitinGroupBY() {
+        let stmt = "select author_id, count(translators.id), min(editor_id), (min(editor_id)-count(translators.id)) as test from books left join translators on books.translator_id = translators.id group by  author_id";
+        // let stmt = "select author_id, count(translators.id), min(editor_id) from books left join translators on books.translator_id = translators.id group by  author_id";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("translators", this.translatorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["author_id", "count(translators.id)"],
+        ["1", 1],
+        ["11", 0],
+        ["12", 1],
+        ["13", 1],
+        ["14", 0],
+        ["15", 2]];
+
+        return this.isEqual("selectCalculatedFieldWitinGroupBY", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5197,6 +5238,8 @@ function testerSql() {
     result = result && tester.selectNotBetween1();
     result = result && tester.selectNotBetweenAndIN();
     result = result && tester.selectBetweenFromFunction();
+    result = result && tester.selectCountWithNullOnJoin();
+    // result = result && tester.selectCalculatedFieldWitinGroupBY();
 
     Logger.log("============================================================================");
 
