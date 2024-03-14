@@ -6150,7 +6150,7 @@ class CondParser {
         let leftNode = this.parseConditionExpression();
 
         while (this.currentToken.type === 'logic') {
-            let logic = this.currentToken.value;
+            const logic = this.currentToken.value;
             this.readNextToken();
 
             const rightNode = this.parseConditionExpression();
