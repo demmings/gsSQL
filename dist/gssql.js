@@ -2672,10 +2672,10 @@ class FieldComparisons {
                 return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return FieldComparisons.isCondition(leftValue, rightValue) };
 
             case "EXISTS":
-                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return FieldComparisons.existsCondition(rightValue) };
+                return (leftValue, rightValue) => { [, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return FieldComparisons.existsCondition(rightValue) };
 
             case "NOT EXISTS":
-                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return !(FieldComparisons.existsCondition(rightValue)) };
+                return (leftValue, rightValue) => { [, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return !(FieldComparisons.existsCondition(rightValue)) };
 
             default:
                 throw new Error(`Invalid Operator: ${operator}`);
@@ -2753,8 +2753,6 @@ class FieldComparisons {
             // @ts-ignore
             items = [rightValue.toString()];
         }
-
-        // items = items.map(a => a.trim());
 
         let index = items.indexOf(leftValue);
         if (index === -1 && typeof leftValue === 'number') {
