@@ -156,8 +156,8 @@ class SelectTables {
         }
         if (logic === "OR") {
             results = Array.from(new Set(recordIDs.reduce((a, b) => a.concat(b))));
-        } 
-        
+        }
+
         return results;
     }
 
@@ -862,53 +862,59 @@ class FieldComparisons {
     static getComparisonFunction(operator) {
         switch (operator.toUpperCase()) {
             case "=":
-                return (leftValue, rightValue) => { return leftValue == rightValue };         // skipcq: JS-0050
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue == rightValue };         // skipcq: JS-0050
 
             case ">":
-                return (leftValue, rightValue) => { return leftValue > rightValue };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue > rightValue };
 
             case "<":
-                return (leftValue, rightValue) => { return leftValue < rightValue };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue < rightValue };
 
             case ">=":
-                return (leftValue, rightValue) => { return leftValue >= rightValue };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue >= rightValue };
 
             case "<=":
-                return (leftValue, rightValue) => { return leftValue <= rightValue };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue <= rightValue };
 
             case "<>":
-                return (leftValue, rightValue) => { return leftValue != rightValue };         // skipcq: JS-0050
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue != rightValue };         // skipcq: JS-0050
 
             case "!=":
-                return (leftValue, rightValue) => { return leftValue != rightValue };         // skipcq: JS-0050
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue != rightValue };         // skipcq: JS-0050
 
             case "LIKE":
-                return (leftValue, rightValue) => { return FieldComparisons.likeCondition(leftValue, rightValue) };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return FieldComparisons.likeCondition(leftValue, rightValue) };
 
             case "NOT LIKE":
-                return (leftValue, rightValue) => { return FieldComparisons.notLikeCondition(leftValue, rightValue) };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return FieldComparisons.notLikeCondition(leftValue, rightValue) };
 
             case "IN":
-                return (leftValue, rightValue) => { return FieldComparisons.inCondition(leftValue, rightValue) };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return FieldComparisons.inCondition(leftValue, rightValue) };
 
             case "NOT IN":
-                return (leftValue, rightValue) => { return !(FieldComparisons.inCondition(leftValue, rightValue)) };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return !(FieldComparisons.inCondition(leftValue, rightValue)) };
 
             case "IS NOT":
-                return (leftValue, rightValue) => { return !(FieldComparisons.isCondition(leftValue, rightValue)) };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return !(FieldComparisons.isCondition(leftValue, rightValue)) };
 
             case "IS":
-                return (leftValue, rightValue) => { return FieldComparisons.isCondition(leftValue, rightValue) };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return FieldComparisons.isCondition(leftValue, rightValue) };
 
             case "EXISTS":
-                return (leftValue, rightValue) => { return FieldComparisons.existsCondition(rightValue) };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return FieldComparisons.existsCondition(rightValue) };
 
             case "NOT EXISTS":
-                return (leftValue, rightValue) => { return !(FieldComparisons.existsCondition(rightValue)) };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return !(FieldComparisons.existsCondition(rightValue)) };
 
             default:
                 throw new Error(`Invalid Operator: ${operator}`);
         }
+    }
+
+    static parmsToUpperCase(leftValue, rightValue) {
+        leftValue = typeof leftValue === 'string' ? leftValue.toUpperCase() : leftValue;
+        rightValue = typeof rightValue === 'string' ? rightValue.toUpperCase() : rightValue;
+        return [leftValue, rightValue];
     }
 
     /**
@@ -971,7 +977,7 @@ class FieldComparisons {
             items = [rightValue.toString()];
         }
 
-        items = items.map(a => a.trim());
+        // items = items.map(a => a.trim());
 
         let index = items.indexOf(leftValue);
         if (index === -1 && typeof leftValue === 'number') {
@@ -2271,7 +2277,7 @@ class AggregateTrack {
         if (columnData === null) {
             return this.groupValue;
         }
-        
+
         this.groupValue++;
         if (this.isDistinct) {
             this.distinctSet.add(columnData);

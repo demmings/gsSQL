@@ -276,6 +276,7 @@ class Table {       //  skipcq: JS-0128
             value = (value !== null) ? value.toString() : value;
 
             if (value !== "") {
+                value = typeof value === 'string' ? value.toUpperCase() : value;
                 const rowNumbers = fieldValuesMap.has(value) ? fieldValuesMap.get(value) : [];
                 rowNumbers.push(i);
 

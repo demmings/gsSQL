@@ -901,7 +901,7 @@ class CondParser {
                 astNode += ` ${inCurrentToken.value}`;
             }
             else {
-                astNode += `, ${inCurrentToken.value}`;
+                astNode += `,${inCurrentToken.value}`;
             }
 
             inCurrentToken = this.currentToken;

@@ -1284,7 +1284,7 @@ class SqlTester {
     whereIn2() {
         let stmt = "SELECT books.id, books.title, books.author_id " +
             "FROM books " +
-            "WHERE books.author_id IN ('11','12') " +
+            "WHERE books.author_id IN ('11',   '12') " +
             "ORDER BY books.title";
 
         let data = new TestSql()
@@ -1372,9 +1372,7 @@ class SqlTester {
     }
 
     whereIn6() {
-        let stmt = "SELECT * " +
-            "FROM editors " +
-            "WHERE first_name IN (' Mark ', 'Maria    ', 'CATHRINE  ', '  jacK') ";
+        let stmt = "SELECT * FROM editors WHERE first_name IN (' Mark ', 'Maria    ', 'CATHRINE  ',  'Jack')";
 
         let data = new TestSql()
             .addTableData("editors", this.editorsTable())
@@ -1382,8 +1380,8 @@ class SqlTester {
             .execute(stmt);
 
         let expected = [["EDITORS.ID", "EDITORS.FIRST_NAME", "EDITORS.LAST_NAME"],
-        ["22", "Mark", "Johnson"],
-        ["23", "Maria", "Evans"]];
+        ["13", "Jack", "Smart"],
+        ["50", "Jack", "Dumb"]];
 
         return this.isEqual("whereIn6", data, expected);
     }
@@ -1455,7 +1453,6 @@ class SqlTester {
         //  Depending on how your SQL is configured, the comparison is either
         //  case or case insensitive.  For gsSQL() it is case senstive.
         let expected = [["EDITORS.ID", "EDITORS.FIRST_NAME", "EDITORS.LAST_NAME"],
-        ["13", "Jack", "Smart"],
         ["21", "Daniel", "Brown"],
         ["22", "Mark", "Johnson"],
         ["23", "Maria", "Evans"],
@@ -1463,7 +1460,6 @@ class SqlTester {
         ["25", "Sebastian", "Wright"],
         ["26", "Barbara", "Jones"],
         ["27", "Matthew", "Smith"],
-        ["50", "Jack", "Dumb"],
         ["51", "Daniel", "Smart"]];
 
         return this.isEqual("whereNotIn3", data, expected);
@@ -4082,6 +4078,40 @@ class SqlTester {
         return this.isEqual("selectCalculatedFieldWitinGroupBY", data, expected);
     }
 
+    selectJoinCaseInSensitiveCondition() {
+        let stmt = "select customers.id, min(bookreturns.price) from bookreturns join customers on bookreturns.customer_id = customers.id group by customers.id";
+
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["customers.id", "min(bookreturns.price)"],
+        ["C1", 33.97],
+        ["C2", 17.99],
+        ["C3", 59.99],
+        ["C4", 19.99]];
+
+        return this.isEqual("selectJoinCaseInSensitiveCondition", data, expected);
+    }
+
+    selectCaseInSensitiveCondition() {
+        let stmt = "select * from bookreturns where customer_id = 'C1'";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKRETURNS.RMA", "BOOKRETURNS.BOOK_ID", "BOOKRETURNS.CUSTOMER_ID", "BOOKRETURNS.QUANTITY", "BOOKRETURNS.PRICE", "BOOKRETURNS.DATE"],
+        ["Rma001", "9", "c1", 10, 34.95, "05/01/2022"],
+        ["rma005", "1", "c1", 1, 90, "05/02/2022"],
+        ["RMA900", "7", "c1", 1, 33.97, "05/04/2022"]];
+
+        return this.isEqual("selectInSensitiveCondition", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5240,6 +5270,8 @@ function testerSql() {
     result = result && tester.selectBetweenFromFunction();
     result = result && tester.selectCountWithNullOnJoin();
     // result = result && tester.selectCalculatedFieldWitinGroupBY();
+    result = result && tester.selectJoinCaseInSensitiveCondition();
+    result = result && tester.selectCaseInSensitiveCondition();
 
     Logger.log("============================================================================");
 

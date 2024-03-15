@@ -604,6 +604,7 @@ class JoinTablesRecordIds {
         let keyMasterJoinField = null;
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
             keyMasterJoinField = this.getJoinColumnData(leftField, leftTableRecordNum);
+            keyMasterJoinField = typeof keyMasterJoinField === 'string' ? keyMasterJoinField.toUpperCase() : keyMasterJoinField;
 
             const joinRows = !keyFieldMap.has(keyMasterJoinField) ? [] : keyFieldMap.get(keyMasterJoinField);
 
