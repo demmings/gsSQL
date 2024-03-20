@@ -132,7 +132,7 @@ class Table {       //  skipcq: JS-0128
         const newTitleRow = [];
 
         for (let i = 1; i <= tableData[0].length; i++) {
-            newTitleRow.push(this.numberToSheetColumnLetter(i));
+            newTitleRow.push(Table.numberToSheetColumnLetter(i));
         }
         tableData.unshift(newTitleRow);
 
@@ -148,7 +148,7 @@ class Table {       //  skipcq: JS-0128
      * 27 = 'AA'
      * @returns {String} - the column letter.
      */
-    numberToSheetColumnLetter(number) {
+    static numberToSheetColumnLetter(number) {
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         let result = ""
 
@@ -160,7 +160,7 @@ class Table {       //  skipcq: JS-0128
         }
         result = alphabet.charAt(charIndex - 1) + result;
         if (quotient >= 1) {
-            result = this.numberToSheetColumnLetter(quotient) + result;
+            result = Table.numberToSheetColumnLetter(quotient) + result;
         }
 
         return result;

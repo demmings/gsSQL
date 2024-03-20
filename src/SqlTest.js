@@ -4058,8 +4058,7 @@ class SqlTester {
     }
 
     selectCalculatedFieldWitinGroupBY() {
-        let stmt = "select author_id, count(translators.id), min(editor_id), (min(editor_id)-count(translators.id)) as test from books left join translators on books.translator_id = translators.id group by  author_id";
-        // let stmt = "select author_id, count(translators.id), min(editor_id) from books left join translators on books.translator_id = translators.id group by  author_id";
+        let stmt = "select author_id as Fred, Count( translators.id) as Tom, min(editor_id), group_concat(editor_id), (COUNT( translators.id) * 5 + min (editor_id ) - COUNT(translators.id)) as test from books left join translators on books.translator_id = translators.id group by  author_id";
 
         let data = new TestSql()
             .addTableData("books", this.bookTable())
@@ -4067,13 +4066,13 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["author_id", "count(translators.id)"],
-        ["1", 1],
-        ["11", 0],
-        ["12", 1],
-        ["13", 1],
-        ["14", 0],
-        ["15", 2]];
+        let expected = [["Fred", "Tom", "min(editor_id)", "group_concat(editor_id)", "test"],
+        ["1", 1, 23, "23", 27],
+        ["11", 0, 21, "21,24,28", 21],
+        ["12", 1, 25, "25", 29],
+        ["13", 1, 23, "23", 27],
+        ["14", 0, 24, "24", 24],
+        ["15", 2, 22, "22,22", 30]];
 
         return this.isEqual("selectCalculatedFieldWitinGroupBY", data, expected);
     }
@@ -5269,7 +5268,7 @@ function testerSql() {
     result = result && tester.selectNotBetweenAndIN();
     result = result && tester.selectBetweenFromFunction();
     result = result && tester.selectCountWithNullOnJoin();
-    // result = result && tester.selectCalculatedFieldWitinGroupBY();
+    result = result && tester.selectCalculatedFieldWitinGroupBY();
     result = result && tester.selectJoinCaseInSensitiveCondition();
     result = result && tester.selectCaseInSensitiveCondition();
 

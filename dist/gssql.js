@@ -1373,7 +1373,7 @@ class Table {       //  skipcq: JS-0128
         const newTitleRow = [];
 
         for (let i = 1; i <= tableData[0].length; i++) {
-            newTitleRow.push(this.numberToSheetColumnLetter(i));
+            newTitleRow.push(Table.numberToSheetColumnLetter(i));
         }
         tableData.unshift(newTitleRow);
 
@@ -1389,7 +1389,7 @@ class Table {       //  skipcq: JS-0128
      * 27 = 'AA'
      * @returns {String} - the column letter.
      */
-    numberToSheetColumnLetter(number) {
+    static numberToSheetColumnLetter(number) {
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         let result = ""
 
@@ -1401,7 +1401,7 @@ class Table {       //  skipcq: JS-0128
         }
         result = alphabet.charAt(charIndex - 1) + result;
         if (quotient >= 1) {
-            result = this.numberToSheetColumnLetter(quotient) + result;
+            result = Table.numberToSheetColumnLetter(quotient) + result;
         }
 
         return result;
@@ -1844,12 +1844,47 @@ class SelectTables {
         //  So columns referenced by GROUP BY, ORDER BY and not in SELECT.
         //  These temp columns need to be removed after processing.
         if (typeof ast["GROUP BY"] !== 'undefined') {
+            const referencedFields = this.getAggregateFunctionFieldsInGroupByCalculation(astFields);
+            this.tableFields.updateSelectFieldList(referencedFields, this.tableFields.getNextSelectColumnNumber(), true);
+
             this.tableFields.updateSelectFieldList(ast["GROUP BY"], this.tableFields.getNextSelectColumnNumber(), true);
         }
 
         if (typeof ast["ORDER BY"] !== 'undefined') {
             this.tableFields.updateSelectFieldList(ast["ORDER BY"], this.tableFields.getNextSelectColumnNumber(), true);
         }
+    }
+
+    /**
+     * 
+     * @param {Object[]} ast 
+     * @returns {Object[]}
+     */
+    getAggregateFunctionFieldsInGroupByCalculation(ast) {
+        const fields = [];
+        const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
+
+        for (const fld of ast) {
+            //  When fld.term is defined, it is a calculation, not just a single function.
+            if (typeof fld.terms !== 'undefined') {
+                const functionString = SelectTables.toUpperCaseExceptQuoted(fld.name, true);
+
+                for (const func of aggFunc) {
+                    const parsedFunctionList = SelectTables.parseForFunctions(functionString, func);
+
+                    if (parsedFunctionList !== null) {
+                        this.tableFields.updateCalculatedFieldAsAggregateCalculation(fld.name);
+                        const astField = { name: parsedFunctionList[0], as: '', order: '' };
+
+                        if (!this.tableFields.isFieldAlreadyInSelectList(parsedFunctionList)) {
+                            fields.push(astField);
+                        }
+                    }
+                }
+            }
+        }
+
+        return fields;
     }
 
     /**
@@ -2007,11 +2042,12 @@ class SelectTables {
         const virtualData = [];
         const calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
         const subQuery = new CorrelatedSubQuery(this.tableInfo, this.tableFields, this.bindVariables);
+        const selectedFields = this.tableFields.getSelectFields();
 
         for (const masterRecordID of recordIDs) {
             const newRow = [];
 
-            for (const field of this.tableFields.getSelectFields()) {
+            for (const field of selectedFields) {
                 if (field.tableInfo !== null)
                     newRow.push(field.getData(masterRecordID));
                 else if (field.subQueryAst !== null) {
@@ -2019,7 +2055,10 @@ class SelectTables {
                     newRow.push(result[0][0]);
                 }
                 else if (field.calculatedFormula !== "") {
-                    const result = calcSqlField.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
+                    let result = null;
+                    if (field.calculatedAggregateFunction === "") {
+                        result = calcSqlField.evaluateCalculatedField(field.calculatedFormula, masterRecordID);
+                    }
                     newRow.push(result);
                 }
             }
@@ -2033,9 +2072,10 @@ class SelectTables {
     /**
      * Returns the entire string in UPPER CASE - except for anything between quotes.
      * @param {String} srcString - source string to convert.
+     * @param {Boolean} removeExtraSpaces - if true, will remove spaces EXCEPT within quotes.
      * @returns {String} - converted string.
      */
-    static toUpperCaseExceptQuoted(srcString) {
+    static toUpperCaseExceptQuoted(srcString, removeExtraSpaces=false) {
         let finalString = "";
         let inQuotes = "";
 
@@ -2046,6 +2086,8 @@ class SelectTables {
                 if (ch === '"' || ch === "'")
                     inQuotes = ch;
                 ch = ch.toUpperCase();
+
+                ch = removeExtraSpaces && ch === ' ' ? '' : ch;
             }
             else if (ch === inQuotes) {
                 inQuotes = "";
@@ -3904,14 +3946,112 @@ class ConglomerateRecord {
 
         let i = 0;
         for (/** @type {TableField} */ const field of this.selectVirtualFields) {
-            if (field.aggregateFunction === "")
-                row.push(groupRecords[0][i]);
-            else {
+            if (field.aggregateFunction !== "") {
                 row.push(ConglomerateRecord.aggregateColumn(field, groupRecords, i));
+            }
+            else {
+                row.push(groupRecords[0][i]);
+            }
+
+            i++;
+        }
+
+        //  After all aggregate functions are solved for, it is now time to solve a calculated field with aggregate functions.
+        this.calculateFunctionWithAggregates(row);
+
+        return row;
+    }
+
+    /**
+     * Updates the 'row' array with calculated field with aggregate functions.
+     * @param {any[]} row 
+     * @returns {void}
+     */
+    calculateFunctionWithAggregates(row) {
+        if (this.selectVirtualFields.filter(x => x.calculatedAggregateFunction !== "").length === 0)
+            return;
+
+        const aggTable = ConglomerateRecord.createTempAggregateTable(row, this.selectVirtualFields);
+        const mappedField = ConglomerateRecord.createMapOfOldFieldToNewField(aggTable, this.selectVirtualFields);
+        const calc = ConglomerateRecord.createCalculatedFieldObjectForTable(aggTable);
+
+        let i = 0;
+        for (/** @type {TableField} */ const field of this.selectVirtualFields) {
+            if (field.calculatedAggregateFunction !== "") {
+                const ucFunction = SelectTables.toUpperCaseExceptQuoted(field.calculatedAggregateFunction, true);
+                const updatedFunc = ConglomerateRecord.replaceFieldNames(ucFunction, mappedField);
+                row[i] = calc.evaluateCalculatedField(updatedFunc, 1);
             }
             i++;
         }
-        return row;
+    }
+
+    /**
+     * 
+     * @param {any[]} row 
+     * @param {TableField[]} virtualFields 
+     * @returns {Table}
+     */
+    static createTempAggregateTable(row, virtualFields) {
+        const tempColumnTitles = [];
+
+        for (let i = 1; i <= virtualFields.length; i++) {
+            const newName = Table.numberToSheetColumnLetter(i);
+            tempColumnTitles.push(newName);
+        }
+
+        const tempTableData = [];
+        tempTableData.push(tempColumnTitles);
+        tempTableData.push(row);
+
+        return new Table("temp")
+            .setHasColumnTitle(true)
+            .loadArrayData(tempTableData);
+    }
+
+    /**
+     * 
+     * @param {Table} aggTable 
+     * @param {TableField[]} virtualFields 
+     * @returns {Object[]}
+     */
+    static createMapOfOldFieldToNewField(aggTable, virtualFields) {
+        const mappedField = [];
+
+        const aggTableColumnNames = aggTable.tableData[0];
+        for (let i = 0; i < aggTableColumnNames.length; i++) {
+            let oldName = SelectTables.toUpperCaseExceptQuoted(virtualFields[i].columnName, true);
+            let newName = aggTableColumnNames[i];
+            mappedField.push({ oldName, newName });    
+        }
+
+        return mappedField;
+    }
+
+    /**
+     * 
+     * @param {Table} aggTable 
+     * @returns {CalculatedField}
+     */
+    static createCalculatedFieldObjectForTable(aggTable) {
+        const tempTableFields = new TableFields();
+        const tableInfo = new Map();
+        tableInfo.set(aggTable.tableName, aggTable);
+        tempTableFields.loadVirtualFields(aggTable.tableName, tableInfo);
+        return new CalculatedField(aggTable, aggTable, tempTableFields);
+    }
+
+    /**
+     * 
+     * @param {String} calcFunc 
+     * @param {Object[]} mappedField 
+     */
+    static replaceFieldNames(calcFunc, mappedField) {
+        for (let item of mappedField) {
+            calcFunc = calcFunc.replaceAll(item.oldName, item.newName);
+        }
+
+        return calcFunc;
     }
 
     /**
@@ -4372,6 +4512,37 @@ class TableFields {
     }
 
     /**
+     * 
+     * @param {String} fieldName 
+     * @returns {void}
+     */
+    updateCalculatedFieldAsAggregateCalculation(fieldName) {
+        for (const fld of this.allFields) {
+            if (fld.calculatedFormula === fieldName) {
+                fld.setCalculatedAggregateFunction(fieldName);
+                break;
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {String[]} columnName
+     * @returns {Boolean} 
+     */
+    isFieldAlreadyInSelectList(columnName) {
+        const fldList = this.getSelectFields();
+
+        for (const fldInfo of fldList) {
+            if (SelectTables.toUpperCaseExceptQuoted(fldInfo.columnName, true) === columnName[0]) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Find next available column number in selected field list.
      * @returns {Number} - column number
      */
@@ -4582,6 +4753,7 @@ class TableField {
         this._isPrimaryTable = false;
         /** @property {Table} */
         this.tableInfo = null;
+        this.calculatedAggregateFunction = "";
     }
 
     /**
@@ -4658,6 +4830,16 @@ class TableField {
      */
     setAggregateFunction(value) {
         this.aggregateFunction = value.toUpperCase();
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} value 
+     * @returns {TableField}
+     */
+    setCalculatedAggregateFunction(value) {
+        this.calculatedAggregateFunction = value;
         return this;
     }
 
