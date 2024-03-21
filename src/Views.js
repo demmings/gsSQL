@@ -91,28 +91,27 @@ class SelectTables {
      */
     getAggregateFunctionFieldsInGroupByCalculation(ast) {
         const fields = [];
-        const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
+        const aggFuncList = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
+        
+        //  When fld.terms is defined, it is a calculation, not just a single function.
+        const aggregateFunctions = ast.filter(f => typeof f.terms !== 'undefined');
+        for (const fld of aggregateFunctions) {
+            const functionString = SelectTables.toUpperCaseExceptQuoted(fld.name, true);
 
-        for (const fld of ast) {
-            //  When fld.term is defined, it is a calculation, not just a single function.
-            if (typeof fld.terms !== 'undefined') {
-                const functionString = SelectTables.toUpperCaseExceptQuoted(fld.name, true);
+            for (const func of aggFuncList) {
+                const parsedFunctionList = SelectTables.parseForFunctions(functionString, func);
 
-                for (const func of aggFunc) {
-                    const parsedFunctionList = SelectTables.parseForFunctions(functionString, func);
-
-                    if (parsedFunctionList !== null) {
-                        this.tableFields.updateCalculatedFieldAsAggregateCalculation(fld.name);
+                if (parsedFunctionList !== null) {
+                    this.tableFields.updateCalculatedFieldAsAggregateCalculation(fld.name);
+                    
+                    if (!this.tableFields.isFieldAlreadyInSelectList(parsedFunctionList)) {
                         const astField = { name: parsedFunctionList[0], as: '', order: '' };
-
-                        if (!this.tableFields.isFieldAlreadyInSelectList(parsedFunctionList)) {
-                            fields.push(astField);
-                        }
+                        fields.push(astField);
                     }
                 }
             }
         }
-
+               
         return fields;
     }
 
@@ -304,7 +303,7 @@ class SelectTables {
      * @param {Boolean} removeExtraSpaces - if true, will remove spaces EXCEPT within quotes.
      * @returns {String} - converted string.
      */
-    static toUpperCaseExceptQuoted(srcString, removeExtraSpaces=false) {
+    static toUpperCaseExceptQuoted(srcString, removeExtraSpaces = false) {
         let finalString = "";
         let inQuotes = "";
 
@@ -2185,7 +2184,8 @@ class ConglomerateRecord {
             i++;
         }
 
-        //  After all aggregate functions are solved for, it is now time to solve a calculated field with aggregate functions.
+        //  After all aggregate functions are solved for, it is now time to solve a 
+        //  calculated field with aggregate functions.
         this.calculateFunctionWithAggregates(row);
 
         return row;
@@ -2200,7 +2200,7 @@ class ConglomerateRecord {
         if (this.selectVirtualFields.filter(x => x.calculatedAggregateFunction !== "").length === 0)
             return;
 
-        const aggTable = ConglomerateRecord.createTempAggregateTable(row, this.selectVirtualFields);
+        const aggTable = ConglomerateRecord.createTempAggregateTable(row);
         const mappedField = ConglomerateRecord.createMapOfOldFieldToNewField(aggTable, this.selectVirtualFields);
         const calc = ConglomerateRecord.createCalculatedFieldObjectForTable(aggTable);
 
@@ -2218,21 +2218,15 @@ class ConglomerateRecord {
     /**
      * 
      * @param {any[]} row 
-     * @param {TableField[]} virtualFields 
      * @returns {Table}
      */
-    static createTempAggregateTable(row, virtualFields) {
+    static createTempAggregateTable(row) {
         const tempColumnTitles = [];
-
-        for (let i = 1; i <= virtualFields.length; i++) {
-            const newName = Table.numberToSheetColumnLetter(i);
-            tempColumnTitles.push(newName);
+        for (let i = 1; i <= row.length; i++) {
+            tempColumnTitles.push(Table.numberToSheetColumnLetter(i));
         }
 
-        const tempTableData = [];
-        tempTableData.push(tempColumnTitles);
-        tempTableData.push(row);
-
+        const tempTableData = [tempColumnTitles, row];
         return new Table("temp")
             .setHasColumnTitle(true)
             .loadArrayData(tempTableData);
@@ -2251,7 +2245,7 @@ class ConglomerateRecord {
         for (let i = 0; i < aggTableColumnNames.length; i++) {
             const oldName = SelectTables.toUpperCaseExceptQuoted(virtualFields[i].columnName, true);
             const newName = aggTableColumnNames[i];
-            mappedField.push({ oldName, newName });    
+            mappedField.push({ oldName, newName });
         }
 
         return mappedField;
