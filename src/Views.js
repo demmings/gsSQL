@@ -2249,8 +2249,8 @@ class ConglomerateRecord {
 
         const aggTableColumnNames = aggTable.tableData[0];
         for (let i = 0; i < aggTableColumnNames.length; i++) {
-            let oldName = SelectTables.toUpperCaseExceptQuoted(virtualFields[i].columnName, true);
-            let newName = aggTableColumnNames[i];
+            const oldName = SelectTables.toUpperCaseExceptQuoted(virtualFields[i].columnName, true);
+            const newName = aggTableColumnNames[i];
             mappedField.push({ oldName, newName });    
         }
 
@@ -2276,7 +2276,7 @@ class ConglomerateRecord {
      * @param {Object[]} mappedField 
      */
     static replaceFieldNames(calcFunc, mappedField) {
-        for (let item of mappedField) {
+        for (const item of mappedField) {
             calcFunc = calcFunc.replaceAll(item.oldName, item.newName);
         }
 

@@ -1315,7 +1315,7 @@ class Table {       //  skipcq: JS-0128
         this.tableData = TableData.loadTableData(namedRange, cacheSeconds);
 
         if (!this.hasColumnTitle) {
-            this.addColumnLetters(this.tableData);
+            Table.addColumnLetters(this.tableData);
         }
 
         Logger.log(`Load Data: Range=${namedRange}. Items=${this.tableData.length}`);
@@ -1334,7 +1334,7 @@ class Table {       //  skipcq: JS-0128
             return this;
 
         if (!this.hasColumnTitle) {
-            this.addColumnLetters(tableData);
+            Table.addColumnLetters(tableData);
         }
 
         this.tableData = Table.removeEmptyRecordsAtEndOfTable(tableData);
@@ -1366,7 +1366,7 @@ class Table {       //  skipcq: JS-0128
      * @param {any[][]} tableData - table data that does not currently contain a first row with column names.
      * @returns {any[][]} - updated table data that includes a column title row.
      */
-    addColumnLetters(tableData) {
+    static addColumnLetters(tableData) {
         if (tableData.length === 0)
             return [[]];
 
@@ -4020,8 +4020,8 @@ class ConglomerateRecord {
 
         const aggTableColumnNames = aggTable.tableData[0];
         for (let i = 0; i < aggTableColumnNames.length; i++) {
-            let oldName = SelectTables.toUpperCaseExceptQuoted(virtualFields[i].columnName, true);
-            let newName = aggTableColumnNames[i];
+            const oldName = SelectTables.toUpperCaseExceptQuoted(virtualFields[i].columnName, true);
+            const newName = aggTableColumnNames[i];
             mappedField.push({ oldName, newName });    
         }
 
@@ -4047,7 +4047,7 @@ class ConglomerateRecord {
      * @param {Object[]} mappedField 
      */
     static replaceFieldNames(calcFunc, mappedField) {
-        for (let item of mappedField) {
+        for (const item of mappedField) {
             calcFunc = calcFunc.replaceAll(item.oldName, item.newName);
         }
 
