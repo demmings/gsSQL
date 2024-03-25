@@ -4111,6 +4111,29 @@ class SqlTester {
         return this.isEqual("selectInSensitiveCondition", data, expected);
     }
 
+    concatWsWithDayFunction() {
+        let stmt = "select CONCAT_WS('/', DAY(Date), MONTH(Date), YEAR(Date)) from bookreturns";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["CONCAT_WS('/', DAY(Date), MONTH(Date), YEAR(Date))"],
+        ["1/5/2022"],
+        ["1/5/2022"],
+        ["1/5/2022"],
+        ["2/5/2022"],
+        ["2/5/2022"],
+        ["3/5/2022"],
+        ["3/5/2022"],
+        ["3/5/2022"],
+        ["4/5/2022"],
+        ["4/5/2022"]];
+
+        return this.isEqual("concatWsWithDayFunction", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5271,6 +5294,7 @@ function testerSql() {
     result = result && tester.selectCalculatedFieldWitinGroupBY();
     result = result && tester.selectJoinCaseInSensitiveCondition();
     result = result && tester.selectCaseInSensitiveCondition();
+    result = result && tester.concatWsWithDayFunction();
 
     Logger.log("============================================================================");
 

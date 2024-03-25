@@ -1764,7 +1764,7 @@ class SqlServerFunctions {
      */
     month(parms) {
         this.referencedTableColumns.push(parms[0]);
-        return `new Date(${parms[0]}).getMonth() + 1`;
+        return `(new Date(${parms[0]}).getMonth() + 1)`;
     }
 
     /**
