@@ -2643,7 +2643,7 @@ class SelectTables {
                 dayNum = Number(dateParts[1]);
             }
 
-            if (dateParts.length !==3 || (year == 0 && month == 0 && dayNum == 0)) {
+            if (dateParts.length !==3 || (year === 0 && month === 0 && dayNum === 0)) {
                 return null;
             }
         }
