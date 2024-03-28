@@ -239,8 +239,13 @@ Multiple Left Joins - try doing this using **QUERY** using built in Sheets funct
      * Excluding table definitions means that the custom function will not automatically re-run if the table data changes.
    * If a table does not encompass an entire sheet or you need to specify a range for the data, a table definition is required.
    * The **Table Definition** syntax supports two different ways to define a table.  If used, you cannot mix the definition syntaxes.
-     * **Original syntax.**  
-       * This syntax will NOT cause the custom function to re-run if table data changes.
+     * **Original syntax.** 
+       * Disadvantage of this syntax: 
+         * This syntax will NOT cause the custom function to re-run if table data changes.
+         * You will need to force a refresh if your table data has changed.
+       * Advantage of this syntax:
+         * Extremely large tables can be loaded within the function.
+         * Data from tables is loaded WITHIN the custom function and is not passed in through the function parameter.
        * The table definition is an Array of arrays.  Each inner array defines ONE table.
          * a) Table name - this is the table name referenced in the select. This is a logical table name which will be associated with the data range.  It does not have to be the sheet name (string).
          * b) Range of data - the google range that contains the data with the first row containing titles (used as field names).  This is any valid Google Sheet range name (i.e. Sheet Name, A1 notation or named range), but it must be passed in as a **STRING** (string)
@@ -256,7 +261,10 @@ Multiple Left Joins - try doing this using **QUERY** using built in Sheets funct
     group by transaction_date pivot account",
      {{"mastertransactions", "Master Transactions!$A$1:$I", 60};{"budgetCategories","budgetIncomeCategories", 3600}}, true)```
       * **New syntax.**.  Recommended format.
-        * This syntax WILL cause the custom function to re-run if table data changes (which keeps results up to date).
+        * Disadvantage of this syntax:
+          * Extremely large tables will fail to load.  Google has a limit on the size of arrays passed into custom functions.
+        * Advantage of this syntax:
+          * This syntax WILL automatically trigger the custom function to re-run if table data changes (which keeps results up to date).
         * Unique Column titles are REQUIRED in the data.
           * The first row of data in the Sheets Range MUST contain titles that will be used as the field name. 
         * Each table requires two entries. This is repeated for each table referenced in the SQL.
