@@ -243,6 +243,11 @@ Multiple Left Joins - try doing this using **QUERY** using built in Sheets funct
        * Disadvantage of this syntax: 
          * This syntax will NOT cause the custom function to re-run if table data changes.
          * You will need to force a refresh if your table data has changed.
+           * Forcing a refresh.
+             * Add a checkbox anywhere on your sheet.
+             * Give this checkbox a named range.  (Data ==> Named Ranges)
+             * Add the named range of the checkbox as the **VERY LAST** parameter in gsSQL().  gsSQL() will ignore it, but sheets reacts to data changes.
+             * When you want to update your data, just click on the checkbox.  Changing from TRUE -> FALSE or FALSE -> TRUE, will trigger ALL custom functions that have this named checkbox in the parameter list.
        * Advantage of this syntax:
          * Extremely large tables can be loaded within the function.
          * Data from tables is loaded WITHIN the custom function and is not passed in through the function parameter.

@@ -2109,7 +2109,7 @@ class SelectTables {
      */
     static parseForFunctions(functionString, func) {
         const args = [];
-        const expMatch = "%1\\s*\\(";
+        const expMatch = "\\b%1\\b\\s*\\(";
 
         const matchStr = new RegExp(expMatch.replace("%1", func));
         const startMatchPos = functionString.search(matchStr);
@@ -2636,11 +2636,15 @@ class SelectTables {
             dayNum = value.getDate();
         }
         else if (typeof value === "string") {
-            const dateParts = value.split("/");
+            const dateParts = value.split("/");     //  We assume MM/DD/YY (this could be improved)
             if (dateParts.length === 3) {
                 year = Number(dateParts[2]);
                 month = Number(dateParts[0]) - 1;
                 dayNum = Number(dateParts[1]);
+            }
+
+            if (dateParts.length !==3 || (year == 0 && month == 0 && dayNum == 0)) {
+                return null;
             }
         }
 
@@ -2674,25 +2678,25 @@ class FieldComparisons {
     static getComparisonFunction(operator) {
         switch (operator.toUpperCase()) {
             case "=":
-                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue == rightValue };         // skipcq: JS-0050
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue !== null && rightValue !== null && leftValue == rightValue };         // skipcq: JS-0050
 
             case ">":
-                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue > rightValue };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue !== null && rightValue !== null && leftValue > rightValue };
 
             case "<":
-                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue < rightValue };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue !== null && rightValue !== null && leftValue < rightValue };
 
             case ">=":
-                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue >= rightValue };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue !== null && rightValue !== null && leftValue >= rightValue };
 
             case "<=":
-                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue <= rightValue };
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue !== null && rightValue !== null && leftValue <= rightValue };
 
             case "<>":
-                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue != rightValue };         // skipcq: JS-0050
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue !== null && rightValue !== null && leftValue != rightValue };         // skipcq: JS-0050
 
             case "!=":
-                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue != rightValue };         // skipcq: JS-0050
+                return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return leftValue !== null && rightValue !== null && leftValue != rightValue };         // skipcq: JS-0050
 
             case "LIKE":
                 return (leftValue, rightValue) => { [leftValue, rightValue] = FieldComparisons.parmsToUpperCase(leftValue, rightValue); return FieldComparisons.likeCondition(leftValue, rightValue) };
@@ -2884,7 +2888,7 @@ class CalculatedField {
         }
         catch (ex) {
             if (calculatedFormula !== '') {
-                throw new Error(`Invalid select field: ${calculatedFormula}`);
+                throw new Error(`Invalid CALCULATED field: ${calculatedFormula}`);
             }
 
             throw new Error(`Calculated Field Error: ${ex.message}.  ${functionString}`);
@@ -3294,7 +3298,7 @@ class SqlServerFunctions {
      */
     convertToJs(calculatedFormula, masterFields) {
         const sqlFunctions = ["ABS", "ADDDATE", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "CURDATE",
-            "DAY", "DATEDIFF", "FLOOR", "IF", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+            "DAY", "DATEDIFF", "FLOOR", "IF", "LAST_DAY", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
             "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTR", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
         /** @property {String} - regex to find components of CASE statement. */
@@ -3464,6 +3468,14 @@ class SqlServerFunctions {
     if(parms) {                                       //  skipcq: JS-0105
         const ifCond = SqlParse.sqlCondition2JsCondition(parms[0]);
         return `${ifCond} ? ${parms[1]} : ${parms[2]};`;
+    }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
+    last_day(parms) {                            //  skipcq: JS-0105
+        return SqlServerFunctions.last_day(parms);
     }
 
     /**
@@ -3820,9 +3832,9 @@ class SqlServerFunctions {
 
         const parm1 = `(new Date(${parms[0]})).getTime()`;
         const parm2 = `(${parms[1]} * (1000 * 3600 * 24))`;
-        const totalMs = `(${parm1} + ${parm2})`;
+        const funcString = `totalMs = (${parm1} + ${parm2})`;
 
-        return `new Date(${totalMs})`;
+        return SqlServerFunctions.inlineFuncDateInReturn(funcString, "totalMs");
     }
 
     /**
@@ -3842,6 +3854,44 @@ class SqlServerFunctions {
         parm2 = `Math.floor(${parm2})`;
 
         return `${parm1} - ${parm2}`;
+    }
+
+    /**
+     * 
+     * @param {any[]} parms 
+     * @returns{String}
+     */
+    static last_day(parms) {
+        if (parms.length !== 1) {
+            throw new Error("LAST_DAY expecting one parameter");
+        }
+
+        const today = `(new Date(${parms[0]}))`;
+        const funcString = `lastDay = new Date(${today}.getFullYear(), ${today}.getMonth()+1, 0)`;
+
+        return SqlServerFunctions.inlineFuncDateInReturn(funcString, "lastDay");
+
+    }
+    
+    /**
+     * 
+     * @param {String} calcDate 
+     * @param {String} dateVarName 
+     * @returns {String}
+     */
+    static inlineFuncDateInReturn(calcDate, dateVarName) {
+        const funcReturn = `(function() { 
+            try {
+                ${calcDate}        
+                let result = new Date(${dateVarName});
+                return (result instanceof Date && !isNaN(result.getTime())) ? result : null;
+            }
+            catch(ex) {
+                return null;
+            }
+         })()`
+
+         return funcReturn;
     }
 
     /**

@@ -3656,6 +3656,71 @@ class SqlTester {
         return this.isEqual("selectSingleQuoteDataWithCalculation", data, expected);
     }
 
+    selectWithBadDate() {
+        let stmt = "select AddDate(Transaction_Date,1), Last_day(transaction_date) from master where adddate(transaction_date,1) <> ?1";
+
+        const myData = this.masterTransactionsTable();
+        myData.push(["Royal Bank of Canada", "Cancelled Appointment", "Chiropractor", "", -100, "Taxes - Property Tax", "", "", ""]);
+
+        let data = new TestSql()
+            .addTableData("master", myData)
+            .enableColumnTitle(true)
+            .addBindParameter(new Date("06/14/2019"))
+            .execute(stmt);
+
+        let expected = [["AddDate(Transaction_Date,1)", "Last_day(transaction_date)"],
+        ["2019-06-08T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-08T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-08T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-08T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-08T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-12T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-15T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-15T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-18T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-18T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-18T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-19T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-20T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-20T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-21T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-21T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-21T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-21T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-21T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-21T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        ["2019-06-21T04:00:00.000Z", "2019-06-30T04:00:00.000Z"],
+        [null, null]];
+
+        return this.isEqual("selectWithBadDate", data, expected);
+    }
+
+    selectWhereBadDate() {
+        let stmt = "select * from master where transaction_date < ?1";
+
+        const myData = this.masterTransactionsTable();
+        myData.push(["Royal Bank of Canada", "Cancelled Appointment", "Chiropractor", "", -100, "Taxes - Property Tax", "", "", ""]);
+
+        let data = new TestSql()
+            .addTableData("master", myData)
+            .enableColumnTitle(true)
+            .addBindParameter(new Date("06/14/2019"))
+            .execute(stmt);
+
+        let expected = [["MASTER.NAME_OF_INSTITUTION", "MASTER.TRANSACTION_DATE", "MASTER.DESCRIPTION_1", "MASTER.DESCRIPTION_2", "MASTER.AMOUNT", "MASTER.EXPENSE_CATEGORY", "MASTER.ACCOUNT", "MASTER.GROSS", "MASTER.BALANCE"],
+        ["Royal Bank of Canada", "2019-06-07T04:00:00.000Z", "Interac purchase - 3707 NADIM'S NO FRIL", "", -47.85, "Food & Dining - Groceries", "", "", ""],
+        ["Royal Bank of Canada", "2019-06-07T04:00:00.000Z", "Interac purchase - 2357 FRESHCO 3826", "", -130.36, "Food & Dining - Groceries", "", "", ""],
+        ["Royal Bank of Canada", "2019-06-07T04:00:00.000Z", "Payroll Deposit WEST UNIFIED CO", "", 2343.48, "Income - Paycheck", "", "", ""],
+        ["Royal Bank of Canada", "2019-06-07T04:00:00.000Z", "MBNA-MASTERCARD", "", -500, "Transfer - CC", "", "", ""],
+        ["Royal Bank of Canada", "2019-06-07T04:00:00.000Z", "e-Transfer sent S.E", "", -575, "Utilities - Rent", "", "", ""],
+        ["Royal Bank of Canada", "2019-06-11T04:00:00.000Z", "Insurance ADMIN.BY GWL", "", 122.4, "Health & Fitness - Health Insurance", "", "", ""],
+        ["Royal Bank of Canada", "2019-06-13T04:00:00.000Z", "Misc Payment GOODLIFE CLUBS", "", -24.85, "Health & Fitness - Gym", "", "", ""],
+        ["Royal Bank of Canada", "2019-06-13T04:00:00.000Z", "WHITBY TAXES", "", -100, "Taxes - Property Tax", "", "", ""],
+        ["Royal Bank of Canada", "2019-06-13T04:00:00.000Z", "Online Transfer to Deposit Account-***9", "", -15, "Transfer - Savings acct", "", "", ""]];
+
+        return this.isEqual("selectWhereBadDate", data, expected);
+    }
+
     selectGroupByCalculatedField() {
         let stmt = "select convert(day(date), char) + convert(year(date), char),  count(*) from booksales group by convert(day(date), char) + convert(year(date), char)";
 
@@ -4132,6 +4197,24 @@ class SqlTester {
         ["4/5/2022"]];
 
         return this.isEqual("concatWsWithDayFunction", data, expected);
+    }
+
+    selectAddDateLastDay() {
+        let stmt = "select date as 'Invoice Date', AddDate(date,-1), Last_Day(Date)from booksales where date <= adddate('05/01/2022',1)";
+
+        let data = new TestSql()
+            .addTableData("BookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["Invoice Date", "AddDate(date,-1)", "Last_Day(Date)"],
+        ["05/01/2022", "2022-04-30T04:00:00.000Z", "2022-05-31T04:00:00.000Z"],
+        ["05/01/2022", "2022-04-30T04:00:00.000Z", "2022-05-31T04:00:00.000Z"],
+        ["05/01/2022", "2022-04-30T04:00:00.000Z", "2022-05-31T04:00:00.000Z"],
+        ["05/02/2022", "2022-05-01T04:00:00.000Z", "2022-05-31T04:00:00.000Z"],
+        ["05/02/2022", "2022-05-01T04:00:00.000Z", "2022-05-31T04:00:00.000Z"]];
+
+        return this.isEqual("selectAddDateLastDay", data, expected);
     }
 
     //  S T A R T   O T H E R   T E S T S
@@ -5264,6 +5347,8 @@ function testerSql() {
     result = result && tester.selectJoinLeftRightSwitchedInCondition();
     result = result && tester.selectJoinMultipleConditions3();
     result = result && tester.selectSingleQuoteDataWithCalculation();
+    result = result && tester.selectWithBadDate();
+    result = result && tester.selectWhereBadDate();
     result = result && tester.selectGroupByCalculatedField();
     result = result && tester.selectGroupByCalculatedFieldNotInSelectFieldList();
     result = result && tester.selectGroupByCalculatedField2();
@@ -5295,6 +5380,7 @@ function testerSql() {
     result = result && tester.selectJoinCaseInSensitiveCondition();
     result = result && tester.selectCaseInSensitiveCondition();
     result = result && tester.concatWsWithDayFunction();
+    result = result && tester.selectAddDateLastDay();
 
     Logger.log("============================================================================");
 
