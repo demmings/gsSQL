@@ -4142,6 +4142,26 @@ class SqlTester {
         return this.isEqual("selectCalculatedFieldWitinGroupBY", data, expected);
     }
 
+    selectCalculatedFieldNotInSelectFieldsWitinGroupBY() {
+        let stmt = "select author_id, Count(translators.id) as Tom, (COUNT(translators.id) * 5 + min(editor_id ) - COUNT(translators.id)) as test from books left join translators on books.translator_id = translators.id group by  author_id";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("translators", this.translatorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["author_id", "Tom", "test"],
+        ["1", 1, 27],
+        ["11", 0, 21],
+        ["12", 1, 29],
+        ["13", 1, 27],
+        ["14", 0, 24],
+        ["15", 2, 30]];
+
+        return this.isEqual("selectCalculatedFieldNotInSelectFieldsWitinGroupBY", data, expected);
+    }
+
     selectJoinCaseInSensitiveCondition() {
         let stmt = "select customers.id, min(bookreturns.price) from bookreturns join customers on bookreturns.customer_id = customers.id group by customers.id";
 
@@ -4982,6 +5002,25 @@ class SqlTester {
 
     }
 
+    selectBadGroupByField() {
+        let stmt = "SELECT invoice, count(*) from booksales group by invoice_id";
+
+        let testSQL = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true);
+
+        let ex = "";
+        try {
+            testSQL.execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("selectBadGroupByField", ex);
+    }
+
+
     bindVariableMissing() {
         let stmt = "select * from bookSales where date > ?1 AND date < ?2 OR book_id = ?3";
 
@@ -5156,6 +5195,16 @@ class SqlTester {
         const data = SelectTables.toUpperCaseExceptQuoted("stuff(email, 2, 3, 'Cjd') + stuff(email, 2, 3, 'Dd')");
 
         return this.isEqual("viewsToUpperCaseExceptQuoted", data, "STUFF(EMAIL, 2, 3, 'Cjd') + STUFF(EMAIL, 2, 3, 'Dd')");
+    }
+
+    columnLetterTest() {
+        let noColumnTitleData = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]];
+        const data = Table.addColumnLetters(noColumnTitleData);
+
+        const expected = [["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB"],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]];
+
+        return this.isEqual("columnLetterTest", data, expected);
     }
 
     isFail(functionName, exceptionErr) {
@@ -5381,6 +5430,7 @@ function testerSql() {
     result = result && tester.selectCaseInSensitiveCondition();
     result = result && tester.concatWsWithDayFunction();
     result = result && tester.selectAddDateLastDay();
+    result = result && tester.selectCalculatedFieldNotInSelectFieldsWitinGroupBY();
 
     Logger.log("============================================================================");
 
@@ -5407,6 +5457,7 @@ function testerSql() {
     result = result && tester.badOrderBy2();
     result = result && tester.badOrderBy3();
     result = result && tester.badGroupBy1();
+    result = result && tester.selectBadGroupByField();
     result = result && tester.bindVariableMissing();
     result = result && tester.bindVariableMissing1();
     result = result && tester.selectNoFrom();
@@ -5439,6 +5490,7 @@ function testerSql() {
     result = result && tester.badParseTableSettings1();
 
     result = result && tester.viewsToUpperCaseExceptQuoted();
+    result = result && tester.columnLetterTest();
 
     tester.isEqual("===  E N D   O F   T E S T S  ===", true, result);
 

@@ -381,7 +381,7 @@ class Sql {
         viewTableData = view.groupBy(ast, viewTableData);
 
         //  Sort our selected data.
-        view.orderBy(ast, viewTableData);
+        viewTableData = view.orderBy(ast, viewTableData);
 
         //  Remove fields referenced but not included in SELECT field list.
         view.removeTempColumns(viewTableData);

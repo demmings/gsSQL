@@ -92,7 +92,7 @@ class SelectTables {
     getAggregateFunctionFieldsInGroupByCalculation(ast) {
         const fields = [];
         const aggFuncList = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
-        
+
         //  When fld.terms is defined, it is a calculation, not just a single function.
         const aggregateFunctions = ast.filter(f => typeof f.terms !== 'undefined');
         for (const fld of aggregateFunctions) {
@@ -103,15 +103,14 @@ class SelectTables {
 
                 if (parsedFunctionList !== null) {
                     this.tableFields.updateCalculatedFieldAsAggregateCalculation(fld.name);
-                    
+
                     if (!this.tableFields.isFieldAlreadyInSelectList(parsedFunctionList)) {
-                        const astField = { name: parsedFunctionList[0], as: '', order: '' };
-                        fields.push(astField);
+                        fields.push({ name: parsedFunctionList[0], as: '', order: '' });
                     }
                 }
             }
         }
-               
+
         return fields;
     }
 
@@ -131,9 +130,8 @@ class SelectTables {
      * @returns {Number[]} - Records ID's that match WHERE condition.
      */
     whereCondition(ast) {
-        let sqlData = [];
-
-        let conditions = {};
+        // Default is entire table is selected.
+        let conditions = { operator: "=", left: "\"A\"", right: "\"A\"" };
         if (typeof ast.WHERE !== 'undefined') {
             conditions = ast.WHERE;
         }
@@ -141,15 +139,14 @@ class SelectTables {
             //  This will work in mySql as long as select field is in having clause.
             conditions = ast.HAVING;
         }
-        else {
-            //  Entire table is selected.  
-            conditions = { operator: "=", left: "\"A\"", right: "\"A\"" };
-        }
 
-        if (typeof conditions.logic === 'undefined')
+        let sqlData = [];
+        if (typeof conditions.logic === 'undefined') {
             sqlData = this.resolveCondition("OR", [conditions]);
-        else
+        }
+        else {
             sqlData = this.resolveCondition(conditions.logic, conditions.terms);
+        }
 
         return sqlData;
     }
@@ -311,11 +308,11 @@ class SelectTables {
             let ch = srcString.charAt(i);
 
             if (inQuotes === "") {
-                if (ch === '"' || ch === "'")
+                if (ch === '"' || ch === "'") {
                     inQuotes = ch;
-                ch = ch.toUpperCase();
+                }
 
-                ch = removeExtraSpaces && ch === ' ' ? '' : ch;
+                ch = removeExtraSpaces && ch === ' ' ? '' : ch.toUpperCase();
             }
             else if (ch === inQuotes) {
                 inQuotes = "";
@@ -474,13 +471,7 @@ class SelectTables {
 
         //  Sort the least important first, and most important last.
         astGroupBy.reverse();
-
-        for (const orderField of astGroupBy) {
-            const selectColumn = this.tableFields.getSelectFieldColumn(orderField.name);
-            if (selectColumn !== -1) {
-                SelectTables.sortByColumnASC(selectedData, selectColumn);
-            }
-        }
+        selectedData = this.orderDataByListOfFields(astGroupBy, selectedData);
 
         const groupedData = [];
         let groupRecords = [];
@@ -555,30 +546,39 @@ class SelectTables {
      * Take select data and sort by columns specified in ORDER BY clause.
      * @param {Object} ast - Abstract Syntax Tree for SELECT
      * @param {any[][]} selectedData - Table data to sort.  On function return, this array is sorted.
+     * @returns {any[][]}
      */
     orderBy(ast, selectedData) {
         if (typeof ast['ORDER BY'] === 'undefined')
-            return;
+            return selectedData;
 
-        const astOrderby = ast['ORDER BY']
+        return this.orderDataByListOfFields(ast['ORDER BY'].reverse(), selectedData);
+    }
 
-        //  Sort the least important first, and most important last.
-        const reverseOrderBy = astOrderby.reverse();
-
-        for (const orderField of reverseOrderBy) {
+    /**
+     * 
+     * @param {any[]} orderedFieldList 
+     * @param {any[][]} selectedData 
+     * @returns {any[][]}
+     */
+    orderDataByListOfFields(orderedFieldList, selectedData) {
+        for (const orderField of orderedFieldList) {
             const selectColumn = this.tableFields.getSelectFieldColumn(orderField.name);
 
             if (selectColumn === -1) {
-                throw new Error(`Invalid ORDER BY: ${orderField.name}`);
+                throw new Error(`Invalid FIELD: ${orderField.name}`);
             }
 
-            if (orderField.order.toUpperCase() === "DESC") {
+            if (typeof orderField.order !== 'undefined' && orderField.order.toUpperCase() === "DESC") {
                 SelectTables.sortByColumnDESC(selectedData, selectColumn);
             }
             else {
+                //  Default ordering is ASC.
                 SelectTables.sortByColumnASC(selectedData, selectColumn);
             }
         }
+
+        return selectedData;
     }
 
     /**
@@ -872,7 +872,7 @@ class SelectTables {
                 dayNum = Number(dateParts[1]);
             }
 
-            if (dateParts.length !==3 || (year === 0 && month === 0 && dayNum === 0)) {
+            if (dateParts.length !== 3 || (year === 0 && month === 0 && dayNum === 0)) {
                 return null;
             }
         }
@@ -2101,7 +2101,7 @@ class SqlServerFunctions {
         return SqlServerFunctions.inlineFuncDateInReturn(funcString, "lastDay");
 
     }
-    
+
     /**
      * 
      * @param {String} calcDate 
@@ -2120,7 +2120,7 @@ class SqlServerFunctions {
             }
          })()`
 
-         return funcReturn;
+        return funcReturn;
     }
 
     /**

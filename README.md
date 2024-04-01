@@ -268,6 +268,10 @@ Multiple Left Joins - try doing this using **QUERY** using built in Sheets funct
       * **New syntax.**.  Recommended format.
         * Disadvantage of this syntax:
           * Extremely large tables will fail to load.  Google has a limit on the size of arrays passed into custom functions.
+          * If you have a very large table with many columns and many of the columns are not needed within the **SELECT**, you can limit the total amount of data read by just selecting the columns you need when defining the table range, for example:
+          ```
+          =gsSQL("select * from booksales", "BookSales", {BookSales!A1:A, BookSales!C1:C, BookSales!E1:E})
+          ```
         * Advantage of this syntax:
           * This syntax WILL automatically trigger the custom function to re-run if table data changes (which keeps results up to date).
         * Unique Column titles are REQUIRED in the data.
