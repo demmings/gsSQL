@@ -183,10 +183,10 @@ class SelectTables {
         let results = [];
 
         if (logic === "AND") {
-            results = recordIDs.reduce((a, b) => a.filter(c => b.includes(c)));
+            results = recordIDs.reduce((a, b) => a.filter(c => b.includes(c)), recordIDs[0]);
         }
         if (logic === "OR") {
-            results = Array.from(new Set(recordIDs.reduce((a, b) => a.concat(b))));
+            results = Array.from(new Set(recordIDs.reduce((a, b) => a.concat(b), recordIDs[0])));
         }
 
         return results;

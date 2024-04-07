@@ -175,7 +175,7 @@ class JoinTables {                                   //  skipcq: JS-0128
             for (const rec of recIds) {
                 temp.push(typeof rec[i] === 'undefined' ? [] : rec[i]);
             }
-            const row = temp.reduce((a, b) => a.filter(c => b.includes(c)));
+            const row = temp.reduce((accumulator, currentRecords) => accumulator.filter(c => currentRecords.includes(c)), temp[0]);
 
             if (row.length > 0) {
                 result[i] = row;
