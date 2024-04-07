@@ -588,7 +588,7 @@ class SelectTables {
      * @returns {any[][]} - table data with temporary columns removed.
      */
     removeTempColumns(viewTableData) {
-        const tempColumns = this.tableFields.getTempSelectedColumnNumbers();
+        const tempColumns = this.tableFields.getSelectedTempColumnNumbers();
 
         if (tempColumns.length === 0)
             return viewTableData;
@@ -1527,7 +1527,7 @@ class SqlServerFunctions {
      */
     convertToJs(calculatedFormula, masterFields) {
         const sqlFunctions = ["ABS", "ADDDATE", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "CURDATE",
-            "DAY", "DATEDIFF", "FLOOR", "IF", "LAST_DAY", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+            "DAY", "DATEDIFF", "FLOOR", "IF", "INSTR", "LAST_DAY", "LEFT", "LEN", "LENGTH", "LOCATE", "LOG", "LOG10", "LOWER",
             "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTR", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
         /** @property {String} - regex to find components of CASE statement. */
@@ -1703,6 +1703,14 @@ class SqlServerFunctions {
      * @param {String[]} parms 
      * @returns {String}
      */
+    instr(parms) {
+        return SqlServerFunctions.locate(parms.reverse());
+    }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     last_day(parms) {                            //  skipcq: JS-0105
         return SqlServerFunctions.last_day(parms);
     }
@@ -1732,6 +1740,10 @@ class SqlServerFunctions {
     length(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.length`;
+    }
+
+    locate(parms) {
+        return SqlServerFunctions.locate(parms);
     }
 
     /**
@@ -1994,8 +2006,7 @@ class SqlServerFunctions {
             return "";
         }
 
-        let replacement = "";
-        const separator = parms[0];
+        const separatorString = parms[0];
         let concatFields = [];
 
         for (let i = 1; i < parms.length; i++) {
@@ -2008,15 +2019,7 @@ class SqlServerFunctions {
             }
         }
 
-        for (const field of concatFields) {
-            if (replacement !== "") {
-                replacement += ` + ${separator} + `;
-            }
-
-            replacement += `${field}`;
-        }
-
-        return replacement;
+        return concatFields.join(` + ${separatorString} + `)
     }
 
     /**
@@ -2121,6 +2124,15 @@ class SqlServerFunctions {
          })()`
 
         return funcReturn;
+    }
+
+    static locate(parms) {
+        if (parms.length < 2) {
+            throw new Error("LOCATE expecting at least two parameters");
+        }
+        const startPos = parms.length > 2 ? parms[2].toString() + " - 1" : "0";
+
+        return `(${parms[1]}.toUpperCase().indexOf(${parms[0]}.toUpperCase(), ${startPos}) + 1)`;
     }
 
     /**
@@ -2537,9 +2549,7 @@ class TableFields {
         let tableObject = null;
         // @ts-ignore
         for ([tableName, tableObject] of tableInfo.entries()) {
-            const validFieldNames = tableObject.getAllFieldNames();
-
-            for (const field of validFieldNames) {
+            for (const field of tableObject.getAllFieldNames()) {
                 const tableColumn = tableObject.getFieldColumn(field);
 
                 let virtualField = this.findTableField(tableName, tableColumn);
@@ -2806,13 +2816,7 @@ class TableFields {
     isFieldAlreadyInSelectList(columnName) {
         const fldList = this.getSelectFields();
 
-        for (const fldInfo of fldList) {
-            if (SelectTables.toUpperCaseExceptQuoted(fldInfo.columnName, true) === columnName[0]) {
-                return true;
-            }
-        }
-
-        return false;
+        return fldList.some(fldInfo => SelectTables.toUpperCaseExceptQuoted(fldInfo.columnName, true) === columnName[0]);
     }
 
     /**
@@ -2832,14 +2836,9 @@ class TableFields {
      * Return a list of temporary column numbers in select field list.
      * @returns {Number[]} - sorted list of temp column numbers.
      */
-    getTempSelectedColumnNumbers() {
+    getSelectedTempColumnNumbers() {
         /** @type {Number[]} */
-        const tempCols = [];
-        for (const fld of this.getSelectFields()) {
-            if (fld.tempField) {
-                tempCols.push(fld.selectColumn);
-            }
-        }
+        const tempCols = this.getSelectFields().filter(fld => fld.tempField).map(fld => fld.selectColumn);
         tempCols.sort((a, b) => (b - a));
 
         return tempCols;
@@ -2874,19 +2873,17 @@ class TableFields {
      */
     getColumnTitles(columnTableNameReplacement) {
         const columnTitles = [];
+        for (const fld of this.getSelectFields().filter(fld => !fld.tempField)) {
+            let columnOutput = fld.columnTitle;
 
-        for (const fld of this.getSelectFields()) {
-            if (!fld.tempField) {
-                let columnOutput = fld.columnTitle;
-
-                //  When subquery table data becomes data for the derived table name, references to
-                //  original table names in column output needs to be changed to new derived table name.
-                if (columnTableNameReplacement !== null) {
-                    const matchingTableIndex = columnOutput.toUpperCase().indexOf(`${fld.originalTable}.`);
-                    columnOutput = matchingTableIndex === 0 ? columnTableNameReplacement + columnOutput.slice(matchingTableIndex + fld.originalTable.length) : columnOutput;
-                }
-                columnTitles.push(columnOutput);
+            //  When subquery table data becomes data for the derived table name, references to
+            //  original table names in column output needs to be changed to new derived table name.
+            if (columnTableNameReplacement !== null) {
+                const matchingTableIndex = columnOutput.toUpperCase().indexOf(`${fld.originalTable}.`);
+                columnOutput = matchingTableIndex === 0 ? columnTableNameReplacement + columnOutput.slice(matchingTableIndex + fld.originalTable.length) : columnOutput;
             }
+            columnTitles.push(columnOutput);
+
         }
 
         return columnTitles;
@@ -2933,8 +2930,9 @@ class TableFields {
         if (calculatedField === null && !this.hasField(columnName)) {
             const functionNameRegex = /^\w+\s*(?=\()/;
             let matches = columnName.match(functionNameRegex)
-            if (matches !== null && matches.length > 0)
+            if (matches !== null && matches.length > 0) {
                 aggregateFunctionName = matches[0].trim();
+            }
 
             matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName);
             if (matches !== null && matches.length > 1) {

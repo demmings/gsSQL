@@ -4237,6 +4237,27 @@ class SqlTester {
         return this.isEqual("selectAddDateLastDay", data, expected);
     }
 
+    selectLocate() {
+        let stmt = "select title, locate('Your', title, 3), locate('your', title, 3), locate('book', title), instr(title, 'book') from books";
+        let data = new TestSql()
+            .addTableData("Books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["title", "locate('Your', title, 3)", "locate('your', title, 3)", "locate('book', title)", "instr(title, 'book')"],
+        ["Time to Grow Up!", 0, 0, 0, 0],
+        ["Your Trip", 0, 0, 0, 0],
+        ["Lovely Love", 0, 0, 0, 0],
+        ["Dream Your Life", 7, 7, 0, 0],
+        ["Oranges", 0, 0, 0, 0],
+        ["Your Happy Life", 0, 0, 0, 0],
+        ["Applied AI", 0, 0, 0, 0],
+        ["Book with Mysterious Author", 0, 0, 1, 1],
+        ["My Last Book", 0, 0, 9, 9]];
+
+        return this.isEqual("selectLocate", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5431,6 +5452,7 @@ function testerSql() {
     result = result && tester.concatWsWithDayFunction();
     result = result && tester.selectAddDateLastDay();
     result = result && tester.selectCalculatedFieldNotInSelectFieldsWitinGroupBY();
+    result = result && tester.selectLocate();
 
     Logger.log("============================================================================");
 

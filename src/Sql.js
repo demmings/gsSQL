@@ -291,24 +291,25 @@ class Sql {
         if (typeof this.ast.JOIN === 'undefined')
             return;
 
-        for (const joinAst of this.ast.JOIN) {
-            if (typeof joinAst.table !== 'string') {
-                const data = new Sql()
-                    .setTables(this.tables)
-                    .enableColumnTitle(true)
-                    .replaceColumnTableNameWith(joinAst.as)
-                    .execute(joinAst.table);
+        //  When joinAst.table is an OBJECT, then it is a sub-query.
+        const subQueries = this.ast.JOIN.filter(joinAst => typeof joinAst.table !== 'string');
 
-                if (typeof joinAst.as !== 'undefined') {
-                    this.addTableData(joinAst.as, data);
-                }
+        for (const joinAst of subQueries) {
+            const data = new Sql()
+                .setTables(this.tables)
+                .enableColumnTitle(true)
+                .replaceColumnTableNameWith(joinAst.as)
+                .execute(joinAst.table);
 
-                if (joinAst.as === '') {
-                    throw new Error("Every derived table must have its own alias");
-                }
-                joinAst.table = joinAst.as;
-                joinAst.as = '';
+            if (typeof joinAst.as !== 'undefined') {
+                this.addTableData(joinAst.as, data);
             }
+
+            if (joinAst.as === '') {
+                throw new Error("Every derived table must have its own alias");
+            }
+            joinAst.table = joinAst.as;
+            joinAst.as = '';
         }
     }
 
@@ -319,7 +320,7 @@ class Sql {
      * @returns {any[][]}
      */
     selectSet(leftTableData, unionAst) {
-        if (! SqlSets.isSqlSet(unionAst)) {
+        if (!SqlSets.isSqlSet(unionAst)) {
             return leftTableData;
         }
 
@@ -569,21 +570,16 @@ class Sql {
     static distinctField(ast) {
         const astFields = ast.SELECT;
 
-        if (astFields.length === 0)
+        if (astFields.length === 0) {
             return ast;
+        }
 
         const firstField = astFields[0].name.toUpperCase();
         if (firstField.startsWith("DISTINCT")) {
             astFields[0].name = firstField.replace("DISTINCT", "").trim();
 
             if (typeof ast['GROUP BY'] === 'undefined') {
-                const groupBy = [];
-
-                for (const astItem of astFields) {
-                    groupBy.push({ name: astItem.name, as: '' });
-                }
-
-                ast["GROUP BY"] = groupBy;
+                ast["GROUP BY"] = astFields.map(astItem => ({ name: astItem.name, as: '' }));
             }
         }
 
@@ -1070,8 +1066,8 @@ class SqlSets {
         for (const type of SqlSets.getUnionTypes()) {
             if (typeof ast[type] !== 'undefined') {
                 return type;
-            }   
-        }    
+            }
+        }
 
         return "";
     }

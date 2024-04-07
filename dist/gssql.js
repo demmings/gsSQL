@@ -277,24 +277,25 @@ class Sql {
         if (typeof this.ast.JOIN === 'undefined')
             return;
 
-        for (const joinAst of this.ast.JOIN) {
-            if (typeof joinAst.table !== 'string') {
-                const data = new Sql()
-                    .setTables(this.tables)
-                    .enableColumnTitle(true)
-                    .replaceColumnTableNameWith(joinAst.as)
-                    .execute(joinAst.table);
+        //  When joinAst.table is an OBJECT, then it is a sub-query.
+        const subQueries = this.ast.JOIN.filter(joinAst => typeof joinAst.table !== 'string');
 
-                if (typeof joinAst.as !== 'undefined') {
-                    this.addTableData(joinAst.as, data);
-                }
+        for (const joinAst of subQueries) {
+            const data = new Sql()
+                .setTables(this.tables)
+                .enableColumnTitle(true)
+                .replaceColumnTableNameWith(joinAst.as)
+                .execute(joinAst.table);
 
-                if (joinAst.as === '') {
-                    throw new Error("Every derived table must have its own alias");
-                }
-                joinAst.table = joinAst.as;
-                joinAst.as = '';
+            if (typeof joinAst.as !== 'undefined') {
+                this.addTableData(joinAst.as, data);
             }
+
+            if (joinAst.as === '') {
+                throw new Error("Every derived table must have its own alias");
+            }
+            joinAst.table = joinAst.as;
+            joinAst.as = '';
         }
     }
 
@@ -305,7 +306,7 @@ class Sql {
      * @returns {any[][]}
      */
     selectSet(leftTableData, unionAst) {
-        if (! SqlSets.isSqlSet(unionAst)) {
+        if (!SqlSets.isSqlSet(unionAst)) {
             return leftTableData;
         }
 
@@ -555,21 +556,16 @@ class Sql {
     static distinctField(ast) {
         const astFields = ast.SELECT;
 
-        if (astFields.length === 0)
+        if (astFields.length === 0) {
             return ast;
+        }
 
         const firstField = astFields[0].name.toUpperCase();
         if (firstField.startsWith("DISTINCT")) {
             astFields[0].name = firstField.replace("DISTINCT", "").trim();
 
             if (typeof ast['GROUP BY'] === 'undefined') {
-                const groupBy = [];
-
-                for (const astItem of astFields) {
-                    groupBy.push({ name: astItem.name, as: '' });
-                }
-
-                ast["GROUP BY"] = groupBy;
+                ast["GROUP BY"] = astFields.map(astItem => ({ name: astItem.name, as: '' }));
             }
         }
 
@@ -1056,8 +1052,8 @@ class SqlSets {
         for (const type of SqlSets.getUnionTypes()) {
             if (typeof ast[type] !== 'undefined') {
                 return type;
-            }   
-        }    
+            }
+        }
 
         return "";
     }
@@ -2359,7 +2355,7 @@ class SelectTables {
      * @returns {any[][]} - table data with temporary columns removed.
      */
     removeTempColumns(viewTableData) {
-        const tempColumns = this.tableFields.getTempSelectedColumnNumbers();
+        const tempColumns = this.tableFields.getSelectedTempColumnNumbers();
 
         if (tempColumns.length === 0)
             return viewTableData;
@@ -3298,7 +3294,7 @@ class SqlServerFunctions {
      */
     convertToJs(calculatedFormula, masterFields) {
         const sqlFunctions = ["ABS", "ADDDATE", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "CURDATE",
-            "DAY", "DATEDIFF", "FLOOR", "IF", "LAST_DAY", "LEFT", "LEN", "LENGTH", "LOG", "LOG10", "LOWER",
+            "DAY", "DATEDIFF", "FLOOR", "IF", "INSTR", "LAST_DAY", "LEFT", "LEN", "LENGTH", "LOCATE", "LOG", "LOG10", "LOWER",
             "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTR", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
         /** @property {String} - regex to find components of CASE statement. */
@@ -3474,6 +3470,14 @@ class SqlServerFunctions {
      * @param {String[]} parms 
      * @returns {String}
      */
+    instr(parms) {
+        return SqlServerFunctions.locate(parms.reverse());
+    }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
     last_day(parms) {                            //  skipcq: JS-0105
         return SqlServerFunctions.last_day(parms);
     }
@@ -3503,6 +3507,10 @@ class SqlServerFunctions {
     length(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.length`;
+    }
+
+    locate(parms) {
+        return SqlServerFunctions.locate(parms);
     }
 
     /**
@@ -3765,8 +3773,7 @@ class SqlServerFunctions {
             return "";
         }
 
-        let replacement = "";
-        const separator = parms[0];
+        const separatorString = parms[0];
         let concatFields = [];
 
         for (let i = 1; i < parms.length; i++) {
@@ -3779,15 +3786,7 @@ class SqlServerFunctions {
             }
         }
 
-        for (const field of concatFields) {
-            if (replacement !== "") {
-                replacement += ` + ${separator} + `;
-            }
-
-            replacement += `${field}`;
-        }
-
-        return replacement;
+        return concatFields.join(` + ${separatorString} + `)
     }
 
     /**
@@ -3892,6 +3891,15 @@ class SqlServerFunctions {
          })()`
 
         return funcReturn;
+    }
+
+    static locate(parms) {
+        if (parms.length < 2) {
+            throw new Error("LOCATE expecting at least two parameters");
+        }
+        const startPos = parms.length > 2 ? parms[2].toString() + " - 1" : "0";
+
+        return `(${parms[1]}.toUpperCase().indexOf(${parms[0]}.toUpperCase(), ${startPos}) + 1)`;
     }
 
     /**
@@ -4308,9 +4316,7 @@ class TableFields {
         let tableObject = null;
         // @ts-ignore
         for ([tableName, tableObject] of tableInfo.entries()) {
-            const validFieldNames = tableObject.getAllFieldNames();
-
-            for (const field of validFieldNames) {
+            for (const field of tableObject.getAllFieldNames()) {
                 const tableColumn = tableObject.getFieldColumn(field);
 
                 let virtualField = this.findTableField(tableName, tableColumn);
@@ -4577,13 +4583,7 @@ class TableFields {
     isFieldAlreadyInSelectList(columnName) {
         const fldList = this.getSelectFields();
 
-        for (const fldInfo of fldList) {
-            if (SelectTables.toUpperCaseExceptQuoted(fldInfo.columnName, true) === columnName[0]) {
-                return true;
-            }
-        }
-
-        return false;
+        return fldList.some(fldInfo => SelectTables.toUpperCaseExceptQuoted(fldInfo.columnName, true) === columnName[0]);
     }
 
     /**
@@ -4603,14 +4603,9 @@ class TableFields {
      * Return a list of temporary column numbers in select field list.
      * @returns {Number[]} - sorted list of temp column numbers.
      */
-    getTempSelectedColumnNumbers() {
+    getSelectedTempColumnNumbers() {
         /** @type {Number[]} */
-        const tempCols = [];
-        for (const fld of this.getSelectFields()) {
-            if (fld.tempField) {
-                tempCols.push(fld.selectColumn);
-            }
-        }
+        const tempCols = this.getSelectFields().filter(fld => fld.tempField).map(fld => fld.selectColumn);
         tempCols.sort((a, b) => (b - a));
 
         return tempCols;
@@ -4645,19 +4640,17 @@ class TableFields {
      */
     getColumnTitles(columnTableNameReplacement) {
         const columnTitles = [];
+        for (const fld of this.getSelectFields().filter(fld => !fld.tempField)) {
+            let columnOutput = fld.columnTitle;
 
-        for (const fld of this.getSelectFields()) {
-            if (!fld.tempField) {
-                let columnOutput = fld.columnTitle;
-
-                //  When subquery table data becomes data for the derived table name, references to
-                //  original table names in column output needs to be changed to new derived table name.
-                if (columnTableNameReplacement !== null) {
-                    const matchingTableIndex = columnOutput.toUpperCase().indexOf(`${fld.originalTable}.`);
-                    columnOutput = matchingTableIndex === 0 ? columnTableNameReplacement + columnOutput.slice(matchingTableIndex + fld.originalTable.length) : columnOutput;
-                }
-                columnTitles.push(columnOutput);
+            //  When subquery table data becomes data for the derived table name, references to
+            //  original table names in column output needs to be changed to new derived table name.
+            if (columnTableNameReplacement !== null) {
+                const matchingTableIndex = columnOutput.toUpperCase().indexOf(`${fld.originalTable}.`);
+                columnOutput = matchingTableIndex === 0 ? columnTableNameReplacement + columnOutput.slice(matchingTableIndex + fld.originalTable.length) : columnOutput;
             }
+            columnTitles.push(columnOutput);
+
         }
 
         return columnTitles;
@@ -4704,8 +4697,9 @@ class TableFields {
         if (calculatedField === null && !this.hasField(columnName)) {
             const functionNameRegex = /^\w+\s*(?=\()/;
             let matches = columnName.match(functionNameRegex)
-            if (matches !== null && matches.length > 0)
+            if (matches !== null && matches.length > 0) {
                 aggregateFunctionName = matches[0].trim();
+            }
 
             matches = SelectTables.parseForFunctions(columnName, aggregateFunctionName);
             if (matches !== null && matches.length > 1) {
@@ -5520,19 +5514,16 @@ class JoinTablesRecordIds {
      * @returns {Object}
      */
     searchColumnsForTable(calcField, columns) {
-        let fieldInfo = null;
-        let foundTableField = null;
+        const fieldInfoList = columns.map(col => this.tableFields.getFieldInfo(col));
+        const validFieldInfo = fieldInfoList.filter(fld => typeof fld != 'undefined');
 
-        for (const col of columns) {
-            fieldInfo = this.tableFields.getFieldInfo(col);
-            if (typeof fieldInfo !== 'undefined') {
-                foundTableField = {...fieldInfo};
-                foundTableField.calculatedFormula = calcField;
-                return foundTableField;
-            }
+        if (validFieldInfo.length > 0) {
+            const foundTableField = { ...validFieldInfo[0] };
+            foundTableField.calculatedFormula = calcField;
+            return foundTableField;
         }
 
-        return foundTableField;
+        return null;
     }
 
     /**
@@ -5590,26 +5581,18 @@ class JoinTablesRecordIds {
         //  Map the RIGHT JOIN key to record numbers.
         const keyFieldMap = this.createKeyFieldRecordMap(rightField);
 
-        let keyMasterJoinField = null;
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
-            keyMasterJoinField = this.getJoinColumnData(leftField, leftTableRecordNum);
-            keyMasterJoinField = typeof keyMasterJoinField === 'string' ? keyMasterJoinField.toUpperCase() : keyMasterJoinField;
-
-            const joinRows = !keyFieldMap.has(keyMasterJoinField) ? [] : keyFieldMap.get(keyMasterJoinField);
+            const keyMasterJoinField = this.getJoinColumnData(leftField, leftTableRecordNum);
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
-            if (joinRows.length === 0) {
-                if (type === "inner")
-                    continue;
-
-                leftRecordsIDs[leftTableRecordNum] = [-1];
+            if (!keyFieldMap.has(keyMasterJoinField)) {
+                if (type !== "inner") {
+                    leftRecordsIDs[leftTableRecordNum] = [-1];
+                }
             }
-            else {
+            else if (type !== "outer") {
                 //  Excludes all match recordgs (is outer the right word for this?)
-                if (type === "outer")
-                    continue;
-
-                leftRecordsIDs[leftTableRecordNum] = joinRows;
+                leftRecordsIDs[leftTableRecordNum] = keyFieldMap.get(keyMasterJoinField);
             }
         }
 
@@ -5634,7 +5617,7 @@ class JoinTablesRecordIds {
         }
 
         if (keyMasterJoinField !== null) {
-            keyMasterJoinField = keyMasterJoinField.toString();
+            keyMasterJoinField = keyMasterJoinField.toString().toUpperCase();
         }
 
         return keyMasterJoinField;
@@ -5660,7 +5643,6 @@ class JoinTablesRecordIds {
         return keyFieldMap;
     }
 }
-
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
 

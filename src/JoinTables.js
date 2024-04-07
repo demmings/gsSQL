@@ -531,19 +531,16 @@ class JoinTablesRecordIds {
      * @returns {Object}
      */
     searchColumnsForTable(calcField, columns) {
-        let fieldInfo = null;
-        let foundTableField = null;
+        const fieldInfoList = columns.map(col => this.tableFields.getFieldInfo(col));
+        const validFieldInfo = fieldInfoList.filter(fld => typeof fld != 'undefined');
 
-        for (const col of columns) {
-            fieldInfo = this.tableFields.getFieldInfo(col);
-            if (typeof fieldInfo !== 'undefined') {
-                foundTableField = {...fieldInfo};
-                foundTableField.calculatedFormula = calcField;
-                return foundTableField;
-            }
+        if (validFieldInfo.length > 0) {
+            const foundTableField = { ...validFieldInfo[0] };
+            foundTableField.calculatedFormula = calcField;
+            return foundTableField;
         }
 
-        return foundTableField;
+        return null;
     }
 
     /**
@@ -601,26 +598,18 @@ class JoinTablesRecordIds {
         //  Map the RIGHT JOIN key to record numbers.
         const keyFieldMap = this.createKeyFieldRecordMap(rightField);
 
-        let keyMasterJoinField = null;
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
-            keyMasterJoinField = this.getJoinColumnData(leftField, leftTableRecordNum);
-            keyMasterJoinField = typeof keyMasterJoinField === 'string' ? keyMasterJoinField.toUpperCase() : keyMasterJoinField;
-
-            const joinRows = !keyFieldMap.has(keyMasterJoinField) ? [] : keyFieldMap.get(keyMasterJoinField);
+            const keyMasterJoinField = this.getJoinColumnData(leftField, leftTableRecordNum);
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
-            if (joinRows.length === 0) {
-                if (type === "inner")
-                    continue;
-
-                leftRecordsIDs[leftTableRecordNum] = [-1];
+            if (!keyFieldMap.has(keyMasterJoinField)) {
+                if (type !== "inner") {
+                    leftRecordsIDs[leftTableRecordNum] = [-1];
+                }
             }
-            else {
+            else if (type !== "outer") {
                 //  Excludes all match recordgs (is outer the right word for this?)
-                if (type === "outer")
-                    continue;
-
-                leftRecordsIDs[leftTableRecordNum] = joinRows;
+                leftRecordsIDs[leftTableRecordNum] = keyFieldMap.get(keyMasterJoinField);
             }
         }
 
@@ -645,7 +634,7 @@ class JoinTablesRecordIds {
         }
 
         if (keyMasterJoinField !== null) {
-            keyMasterJoinField = keyMasterJoinField.toString();
+            keyMasterJoinField = keyMasterJoinField.toString().toUpperCase();
         }
 
         return keyMasterJoinField;
