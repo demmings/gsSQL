@@ -3470,7 +3470,7 @@ class SqlServerFunctions {
      * @param {String[]} parms 
      * @returns {String}
      */
-    instr(parms) {
+    instr(parms) {                                      //  skipcq: JS-0105
         return SqlServerFunctions.locate(parms.reverse());
     }
 
@@ -3509,7 +3509,12 @@ class SqlServerFunctions {
         return `${parms[0]}.length`;
     }
 
-    locate(parms) {
+    /**
+     * 
+     * @param {String[]} parms 
+     * @returns {String}
+     */
+    locate(parms) {                                     //  skipcq: JS-0105
         return SqlServerFunctions.locate(parms);
     }
 
@@ -3893,11 +3898,16 @@ class SqlServerFunctions {
         return funcReturn;
     }
 
+    /**
+     * 
+     * @param {any[]} parms 
+     * @returns {String}
+     */
     static locate(parms) {
         if (parms.length < 2) {
             throw new Error("LOCATE expecting at least two parameters");
         }
-        const startPos = parms.length > 2 ? parms[2].toString() + " - 1" : "0";
+        const startPos = parms.length > 2 ? `${parms[2].toString()} - 1` : "0";
 
         return `(${parms[1]}.toUpperCase().indexOf(${parms[0]}.toUpperCase(), ${startPos}) + 1)`;
     }
@@ -4640,7 +4650,7 @@ class TableFields {
      */
     getColumnTitles(columnTableNameReplacement) {
         const columnTitles = [];
-        for (const fld of this.getSelectFields().filter(fld => !fld.tempField)) {
+        for (const fld of this.getSelectFields().filter(selectField => !selectField.tempField)) {
             let columnOutput = fld.columnTitle;
 
             //  When subquery table data becomes data for the derived table name, references to
