@@ -262,23 +262,24 @@ class Sql {
      * Modifies AST when FROM is a sub-query rather than a table name.
      */
     selectFromSubQuery() {
-        if (typeof this.ast.FROM !== 'undefined' && typeof this.ast.FROM.SELECT !== 'undefined') {
-            const data = new Sql()
-                .setTables(this.tables)
-                .enableColumnTitle(true)
-                .replaceColumnTableNameWith(this.ast.FROM.table)
-                .execute(this.ast.FROM);
+        if (typeof this.ast.FROM === 'undefined' || typeof this.ast.FROM.SELECT === 'undefined')
+            return;
 
-            if (typeof this.ast.FROM.table !== 'undefined') {
-                this.addTableData(this.ast.FROM.table, data);
-            }
+        const data = new Sql()
+            .setTables(this.tables)
+            .enableColumnTitle(true)
+            .replaceColumnTableNameWith(this.ast.FROM.table)
+            .execute(this.ast.FROM);
 
-            if (this.ast.FROM.table === '') {
-                throw new Error("Every derived table must have its own alias");
-            }
-
-            this.ast.FROM.as = '';
+        if (typeof this.ast.FROM.table !== 'undefined') {
+            this.addTableData(this.ast.FROM.table, data);
         }
+
+        if (this.ast.FROM.table === '') {
+            throw new Error("Every derived table must have its own alias");
+        }
+
+        this.ast.FROM.as = '';
     }
 
     /**
@@ -324,11 +325,7 @@ class Sql {
             return leftTableData;
         }
 
-        //  If the column titles are in the data, we need to remove and add back in later.
-        let columnTitles = [];
-        if (this.areColumnTitlesOutput() && leftTableData.length > 0) {
-            columnTitles = leftTableData.shift();
-        }
+        const columnTitles = this.areColumnTitlesOutput() && leftTableData.length > 0 ? leftTableData.shift() : [];
 
         this.enableColumnTitle(false);
         let ast = unionAst;
@@ -826,6 +823,10 @@ class TableExtract {
      * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
      */
     static extractAstTables(ast, tableSet) {
+        if (typeof ast === 'undefined' || ast === null) {
+            return;
+        }
+
         TableExtract.getTableNamesFrom(ast, tableSet);
         TableExtract.getTableNamesJoin(ast, tableSet);
         TableExtract.getTableNamesUnion(ast, tableSet);
@@ -895,7 +896,6 @@ class TableExtract {
      * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesWhereIn(ast, tableSet) {
-        //  where IN ().
         const subQueryTerms = ["IN", "NOT IN", "EXISTS", "NOT EXISTS"]
         if (typeof ast.WHERE !== 'undefined' && (subQueryTerms.indexOf(ast.WHERE.operator) !== -1)) {
             this.extractAstTables(ast.WHERE.right, tableSet);
@@ -946,13 +946,10 @@ class TableExtract {
      * @param {*} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesCorrelatedSelect(ast, tableSet) {
-        if (typeof ast.SELECT !== 'undefined') {
-            for (const term of ast.SELECT) {
-                if (typeof term.subQuery !== 'undefined' && term.subQuery !== null) {
-                    this.extractAstTables(term.subQuery, tableSet);
-                }
-            }
-        }
+        if (typeof ast.SELECT === 'undefined')
+            return;
+
+       ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
     }
 }
 
@@ -1118,13 +1115,7 @@ class SqlSets {
      * @returns {Boolean}
      */
     static isSqlSet(ast) {
-        for (const type of SqlSets.getUnionTypes()) {
-            if (typeof ast[type] !== 'undefined') {
-                return true;
-            }
-        }
-
-        return false;
+        return SqlSets.getUnionTypes().some(type => typeof ast[type] !== 'undefined');
     }
 
     /**
