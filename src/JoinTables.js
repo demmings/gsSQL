@@ -170,11 +170,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         const result = [];
 
         for (let i = 0; i < recIds[0].length; i++) {
-            const temp = [];
-
-            for (const rec of recIds) {
-                temp.push(typeof rec[i] === 'undefined' ? [] : rec[i]);
-            }
+            const temp = recIds.map(rec => typeof rec[i] === 'undefined' ? [] : rec[i]);
             const row = temp.reduce((accumulator, currentRecords) => accumulator.filter(c => currentRecords.includes(c)), temp[0]);
 
             if (row.length > 0) {
@@ -328,7 +324,6 @@ class JoinTablesRecordIds {
     }
 
     /**
-     *
      * @param {Object} conditionAst The condition to JOIN our two tables.
      * @returns {MatchingJoinRecordIDs}
      */
@@ -336,84 +331,82 @@ class JoinTablesRecordIds {
         /** @type {Table} */
         this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.primaryTableInfo;
         this.calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
-
         this.joinFields = this.getLeftRightFieldInfo(conditionAst);
 
         return this.getMatchedRecordIds();
     }
 
     /**
-     * 
      * @param {TableFields} tableFields 
      * @returns {JoinTablesRecordIds}
      */
     setTableFields(tableFields) {
         this.tableFields = tableFields;
+
         return this;
     }
 
     /**
-     * 
      * @param {Map<String,Table>} tableInfo - Map of table info.
      * @returns {JoinTablesRecordIds}
      */
     setTableInfo(tableInfo) {
         this.tableInfo = tableInfo;
+
         return this;
     }
 
     /**
-     * 
      * @param {BindData} bindVariables - Bind variable data. 
      * @returns {JoinTablesRecordIds}
      */
     setBindVariables(bindVariables) {
         this.bindVariables = bindVariables;
+
         return this;
     }
 
     /**
-     * 
      * @param {String} name 
      * @returns {JoinTablesRecordIds}
      */
     setRightTableName(name) {
         this.rightTableName = name;
+
         return this;
     }
 
     /**
-     * 
      * @param {String} name 
      * @returns {JoinTablesRecordIds}
      */
     setLeftTableName(name) {
         this.leftTableName = name;
+
         return this;
     }
 
     /**
-     * 
      * @param {String} joinType 
      * @returns {JoinTablesRecordIds}
      */
     setJoinType(joinType) {
         this.joinType = joinType;
+
         return this;
     }
 
     /**
-     * 
      * @param {Table} primaryTableInfo 
      * @returns {JoinTablesRecordIds}
     */
     setPrimaryTableInfo(primaryTableInfo) {
         this.primaryTableInfo = primaryTableInfo;
+
         return this;
     }
 
     /**
-     * 
      * @returns {LeftRightJoinFields}
      */
     getJoinFieldsInfo() {
@@ -525,7 +518,6 @@ class JoinTablesRecordIds {
     }
 
     /**
-     * 
      * @param {String} calcField 
      * @param {String[]} columns 
      * @returns {Object}
@@ -633,11 +625,7 @@ class JoinTablesRecordIds {
             keyMasterJoinField = this.calcSqlField.evaluateCalculatedField(fieldInfo.column, recordNumber);
         }
 
-        if (keyMasterJoinField !== null) {
-            keyMasterJoinField = keyMasterJoinField.toString().toUpperCase();
-        }
-
-        return keyMasterJoinField;
+        return keyMasterJoinField?.toString().toUpperCase();
     }
 
     /**

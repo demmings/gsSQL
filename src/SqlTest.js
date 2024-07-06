@@ -270,8 +270,7 @@ class TestedStatements {
         for (let table of this.tables.values()) {
             let rangeName = table.tableName;
             if (table.tableData.length > 0) {
-                const tableUtil = new Table("");
-                rangeName += "!A2:" + tableUtil.numberToSheetColumnLetter(table.tableData[0].length)
+                rangeName += "!A2:" + Table.numberToSheetColumnLetter(table.tableData[0].length)
             }
 
             if (tabDef !== "") {

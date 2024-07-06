@@ -1844,27 +1844,24 @@ class SelectTables {
 
     /**
      * 
-     * @param {Object[]} ast 
+     * @param {Object[]} astFields 
      * @returns {Object[]}
      */
-    getAggregateFunctionFieldsInGroupByCalculation(ast) {
+    getAggregateFunctionFieldsInGroupByCalculation(astFields) {
         const fields = [];
         const aggFuncList = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
 
         //  When fld.terms is defined, it is a calculation, not just a single function.
-        const aggregateFunctions = ast.filter(f => typeof f.terms !== 'undefined');
+        const aggregateFunctions = astFields.filter(f => typeof f.terms !== 'undefined');
         for (const fld of aggregateFunctions) {
             const functionString = SelectTables.toUpperCaseExceptQuoted(fld.name, true);
+            const usedFunctions = aggFuncList.map(func => SelectTables.parseForFunctions(functionString, func)).filter(f => f != null);
 
-            for (const func of aggFuncList) {
-                const parsedFunctionList = SelectTables.parseForFunctions(functionString, func);
+            for (const parsedFunctionList of usedFunctions) {
+                this.tableFields.updateCalculatedFieldAsAggregateCalculation(fld.name);
 
-                if (parsedFunctionList !== null) {
-                    this.tableFields.updateCalculatedFieldAsAggregateCalculation(fld.name);
-
-                    if (!this.tableFields.isFieldAlreadyInSelectList(parsedFunctionList)) {
-                        fields.push({ name: parsedFunctionList[0], as: '', order: '' });
-                    }
+                if (!this.tableFields.isFieldAlreadyInSelectList(parsedFunctionList)) {
+                    fields.push({ name: parsedFunctionList[0], as: '', order: '' });
                 }
             }
         }
@@ -1916,16 +1913,9 @@ class SelectTables {
     * @returns {Number[]} - record ID's 
     */
     resolveCondition(logic, terms) {
-        const recordIDs = [];
-
-        for (const cond of terms) {
-            if (typeof cond.logic === 'undefined') {
-                recordIDs.push(this.getRecordIDs(cond));
-            }
-            else {
-                recordIDs.push(this.resolveCondition(cond.logic, cond.terms));
-            }
-        }
+        const recordIDs = terms.map(cond => typeof cond.logic === 'undefined'
+            ? this.getRecordIDs(cond)
+            : this.resolveCondition(cond.logic, cond.terms));
 
         return SelectTables.applyLogicOperatorToRecordIds(logic, recordIDs);
     }
@@ -1943,7 +1933,7 @@ class SelectTables {
         if (logic === "AND") {
             results = recordIDs.reduce((a, b) => a.filter(c => b.includes(c)), recordIDs[0]);
         }
-        if (logic === "OR") {
+        else if (logic === "OR") {
             results = Array.from(new Set(recordIDs.reduce((a, b) => a.concat(b), recordIDs[0])));
         }
 
@@ -2000,17 +1990,16 @@ class SelectTables {
             fieldValue = fieldConditions.fieldConditionTableInfo.tableData[masterRecordID][fieldConditions.columnNumber];
         }
         else if (fieldConditions.calculatedField !== "") {
-            if (fieldConditions.calculatedField.toUpperCase() === "NULL") {
-                fieldValue = "NULL";
-            }
-            else {
+            fieldValue = "NULL";
+            if (fieldConditions.calculatedField.toUpperCase() !== "NULL") {
                 fieldValue = calcSqlField.evaluateCalculatedField(fieldConditions.calculatedField, masterRecordID);
             }
         }
         else if (fieldConditions.subQuery !== null) {
             const arrayResult = fieldConditions.subQuery.select(masterRecordID, calcSqlField);
-            if (typeof arrayResult !== 'undefined' && arrayResult !== null && arrayResult.length > 0)
+            if (typeof arrayResult !== 'undefined' && arrayResult !== null && arrayResult.length > 0) {
                 fieldValue = arrayResult[0][0];
+            }
         }
 
         return fieldValue;
@@ -2441,15 +2430,10 @@ class SelectTables {
      * @returns {ResolvedFieldCondition}
      */
     resolveFieldCondition(fieldCondition) {
-        /** @type {String} */
         let constantData = null;
-        /** @type {Number} */
         let columnNumber = -1;
-        /** @type {Table} */
         let fieldConditionTableInfo = null;
-        /** @type {String} */
         let calculatedField = "";
-        /** @type {CorrelatedSubQuery} */
         let subQuery = null;
 
         if (typeof fieldCondition.SELECT !== 'undefined') {
@@ -2515,16 +2499,15 @@ class SelectTables {
     resolveBindData(fieldCondition) {
         //  Bind variable data.
         const constantData = this.bindVariables.get(fieldCondition);
-        if (typeof constantData === 'undefined') {
-            if (fieldCondition === '?') {
-                throw new Error("Bind variable naming is ?1, ?2... where ?1 is first bind data point in list.")
-            }
-            else {
-                throw new Error(`Bind variable ${fieldCondition} was not found`);
-            }
+
+        if (typeof constantData !== 'undefined') {
+            return constantData;
         }
 
-        return constantData;
+        if (fieldCondition === '?') {
+            throw new Error("Bind variable naming is ?1, ?2... where ?1 is first bind data point in list.")
+        }
+        throw new Error(`Bind variable ${fieldCondition} was not found`);
     }
 
     /**
@@ -2547,12 +2530,12 @@ class SelectTables {
         for (const tableName of tableSetCorrelated.keys()) {
             let isFound = false;
             // @ts-ignore
-            for (const outerTable of tableSet.keys()) {
+            tableSet.keys().forEach(outerTable => {
                 if (outerTable === tableName || tableSet.get(outerTable) === tableName) {
                     isFound = true;
-                    break;
                 }
-            }
+            });
+
             if (!isFound) {
                 return true;
             }
@@ -3122,13 +3105,8 @@ class VirtualFields {
         for (let i = 0; i < astFields.length; i++) {
             if (astFields[i].name === "*") {
                 //  Replace wildcard will actual field names from master table.
-                const masterTableFields = [];
                 const allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames();
-
-                for (const virtualField of allExpandedFields) {
-                    const selField = { name: virtualField };
-                    masterTableFields.push(selField);
-                }
+                const masterTableFields = allExpandedFields.map(virtualField => ({ name: virtualField }));
 
                 astFields.splice(i, 1, ...masterTableFields);
                 break;
@@ -3222,18 +3200,19 @@ class DerivedTable {                     //  skipcq: JS-0128
     createTable() {
         const columnCount = this.rightField.tableInfo.getColumnCount();
         const emptyRightRow = Array(columnCount).fill(null);
-
         const joinedData = [DerivedTable.getCombinedColumnTitles(this.leftField, this.rightField)];
 
         for (let i = 1; i < this.leftField.tableInfo.tableData.length; i++) {
-            if (typeof this.leftRecords[i] !== "undefined") {
-                if (typeof this.rightField.tableInfo.tableData[this.leftRecords[i][0]] === "undefined")
-                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(emptyRightRow));
-                else {
-                    const maxJoin = this.leftRecords[i].length;
-                    for (let j = 0; j < maxJoin; j++) {
-                        joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[this.leftRecords[i][j]]));
-                    }
+            if (typeof this.leftRecords[i] === "undefined") {
+                continue;
+            }
+
+            if (typeof this.rightField.tableInfo.tableData[this.leftRecords[i][0]] === "undefined") {
+                joinedData.push(this.leftField.tableInfo.tableData[i].concat(emptyRightRow));
+            }
+            else {
+                for (let j = 0; j < this.leftRecords[i].length; j++) {
+                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[this.leftRecords[i][j]]));
                 }
             }
         }
@@ -3307,20 +3286,16 @@ class SqlServerFunctions {
             [args, functionString] = this.caseStart(func, args, functionString);
 
             while (args !== null && args.length > 0) {
-                // Split on COMMA, except within brackets.
-                const parms = typeof args[1] === 'undefined' ? [] : SelectTables.parseForParams(args[1]);
-
-                let replacement = "";
                 try {
-                    replacement = this[func.toLocaleLowerCase()](parms, args, masterFields);
+                    // Split on COMMA, except within brackets.
+                    const parms = typeof args[1] === 'undefined' ? [] : SelectTables.parseForParams(args[1]);
+                    const replacement = this[func.toLocaleLowerCase()](parms, args, masterFields);
+                    functionString = functionString.replace(args[0], replacement);
+                    args = this.parseFunctionArgs(func, functionString);
                 }
                 catch (ex) {
                     throw new Error(`Internal Error. Function is missing. ${func}`);
                 }
-
-                functionString = functionString.replace(args[0], replacement);
-
-                args = this.parseFunctionArgs(func, functionString);
             }
 
             functionString = this.caseEnd(func, functionString);
@@ -3865,7 +3840,6 @@ class SqlServerFunctions {
         const funcString = `lastDay = new Date(${today}.getFullYear(), ${today}.getMonth()+1, 0)`;
 
         return SqlServerFunctions.inlineFuncDateInReturn(funcString, "lastDay");
-
     }
 
     /**
@@ -3939,21 +3913,23 @@ class SqlServerFunctions {
      * @returns {String} - js code to handle this WHEN case.
      */
     caseWhen(args) {
-        let replacement = "";
+        if (args.length < 3) {
+            return "";
+        }
 
-        if (args.length > 2) {
-            if (typeof args[1] === 'undefined' && typeof args[2] === 'undefined') {
-                replacement = `else return ${args[3]};`;
+        let replacement = "";
+        if (typeof args[1] === 'undefined' && typeof args[2] === 'undefined') {
+            replacement = `else return ${args[3]};`;
+        }
+        else {
+            if (this.firstCase) {
+                replacement = "(() => {if (";
+                this.firstCase = false;
             }
             else {
-                if (this.firstCase) {
-                    replacement = "(() => {if (";
-                    this.firstCase = false;
-                }
-                else
-                    replacement = "else if (";
-                replacement += `${SqlParse.sqlCondition2JsCondition(args[1])}) return ${args[2]} ;`;
+                replacement = "else if (";
             }
+            replacement += `${SqlParse.sqlCondition2JsCondition(args[1])}) return ${args[2]} ;`;
         }
 
         return replacement;
@@ -4003,7 +3979,7 @@ class ConglomerateRecord {
             return row;
 
         let i = 0;
-        for (/** @type {TableField} */ const field of this.selectVirtualFields) {
+        for (const field of this.selectVirtualFields) {
             if (field.aggregateFunction !== "") {
                 row.push(ConglomerateRecord.aggregateColumn(field, groupRecords, i));
             }
@@ -4035,7 +4011,7 @@ class ConglomerateRecord {
         const calc = ConglomerateRecord.createCalculatedFieldObjectForTable(aggTable);
 
         let i = 0;
-        for (/** @type {TableField} */ const field of this.selectVirtualFields) {
+        for (const field of this.selectVirtualFields) {
             if (field.calculatedAggregateFunction !== "") {
                 const ucFunction = SelectTables.toUpperCaseExceptQuoted(field.calculatedAggregateFunction, true);
                 const updatedFunc = ConglomerateRecord.replaceFieldNames(ucFunction, mappedField);
@@ -4046,7 +4022,6 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
      * @param {any[]} row 
      * @returns {Table}
      */
@@ -4063,7 +4038,6 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
      * @param {Table} aggTable 
      * @param {TableField[]} virtualFields 
      * @returns {Object[]}
@@ -4082,7 +4056,6 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
      * @param {Table} aggTable 
      * @returns {CalculatedField}
      */
@@ -4095,14 +4068,13 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
+     * Returns an updated 'calcFunc' string, where fields are given different names.
      * @param {String} calcFunc 
      * @param {Object[]} mappedField 
+     * @returns {String}
      */
     static replaceFieldNames(calcFunc, mappedField) {
-        for (const item of mappedField) {
-            calcFunc = calcFunc.replaceAll(item.oldName, item.newName);
-        }
+        mappedField.forEach(item => calcFunc = calcFunc.replaceAll(item.oldName, item.newName));
 
         return calcFunc;
     }
@@ -4160,7 +4132,6 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
      * @param {any} columnData 
      * @returns {Number}
      */
@@ -4193,7 +4164,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @param {Number} numericData 
      * @returns {Number}
      */
@@ -4205,7 +4175,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @param {Number} numericData 
      * @returns {Number}
      */
@@ -4217,7 +4186,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @param {Number} numericData 
      * @returns {Number}
      */
@@ -4229,7 +4197,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @returns {Number}
      */
     getAverage() {
@@ -4237,7 +4204,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @param {any} columnData 
      * @returns {Number}
      */
@@ -4256,7 +4222,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @param {any} columnData 
      * @returns {void}
      */
@@ -4346,6 +4311,7 @@ class TableFields {
      * Sort function for table fields list.
      * @param {TableField} fldA 
      * @param {TableField} fldB 
+     * @return {Number}
      */
     static sortPrimaryFields(fldA, fldB) {
         let keyA = fldA.isPrimaryTable ? 0 : 1000;
@@ -4382,8 +4348,9 @@ class TableFields {
 
         if (field.originalTableColumn !== -1) {
             const key = `${field.originalTable}:${field.originalTableColumn}`;
-            if (!this.tableColumnMap.has(key))
+            if (!this.tableColumnMap.has(key)) {
                 this.tableColumnMap.set(key, field);
+            }
         }
     }
 
@@ -4491,7 +4458,6 @@ class TableFields {
     }
 
     /**
-     * 
      * @param {SelectFieldParameters} selectedFieldParms 
      * @returns {void}
      */
@@ -4499,8 +4465,9 @@ class TableFields {
         let fieldInfo = this.getFieldInfo(selectedFieldParms.parsedField.columnName);
 
         //  If GROUP BY field is in our SELECT field list - we can ignore.
-        if (selectedFieldParms.isTempField && fieldInfo.selectColumn !== -1)
+        if (selectedFieldParms.isTempField && fieldInfo.selectColumn !== -1) {
             return;
+        }
 
         if (selectedFieldParms.parsedField.aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
             //  A new SELECT field, not from existing.
@@ -4525,7 +4492,6 @@ class TableFields {
     }
 
     /**
-     * 
      * @param {SelectFieldParameters} selectedFieldParms 
      */
     updateCalculatedAsSelected(selectedFieldParms) {
@@ -4544,7 +4510,6 @@ class TableFields {
     }
 
     /**
-     * 
      * @param {SelectFieldParameters} selectedFieldParms 
      */
     updateConstantAsSelected(selectedFieldParms) {
@@ -4563,7 +4528,6 @@ class TableFields {
     }
 
     /**
-     * 
      * @param {String} fieldName 
      * @returns {void}
      */
@@ -4577,7 +4541,6 @@ class TableFields {
     }
 
     /**
-     * 
      * @param {String[]} columnName
      * @returns {Boolean} 
      */
@@ -4651,7 +4614,6 @@ class TableFields {
                 columnOutput = matchingTableIndex === 0 ? columnTableNameReplacement + columnOutput.slice(matchingTableIndex + fld.originalTable.length) : columnOutput;
             }
             columnTitles.push(columnOutput);
-
         }
 
         return columnTitles;
@@ -4873,7 +4835,6 @@ class TableField {
     }
 
     /**
-     * 
      * @param {String} value 
      * @returns {TableField}
      */
@@ -4977,19 +4938,16 @@ class TableField {
      * @returns {String[]}
      */
     static getAllExtendedAliasNames(masterFields) {
-        const concatFields = [];
-        for (const vField of masterFields) {
-            for (const aliasName of vField.aliasNames) {
-                if (aliasName.indexOf(".") !== -1) {
-                    concatFields.push(aliasName);
-                }
-            }
-        }
+        let concatFields = [];
+  
+        masterFields.forEach(vField => {
+            const fullNotationFields = vField.aliasNames.filter(aliasName => aliasName.indexOf(".") !== -1);
+            concatFields = concatFields.concat(fullNotationFields);
+        })
 
         return concatFields;
     }
 }
-
 
 /** 
  * @classdesc Handle the various JOIN table types. 
@@ -5154,11 +5112,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         const result = [];
 
         for (let i = 0; i < recIds[0].length; i++) {
-            const temp = [];
-
-            for (const rec of recIds) {
-                temp.push(typeof rec[i] === 'undefined' ? [] : rec[i]);
-            }
+            const temp = recIds.map(rec => typeof rec[i] === 'undefined' ? [] : rec[i]);
             const row = temp.reduce((accumulator, currentRecords) => accumulator.filter(c => currentRecords.includes(c)), temp[0]);
 
             if (row.length > 0) {
@@ -5312,7 +5266,6 @@ class JoinTablesRecordIds {
     }
 
     /**
-     *
      * @param {Object} conditionAst The condition to JOIN our two tables.
      * @returns {MatchingJoinRecordIDs}
      */
@@ -5320,84 +5273,82 @@ class JoinTablesRecordIds {
         /** @type {Table} */
         this.masterTable = this.dataJoin.isDerivedTable() ? this.dataJoin.getJoinedTableInfo() : this.primaryTableInfo;
         this.calcSqlField = new CalculatedField(this.masterTable, this.primaryTableInfo, this.tableFields);
-
         this.joinFields = this.getLeftRightFieldInfo(conditionAst);
 
         return this.getMatchedRecordIds();
     }
 
     /**
-     * 
      * @param {TableFields} tableFields 
      * @returns {JoinTablesRecordIds}
      */
     setTableFields(tableFields) {
         this.tableFields = tableFields;
+
         return this;
     }
 
     /**
-     * 
      * @param {Map<String,Table>} tableInfo - Map of table info.
      * @returns {JoinTablesRecordIds}
      */
     setTableInfo(tableInfo) {
         this.tableInfo = tableInfo;
+
         return this;
     }
 
     /**
-     * 
      * @param {BindData} bindVariables - Bind variable data. 
      * @returns {JoinTablesRecordIds}
      */
     setBindVariables(bindVariables) {
         this.bindVariables = bindVariables;
+
         return this;
     }
 
     /**
-     * 
      * @param {String} name 
      * @returns {JoinTablesRecordIds}
      */
     setRightTableName(name) {
         this.rightTableName = name;
+
         return this;
     }
 
     /**
-     * 
      * @param {String} name 
      * @returns {JoinTablesRecordIds}
      */
     setLeftTableName(name) {
         this.leftTableName = name;
+
         return this;
     }
 
     /**
-     * 
      * @param {String} joinType 
      * @returns {JoinTablesRecordIds}
      */
     setJoinType(joinType) {
         this.joinType = joinType;
+
         return this;
     }
 
     /**
-     * 
      * @param {Table} primaryTableInfo 
      * @returns {JoinTablesRecordIds}
     */
     setPrimaryTableInfo(primaryTableInfo) {
         this.primaryTableInfo = primaryTableInfo;
+
         return this;
     }
 
     /**
-     * 
      * @returns {LeftRightJoinFields}
      */
     getJoinFieldsInfo() {
@@ -5509,7 +5460,6 @@ class JoinTablesRecordIds {
     }
 
     /**
-     * 
      * @param {String} calcField 
      * @param {String[]} columns 
      * @returns {Object}
@@ -5617,11 +5567,7 @@ class JoinTablesRecordIds {
             keyMasterJoinField = this.calcSqlField.evaluateCalculatedField(fieldInfo.column, recordNumber);
         }
 
-        if (keyMasterJoinField !== null) {
-            keyMasterJoinField = keyMasterJoinField.toString().toUpperCase();
-        }
-
-        return keyMasterJoinField;
+        return keyMasterJoinField?.toString().toUpperCase();
     }
 
     /**
@@ -7020,7 +6966,7 @@ class TableData {       //  skipcq: JS-0128
         else if (cacheSeconds > 21600) {
             cache = new ScriptSettings();
             if (TableData.isTimeToRunLongCacheExpiry()) {
-                cache.expire(false);
+                ScriptSettings.expire(false);
                 TableData.setLongCacheExpiry();
             }
             cacheSeconds = cacheSeconds / 86400;  //  ScriptSettings put() wants days to hold.
@@ -7236,7 +7182,7 @@ class TableData {       //  skipcq: JS-0128
         //  Load data from SHEETS.
         const arrData = TableData.loadValuesFromRangeOrSheet(namedRange);
 
-        Logger.log(`Just LOADED from SHEET: ${arrData.length}`);
+        Logger.log(`Just LOADED from SHEET: Item Count=${arrData.length}`);
 
         TableData.cachePutArray(cache, namedRange, cacheSeconds, arrData);
 
@@ -7253,6 +7199,7 @@ class TableData {       //  skipcq: JS-0128
         let output = [];
 
         try {
+            Logger.log("Getting Range of Values: " + tableNamedRange);
             const sheetNamedRange = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(tableNamedRange);
 
             if (sheetNamedRange === null) {
@@ -7280,6 +7227,7 @@ class TableData {       //  skipcq: JS-0128
             else {
                 // @ts-ignore
                 output = sheetNamedRange.getValues();
+                Logger.log("Named Range Data Loaded: " + tableNamedRange + ". Items=" + output.length);
             }
         }
         catch (ex) {
@@ -7466,7 +7414,6 @@ class ScriptSettings {      //  skipcq: JS-0128
     }
 
     /**
-     * 
      * @param {Object} propertyDataObject 
      * @param {Number} daysToHold 
      */
@@ -7476,31 +7423,105 @@ class ScriptSettings {      //  skipcq: JS-0128
     }
 
     /**
+     * Puts list of data into cache using one API call.  Data is converted to JSON before it is updated.
+     * @param {String[]} cacheKeys 
+     * @param {any[]} newCacheData 
+     * @param {Number} daysToHold
+     */
+    static putAllKeysWithData(cacheKeys, newCacheData, daysToHold = 7) {
+        const bulkData = {};
+
+        for (let i = 0; i < cacheKeys.length; i++) {
+            //  Create our object with an expiry time.
+            const objData = new PropertyData(newCacheData[i], daysToHold);
+
+            //  Our property needs to be a string
+            bulkData[cacheKeys[i]] = JSON.stringify(objData);
+        }
+
+        PropertiesService.getScriptProperties().setProperties(bulkData);
+    }
+
+    /**
+     * Returns ALL cached data for each key value requested. 
+     * Only 1 API call is made, so much faster than retrieving single values.
+     * @param {String[]} cacheKeys 
+     * @returns {any[]}
+     */
+    static getAll(cacheKeys) {
+        const values = [];
+
+        if (cacheKeys.length === 0) {
+            return values;
+        }
+        
+        const allProperties = PropertiesService.getScriptProperties().getProperties();
+
+        //  Removing properties is very slow, so remove only 1 at a time.  This is enough as this function is called frequently.
+        ScriptSettings.expire(false, 1, allProperties);
+
+        for (const key of cacheKeys) {
+            const myData = allProperties[key];
+
+            if (typeof myData === 'undefined') {
+                values.push(null);
+            }
+            else {
+                /** @type {PropertyData} */
+                const myPropertyData = JSON.parse(myData);
+
+                if (PropertyData.isExpired(myPropertyData)) {
+                    values.push(null);
+                    PropertiesService.getScriptProperties().deleteProperty(key);
+                    Logger.log(`Delete expired Script Property Key=${key}`);
+                }
+                else {
+                    values.push(PropertyData.getData(myPropertyData));
+                }
+            }
+        }
+
+        return values;
+    }
+
+    /**
      * Removes script settings that have expired.
      * @param {Boolean} deleteAll - true - removes ALL script settings regardless of expiry time.
+     * @param {Number} maxDelete - maximum number of items to delete that are expired.
+     * @param {Object} allPropertiesObject - All properties already loaded.  If null, will load iteself.
      */
-    expire(deleteAll) {
-        const allKeys = this.scriptProperties.getKeys();
+    static expire(deleteAll, maxDelete = 999, allPropertiesObject = null) {
+        const allProperties = allPropertiesObject === null ? PropertiesService.getScriptProperties().getProperties() : allPropertiesObject;
+        const allKeys = Object.keys(allProperties);
+        let deleteCount = 0;
 
         for (const key of allKeys) {
-            const myData = this.scriptProperties.getProperty(key);
+            let propertyValue = null;
+            try {
+                propertyValue = JSON.parse(allProperties[key]);
+            }
+            catch (e) {
+                //  A property that is NOT cached by CACHEFINANCE
+                continue;
+            }
 
-            if (myData !== null) {
-                let propertyValue = null;
-                try {
-                    propertyValue = JSON.parse(myData);
-                }
-                catch (e) {
-                    Logger.log(`Script property data is not JSON. key=${key}`);
-                    continue;
-                }
+            const propertyOfThisApplication = propertyValue?.expiry !== undefined;
 
-                const propertyOfThisApplication = propertyValue?.expiry !== undefined;
+            if (propertyOfThisApplication && (PropertyData.isExpired(propertyValue) || deleteAll)) {
+                PropertiesService.getScriptProperties().deleteProperty(key);
+                delete allProperties[key];
 
-                if (propertyOfThisApplication && (PropertyData.isExpired(propertyValue) || deleteAll)) {
-                    this.scriptProperties.deleteProperty(key);
-                    Logger.log(`Removing expired SCRIPT PROPERTY: key=${key}`);
-                }
+                //  There is no way to iterate existing from 'short' cache, so we assume there is a
+                //  matching short cache entry and attempt to delete.
+                CacheFinance.deleteFromShortCache(key);
+
+                Logger.log(`Removing expired SCRIPT PROPERTY: key=${key}`);
+
+                deleteCount++;
+            }
+
+            if (deleteCount >= maxDelete) {
+                return;
             }
         }
     }
@@ -7535,16 +7556,13 @@ class PropertyData {
     }
 
     /**
-     * 
      * @param {PropertyData} obj 
      * @returns {any}
      */
     static getData(obj) {
         let value = null;
         try {
-            if (!PropertyData.isExpired(obj)) {
-                value = JSON.parse(obj.myData);
-            }
+            value = JSON.parse(obj.myData);
         }
         catch (ex) {
             Logger.log(`Invalid property value.  Not JSON: ${ex.toString()}`);
@@ -7670,6 +7688,92 @@ class Select2Object {           // skipcq: JS-0128
     }
 
     /**
+     * First row MUST be column names.
+     * @param {any[][]} tableDataArray 
+     * @returns {Object[]}
+     */
+    static convertTableArrayToObjectArray(tableDataArray) {
+        //  First item in return array is an array of column names.
+        const propertyNames = Select2Object.convertColumnTitleToPropertyName(tableDataArray[0]);
+
+        return Select2Object.createTableObjectArray(propertyNames, tableDataArray);
+    }
+
+    /**
+     * 
+     * @param {Object[]} objectArray 
+     * @param {String[]} columnTitles 
+     * @param {Boolean} outputTitleRow
+     * @returns {any[][]}
+     */
+    static convertObjectArrayToTableArray(objectArray, columnTitles, outputTitleRow=true) {
+        const propertyNames = Select2Object.convertColumnTitleToPropertyName(columnTitles);
+        const tableArray = [];
+
+        if (outputTitleRow)
+            tableArray.push(columnTitles);
+
+        for (const objectRow of objectArray) {
+            const row = [];
+
+            for (const prop of propertyNames) {
+                row.push(objectRow[prop]);
+            }
+
+            tableArray.push(row);
+        }
+
+        return tableArray;
+    }
+
+    /**
+     * 
+     * @param {Object} object 
+     * @param {String[]} columnTitles 
+     * @returns {String[]}
+     */
+    static convertObjectToArray(object, columnTitles) {
+        const propertyNames = Select2Object.convertColumnTitleToPropertyName(columnTitles);
+        const row = [];
+        for (const prop of propertyNames) {
+            row.push(object[prop]);
+        }
+
+        return row;
+    }
+
+    /**
+     * Convert a sheet column name into format used for property name (spaces to underscore && lowercase)
+     * @param {String[]} columnTitles 
+     * @returns {String[]}
+     */
+    static convertColumnTitleToPropertyName(columnTitles) {
+        let columnNames = [...columnTitles];
+        const srcColumns = columnNames.map(col => col.trim()).map(col => col.toLowerCase()).map(col => col.replaceAll(' ', '_'));
+
+        return srcColumns;
+    }
+
+    /**
+     * Get column number - starting at 1 in object.
+     * @param {Object} object 
+     * @param {String} columnTitle 
+     * @returns {Number}
+     */
+    static getColumnNumber(object, columnTitle) {
+        const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];  
+        let col = 1;
+        for (const propName in object) {
+            if (propName === prop) {
+                return col;
+            }
+            col++;
+        }
+
+        return -1;
+    }
+
+    /**
      * 
      * @param {String[]} columnNames 
      * @param {any[]} tableDataArray 
@@ -7705,6 +7809,16 @@ class Select2Object {           // skipcq: JS-0128
         const dataObject = {};
         for (const col of columnNames) {
             dataObject[col] = '';
+        }
+
+        dataObject.get = function (columnTitle) {
+            const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];
+            return this[prop];
+        };
+
+        dataObject.set = function (columnTitle, value) {
+            const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];
+            this[prop] = value;
         }
 
         return dataObject;

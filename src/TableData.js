@@ -61,7 +61,7 @@ class TableData {       //  skipcq: JS-0128
         else if (cacheSeconds > 21600) {
             cache = new ScriptSettings();
             if (TableData.isTimeToRunLongCacheExpiry()) {
-                cache.expire(false);
+                ScriptSettings.expire(false);
                 TableData.setLongCacheExpiry();
             }
             cacheSeconds = cacheSeconds / 86400;  //  ScriptSettings put() wants days to hold.
@@ -277,7 +277,7 @@ class TableData {       //  skipcq: JS-0128
         //  Load data from SHEETS.
         const arrData = TableData.loadValuesFromRangeOrSheet(namedRange);
 
-        Logger.log(`Just LOADED from SHEET: ${arrData.length}`);
+        Logger.log(`Just LOADED from SHEET: Item Count=${arrData.length}`);
 
         TableData.cachePutArray(cache, namedRange, cacheSeconds, arrData);
 
@@ -294,6 +294,7 @@ class TableData {       //  skipcq: JS-0128
         let output = [];
 
         try {
+            Logger.log("Getting Range of Values: " + tableNamedRange);
             const sheetNamedRange = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(tableNamedRange);
 
             if (sheetNamedRange === null) {
@@ -321,6 +322,7 @@ class TableData {       //  skipcq: JS-0128
             else {
                 // @ts-ignore
                 output = sheetNamedRange.getValues();
+                Logger.log("Named Range Data Loaded: " + tableNamedRange + ". Items=" + output.length);
             }
         }
         catch (ex) {

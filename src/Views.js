@@ -86,27 +86,24 @@ class SelectTables {
 
     /**
      * 
-     * @param {Object[]} ast 
+     * @param {Object[]} astFields 
      * @returns {Object[]}
      */
-    getAggregateFunctionFieldsInGroupByCalculation(ast) {
+    getAggregateFunctionFieldsInGroupByCalculation(astFields) {
         const fields = [];
         const aggFuncList = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
 
         //  When fld.terms is defined, it is a calculation, not just a single function.
-        const aggregateFunctions = ast.filter(f => typeof f.terms !== 'undefined');
+        const aggregateFunctions = astFields.filter(f => typeof f.terms !== 'undefined');
         for (const fld of aggregateFunctions) {
             const functionString = SelectTables.toUpperCaseExceptQuoted(fld.name, true);
+            const usedFunctions = aggFuncList.map(func => SelectTables.parseForFunctions(functionString, func)).filter(f => f != null);
 
-            for (const func of aggFuncList) {
-                const parsedFunctionList = SelectTables.parseForFunctions(functionString, func);
+            for (const parsedFunctionList of usedFunctions) {
+                this.tableFields.updateCalculatedFieldAsAggregateCalculation(fld.name);
 
-                if (parsedFunctionList !== null) {
-                    this.tableFields.updateCalculatedFieldAsAggregateCalculation(fld.name);
-
-                    if (!this.tableFields.isFieldAlreadyInSelectList(parsedFunctionList)) {
-                        fields.push({ name: parsedFunctionList[0], as: '', order: '' });
-                    }
+                if (!this.tableFields.isFieldAlreadyInSelectList(parsedFunctionList)) {
+                    fields.push({ name: parsedFunctionList[0], as: '', order: '' });
                 }
             }
         }
@@ -158,16 +155,9 @@ class SelectTables {
     * @returns {Number[]} - record ID's 
     */
     resolveCondition(logic, terms) {
-        const recordIDs = [];
-
-        for (const cond of terms) {
-            if (typeof cond.logic === 'undefined') {
-                recordIDs.push(this.getRecordIDs(cond));
-            }
-            else {
-                recordIDs.push(this.resolveCondition(cond.logic, cond.terms));
-            }
-        }
+        const recordIDs = terms.map(cond => typeof cond.logic === 'undefined'
+            ? this.getRecordIDs(cond)
+            : this.resolveCondition(cond.logic, cond.terms));
 
         return SelectTables.applyLogicOperatorToRecordIds(logic, recordIDs);
     }
@@ -185,7 +175,7 @@ class SelectTables {
         if (logic === "AND") {
             results = recordIDs.reduce((a, b) => a.filter(c => b.includes(c)), recordIDs[0]);
         }
-        if (logic === "OR") {
+        else if (logic === "OR") {
             results = Array.from(new Set(recordIDs.reduce((a, b) => a.concat(b), recordIDs[0])));
         }
 
@@ -242,17 +232,16 @@ class SelectTables {
             fieldValue = fieldConditions.fieldConditionTableInfo.tableData[masterRecordID][fieldConditions.columnNumber];
         }
         else if (fieldConditions.calculatedField !== "") {
-            if (fieldConditions.calculatedField.toUpperCase() === "NULL") {
-                fieldValue = "NULL";
-            }
-            else {
+            fieldValue = "NULL";
+            if (fieldConditions.calculatedField.toUpperCase() !== "NULL") {
                 fieldValue = calcSqlField.evaluateCalculatedField(fieldConditions.calculatedField, masterRecordID);
             }
         }
         else if (fieldConditions.subQuery !== null) {
             const arrayResult = fieldConditions.subQuery.select(masterRecordID, calcSqlField);
-            if (typeof arrayResult !== 'undefined' && arrayResult !== null && arrayResult.length > 0)
+            if (typeof arrayResult !== 'undefined' && arrayResult !== null && arrayResult.length > 0) {
                 fieldValue = arrayResult[0][0];
+            }
         }
 
         return fieldValue;
@@ -683,15 +672,10 @@ class SelectTables {
      * @returns {ResolvedFieldCondition}
      */
     resolveFieldCondition(fieldCondition) {
-        /** @type {String} */
         let constantData = null;
-        /** @type {Number} */
         let columnNumber = -1;
-        /** @type {Table} */
         let fieldConditionTableInfo = null;
-        /** @type {String} */
         let calculatedField = "";
-        /** @type {CorrelatedSubQuery} */
         let subQuery = null;
 
         if (typeof fieldCondition.SELECT !== 'undefined') {
@@ -757,16 +741,15 @@ class SelectTables {
     resolveBindData(fieldCondition) {
         //  Bind variable data.
         const constantData = this.bindVariables.get(fieldCondition);
-        if (typeof constantData === 'undefined') {
-            if (fieldCondition === '?') {
-                throw new Error("Bind variable naming is ?1, ?2... where ?1 is first bind data point in list.")
-            }
-            else {
-                throw new Error(`Bind variable ${fieldCondition} was not found`);
-            }
+
+        if (typeof constantData !== 'undefined') {
+            return constantData;
         }
 
-        return constantData;
+        if (fieldCondition === '?') {
+            throw new Error("Bind variable naming is ?1, ?2... where ?1 is first bind data point in list.")
+        }
+        throw new Error(`Bind variable ${fieldCondition} was not found`);
     }
 
     /**
@@ -789,12 +772,12 @@ class SelectTables {
         for (const tableName of tableSetCorrelated.keys()) {
             let isFound = false;
             // @ts-ignore
-            for (const outerTable of tableSet.keys()) {
+            tableSet.keys().forEach(outerTable => {
                 if (outerTable === tableName || tableSet.get(outerTable) === tableName) {
                     isFound = true;
-                    break;
                 }
-            }
+            });
+
             if (!isFound) {
                 return true;
             }
@@ -1364,13 +1347,8 @@ class VirtualFields {
         for (let i = 0; i < astFields.length; i++) {
             if (astFields[i].name === "*") {
                 //  Replace wildcard will actual field names from master table.
-                const masterTableFields = [];
                 const allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames();
-
-                for (const virtualField of allExpandedFields) {
-                    const selField = { name: virtualField };
-                    masterTableFields.push(selField);
-                }
+                const masterTableFields = allExpandedFields.map(virtualField => ({ name: virtualField }));
 
                 astFields.splice(i, 1, ...masterTableFields);
                 break;
@@ -1464,18 +1442,19 @@ class DerivedTable {                     //  skipcq: JS-0128
     createTable() {
         const columnCount = this.rightField.tableInfo.getColumnCount();
         const emptyRightRow = Array(columnCount).fill(null);
-
         const joinedData = [DerivedTable.getCombinedColumnTitles(this.leftField, this.rightField)];
 
         for (let i = 1; i < this.leftField.tableInfo.tableData.length; i++) {
-            if (typeof this.leftRecords[i] !== "undefined") {
-                if (typeof this.rightField.tableInfo.tableData[this.leftRecords[i][0]] === "undefined")
-                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(emptyRightRow));
-                else {
-                    const maxJoin = this.leftRecords[i].length;
-                    for (let j = 0; j < maxJoin; j++) {
-                        joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[this.leftRecords[i][j]]));
-                    }
+            if (typeof this.leftRecords[i] === "undefined") {
+                continue;
+            }
+
+            if (typeof this.rightField.tableInfo.tableData[this.leftRecords[i][0]] === "undefined") {
+                joinedData.push(this.leftField.tableInfo.tableData[i].concat(emptyRightRow));
+            }
+            else {
+                for (let j = 0; j < this.leftRecords[i].length; j++) {
+                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[this.leftRecords[i][j]]));
                 }
             }
         }
@@ -1549,20 +1528,16 @@ class SqlServerFunctions {
             [args, functionString] = this.caseStart(func, args, functionString);
 
             while (args !== null && args.length > 0) {
-                // Split on COMMA, except within brackets.
-                const parms = typeof args[1] === 'undefined' ? [] : SelectTables.parseForParams(args[1]);
-
-                let replacement = "";
                 try {
-                    replacement = this[func.toLocaleLowerCase()](parms, args, masterFields);
+                    // Split on COMMA, except within brackets.
+                    const parms = typeof args[1] === 'undefined' ? [] : SelectTables.parseForParams(args[1]);
+                    const replacement = this[func.toLocaleLowerCase()](parms, args, masterFields);
+                    functionString = functionString.replace(args[0], replacement);
+                    args = this.parseFunctionArgs(func, functionString);
                 }
                 catch (ex) {
                     throw new Error(`Internal Error. Function is missing. ${func}`);
                 }
-
-                functionString = functionString.replace(args[0], replacement);
-
-                args = this.parseFunctionArgs(func, functionString);
             }
 
             functionString = this.caseEnd(func, functionString);
@@ -2107,7 +2082,6 @@ class SqlServerFunctions {
         const funcString = `lastDay = new Date(${today}.getFullYear(), ${today}.getMonth()+1, 0)`;
 
         return SqlServerFunctions.inlineFuncDateInReturn(funcString, "lastDay");
-
     }
 
     /**
@@ -2181,21 +2155,23 @@ class SqlServerFunctions {
      * @returns {String} - js code to handle this WHEN case.
      */
     caseWhen(args) {
-        let replacement = "";
+        if (args.length < 3) {
+            return "";
+        }
 
-        if (args.length > 2) {
-            if (typeof args[1] === 'undefined' && typeof args[2] === 'undefined') {
-                replacement = `else return ${args[3]};`;
+        let replacement = "";
+        if (typeof args[1] === 'undefined' && typeof args[2] === 'undefined') {
+            replacement = `else return ${args[3]};`;
+        }
+        else {
+            if (this.firstCase) {
+                replacement = "(() => {if (";
+                this.firstCase = false;
             }
             else {
-                if (this.firstCase) {
-                    replacement = "(() => {if (";
-                    this.firstCase = false;
-                }
-                else
-                    replacement = "else if (";
-                replacement += `${SqlParse.sqlCondition2JsCondition(args[1])}) return ${args[2]} ;`;
+                replacement = "else if (";
             }
+            replacement += `${SqlParse.sqlCondition2JsCondition(args[1])}) return ${args[2]} ;`;
         }
 
         return replacement;
@@ -2245,7 +2221,7 @@ class ConglomerateRecord {
             return row;
 
         let i = 0;
-        for (/** @type {TableField} */ const field of this.selectVirtualFields) {
+        for (const field of this.selectVirtualFields) {
             if (field.aggregateFunction !== "") {
                 row.push(ConglomerateRecord.aggregateColumn(field, groupRecords, i));
             }
@@ -2277,7 +2253,7 @@ class ConglomerateRecord {
         const calc = ConglomerateRecord.createCalculatedFieldObjectForTable(aggTable);
 
         let i = 0;
-        for (/** @type {TableField} */ const field of this.selectVirtualFields) {
+        for (const field of this.selectVirtualFields) {
             if (field.calculatedAggregateFunction !== "") {
                 const ucFunction = SelectTables.toUpperCaseExceptQuoted(field.calculatedAggregateFunction, true);
                 const updatedFunc = ConglomerateRecord.replaceFieldNames(ucFunction, mappedField);
@@ -2288,7 +2264,6 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
      * @param {any[]} row 
      * @returns {Table}
      */
@@ -2305,7 +2280,6 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
      * @param {Table} aggTable 
      * @param {TableField[]} virtualFields 
      * @returns {Object[]}
@@ -2324,7 +2298,6 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
      * @param {Table} aggTable 
      * @returns {CalculatedField}
      */
@@ -2337,14 +2310,13 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
+     * Returns an updated 'calcFunc' string, where fields are given different names.
      * @param {String} calcFunc 
      * @param {Object[]} mappedField 
+     * @returns {String}
      */
     static replaceFieldNames(calcFunc, mappedField) {
-        for (const item of mappedField) {
-            calcFunc = calcFunc.replaceAll(item.oldName, item.newName);
-        }
+        mappedField.forEach(item => calcFunc = calcFunc.replaceAll(item.oldName, item.newName));
 
         return calcFunc;
     }
@@ -2402,7 +2374,6 @@ class ConglomerateRecord {
     }
 
     /**
-     * 
      * @param {any} columnData 
      * @returns {Number}
      */
@@ -2435,7 +2406,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @param {Number} numericData 
      * @returns {Number}
      */
@@ -2447,7 +2417,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @param {Number} numericData 
      * @returns {Number}
      */
@@ -2459,7 +2428,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @param {Number} numericData 
      * @returns {Number}
      */
@@ -2471,7 +2439,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @returns {Number}
      */
     getAverage() {
@@ -2479,7 +2446,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @param {any} columnData 
      * @returns {Number}
      */
@@ -2498,7 +2464,6 @@ class AggregateTrack {
     }
 
     /**
-     * 
      * @param {any} columnData 
      * @returns {void}
      */
@@ -2588,6 +2553,7 @@ class TableFields {
      * Sort function for table fields list.
      * @param {TableField} fldA 
      * @param {TableField} fldB 
+     * @return {Number}
      */
     static sortPrimaryFields(fldA, fldB) {
         let keyA = fldA.isPrimaryTable ? 0 : 1000;
@@ -2624,8 +2590,9 @@ class TableFields {
 
         if (field.originalTableColumn !== -1) {
             const key = `${field.originalTable}:${field.originalTableColumn}`;
-            if (!this.tableColumnMap.has(key))
+            if (!this.tableColumnMap.has(key)) {
                 this.tableColumnMap.set(key, field);
+            }
         }
     }
 
@@ -2733,7 +2700,6 @@ class TableFields {
     }
 
     /**
-     * 
      * @param {SelectFieldParameters} selectedFieldParms 
      * @returns {void}
      */
@@ -2741,8 +2707,9 @@ class TableFields {
         let fieldInfo = this.getFieldInfo(selectedFieldParms.parsedField.columnName);
 
         //  If GROUP BY field is in our SELECT field list - we can ignore.
-        if (selectedFieldParms.isTempField && fieldInfo.selectColumn !== -1)
+        if (selectedFieldParms.isTempField && fieldInfo.selectColumn !== -1) {
             return;
+        }
 
         if (selectedFieldParms.parsedField.aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
             //  A new SELECT field, not from existing.
@@ -2767,7 +2734,6 @@ class TableFields {
     }
 
     /**
-     * 
      * @param {SelectFieldParameters} selectedFieldParms 
      */
     updateCalculatedAsSelected(selectedFieldParms) {
@@ -2786,7 +2752,6 @@ class TableFields {
     }
 
     /**
-     * 
      * @param {SelectFieldParameters} selectedFieldParms 
      */
     updateConstantAsSelected(selectedFieldParms) {
@@ -2805,7 +2770,6 @@ class TableFields {
     }
 
     /**
-     * 
      * @param {String} fieldName 
      * @returns {void}
      */
@@ -2819,7 +2783,6 @@ class TableFields {
     }
 
     /**
-     * 
      * @param {String[]} columnName
      * @returns {Boolean} 
      */
@@ -2893,7 +2856,6 @@ class TableFields {
                 columnOutput = matchingTableIndex === 0 ? columnTableNameReplacement + columnOutput.slice(matchingTableIndex + fld.originalTable.length) : columnOutput;
             }
             columnTitles.push(columnOutput);
-
         }
 
         return columnTitles;
@@ -3115,7 +3077,6 @@ class TableField {
     }
 
     /**
-     * 
      * @param {String} value 
      * @returns {TableField}
      */
@@ -3219,14 +3180,12 @@ class TableField {
      * @returns {String[]}
      */
     static getAllExtendedAliasNames(masterFields) {
-        const concatFields = [];
-        for (const vField of masterFields) {
-            for (const aliasName of vField.aliasNames) {
-                if (aliasName.indexOf(".") !== -1) {
-                    concatFields.push(aliasName);
-                }
-            }
-        }
+        let concatFields = [];
+  
+        masterFields.forEach(vField => {
+            const fullNotationFields = vField.aliasNames.filter(aliasName => aliasName.indexOf(".") !== -1);
+            concatFields = concatFields.concat(fullNotationFields);
+        })
 
         return concatFields;
     }

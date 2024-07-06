@@ -111,6 +111,92 @@ class Select2Object {           // skipcq: JS-0128
     }
 
     /**
+     * First row MUST be column names.
+     * @param {any[][]} tableDataArray 
+     * @returns {Object[]}
+     */
+    static convertTableArrayToObjectArray(tableDataArray) {
+        //  First item in return array is an array of column names.
+        const propertyNames = Select2Object.convertColumnTitleToPropertyName(tableDataArray[0]);
+
+        return Select2Object.createTableObjectArray(propertyNames, tableDataArray);
+    }
+
+    /**
+     * 
+     * @param {Object[]} objectArray 
+     * @param {String[]} columnTitles 
+     * @param {Boolean} outputTitleRow
+     * @returns {any[][]}
+     */
+    static convertObjectArrayToTableArray(objectArray, columnTitles, outputTitleRow=true) {
+        const propertyNames = Select2Object.convertColumnTitleToPropertyName(columnTitles);
+        const tableArray = [];
+
+        if (outputTitleRow)
+            tableArray.push(columnTitles);
+
+        for (const objectRow of objectArray) {
+            const row = [];
+
+            for (const prop of propertyNames) {
+                row.push(objectRow[prop]);
+            }
+
+            tableArray.push(row);
+        }
+
+        return tableArray;
+    }
+
+    /**
+     * 
+     * @param {Object} object 
+     * @param {String[]} columnTitles 
+     * @returns {String[]}
+     */
+    static convertObjectToArray(object, columnTitles) {
+        const propertyNames = Select2Object.convertColumnTitleToPropertyName(columnTitles);
+        const row = [];
+        for (const prop of propertyNames) {
+            row.push(object[prop]);
+        }
+
+        return row;
+    }
+
+    /**
+     * Convert a sheet column name into format used for property name (spaces to underscore && lowercase)
+     * @param {String[]} columnTitles 
+     * @returns {String[]}
+     */
+    static convertColumnTitleToPropertyName(columnTitles) {
+        let columnNames = [...columnTitles];
+        const srcColumns = columnNames.map(col => col.trim()).map(col => col.toLowerCase()).map(col => col.replaceAll(' ', '_'));
+
+        return srcColumns;
+    }
+
+    /**
+     * Get column number - starting at 1 in object.
+     * @param {Object} object 
+     * @param {String} columnTitle 
+     * @returns {Number}
+     */
+    static getColumnNumber(object, columnTitle) {
+        const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];  
+        let col = 1;
+        for (const propName in object) {
+            if (propName === prop) {
+                return col;
+            }
+            col++;
+        }
+
+        return -1;
+    }
+
+    /**
      * 
      * @param {String[]} columnNames 
      * @param {any[]} tableDataArray 
@@ -146,6 +232,16 @@ class Select2Object {           // skipcq: JS-0128
         const dataObject = {};
         for (const col of columnNames) {
             dataObject[col] = '';
+        }
+
+        dataObject.get = function (columnTitle) {
+            const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];
+            return this[prop];
+        };
+
+        dataObject.set = function (columnTitle, value) {
+            const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];
+            this[prop] = value;
         }
 
         return dataObject;
