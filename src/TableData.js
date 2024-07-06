@@ -294,7 +294,7 @@ class TableData {       //  skipcq: JS-0128
         let output = [];
 
         try {
-            Logger.log("Getting Range of Values: " + tableNamedRange);
+            Logger.log(`Getting Range of Values: ${tableNamedRange}`);
             const sheetNamedRange = SpreadsheetApp.getActiveSpreadsheet().getRangeByName(tableNamedRange);
 
             if (sheetNamedRange === null) {
@@ -322,7 +322,7 @@ class TableData {       //  skipcq: JS-0128
             else {
                 // @ts-ignore
                 output = sheetNamedRange.getValues();
-                Logger.log("Named Range Data Loaded: " + tableNamedRange + ". Items=" + output.length);
+                Logger.log(`Named Range Data Loaded: ${tableNamedRange}. Items=${output.length}`);
             }
         }
         catch (ex) {

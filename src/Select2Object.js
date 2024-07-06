@@ -171,7 +171,7 @@ class Select2Object {           // skipcq: JS-0128
      * @returns {String[]}
      */
     static convertColumnTitleToPropertyName(columnTitles) {
-        let columnNames = [...columnTitles];
+        const columnNames = [...columnTitles];
         const srcColumns = columnNames.map(col => col.trim()).map(col => col.toLowerCase()).map(col => col.replaceAll(' ', '_'));
 
         return srcColumns;
