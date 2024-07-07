@@ -772,11 +772,12 @@ class SelectTables {
         for (const tableName of tableSetCorrelated.keys()) {
             let isFound = false;
             // @ts-ignore
-            tableSet.keys().forEach(outerTable => {
+            for (const outerTable of tableSet.keys()) {
                 if (outerTable === tableName || tableSet.get(outerTable) === tableName) {
                     isFound = true;
+                    break;
                 }
-            });
+            };
 
             if (!isFound) {
                 return true;
