@@ -186,7 +186,7 @@ class Select2Object {           // skipcq: JS-0128
     static getColumnNumber(object, columnTitle) {
         const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];  
         let col = 1;
-        for (const propName in object) {
+        for (const propName in object) {        // skipcq: JS-0051
             if (propName === prop) {
                 return col;
             }

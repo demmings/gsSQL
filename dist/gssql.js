@@ -3211,8 +3211,8 @@ class DerivedTable {                     //  skipcq: JS-0128
                 joinedData.push(this.leftField.tableInfo.tableData[i].concat(emptyRightRow));
             }
             else {
-                for (let j = 0; j < this.leftRecords[i].length; j++) {
-                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[this.leftRecords[i][j]]));
+                for (const rec of this.leftRecords[i]) {
+                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[rec]));    
                 }
             }
         }
@@ -3437,7 +3437,7 @@ class SqlServerFunctions {
      * @returns {String}
      */
     instr(parms) {                                      //  skipcq: JS-0105
-        return SqlServerFunctions.locate(parms.reverse());
+        return SqlServerFunctions.locate(parms.toReversed());
     }
 
     /**
@@ -4074,7 +4074,7 @@ class ConglomerateRecord {
      * @returns {String}
      */
     static replaceFieldNames(calcFunc, mappedField) {
-        mappedField.forEach(item => calcFunc = calcFunc.replaceAll(item.oldName, item.newName));
+        mappedField.forEach(item => (calcFunc = calcFunc.replaceAll(item.oldName, item.newName)));
 
         return calcFunc;
     }
@@ -7763,7 +7763,7 @@ class Select2Object {           // skipcq: JS-0128
     static getColumnNumber(object, columnTitle) {
         const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];  
         let col = 1;
-        for (const propName in object) {
+        for (const propName in object) {        // skipcq: JS-0051
             if (propName === prop) {
                 return col;
             }
