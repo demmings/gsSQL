@@ -211,7 +211,7 @@ class Select2Object {           // skipcq: JS-0128
             const newRecord = {};
             Object.assign(newRecord, emptyTableRecord);
 
-            columnNames.forEach((col, j) => newRecord[col] = tableDataArray[i][j])
+            columnNames.forEach((col, j) => {newRecord[col] = tableDataArray[i][j]});
 
             tableData.push(newRecord);
         }
@@ -227,7 +227,7 @@ class Select2Object {           // skipcq: JS-0128
     static createEmptyRecordObject(columnNames) {
         //  Create empty table record object.
         const dataObject = {};
-        columnNames.forEach(col => dataObject[col] = '');
+        columnNames.forEach(col => {dataObject[col] = ''});
 
         dataObject.get = function (columnTitle) {
             const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];

@@ -190,7 +190,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            recIds.forEach(rec => temp = temp.concat(rec[i]));
+            recIds.forEach(rec => {temp = temp.concat(rec[i])});
 
             if (typeof temp[0] !== 'undefined') {
                 result[i] = Array.from(new Set(temp));

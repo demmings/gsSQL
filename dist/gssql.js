@@ -5133,7 +5133,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            recIds.forEach(rec => temp = temp.concat(rec[i]));
+            recIds.forEach(rec => {temp = temp.concat(rec[i])});
 
             if (typeof temp[0] !== 'undefined') {
                 result[i] = Array.from(new Set(temp));
@@ -7781,7 +7781,7 @@ class Select2Object {           // skipcq: JS-0128
             const newRecord = {};
             Object.assign(newRecord, emptyTableRecord);
 
-            columnNames.forEach((col, j) => newRecord[col] = tableDataArray[i][j])
+            columnNames.forEach((col, j) => {newRecord[col] = tableDataArray[i][j]});
 
             tableData.push(newRecord);
         }
@@ -7797,7 +7797,7 @@ class Select2Object {           // skipcq: JS-0128
     static createEmptyRecordObject(columnNames) {
         //  Create empty table record object.
         const dataObject = {};
-        columnNames.forEach(col => dataObject[col] = '');
+        columnNames.forEach(col => {dataObject[col] = ''});
 
         dataObject.get = function (columnTitle) {
             const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];
