@@ -74,9 +74,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         /** @property {DerivedTable} - result table after tables are joined */
         this.derivedTable = new DerivedTable();
 
-        for (const joinTable of ast.JOIN) {
-            this.joinNextTable(joinTable, ast.FROM.table.toUpperCase());
-        }
+        ast.JOIN.forEach(joinTable => this.joinNextTable(joinTable, ast.FROM.table.toUpperCase()));
     }
 
     /**
@@ -192,9 +190,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            for (const rec of recIds) {
-                temp = temp.concat(rec[i]);
-            }
+            recIds.forEach(rec => temp = temp.concat(rec[i]));
 
             if (typeof temp[0] !== 'undefined') {
                 result[i] = Array.from(new Set(temp));

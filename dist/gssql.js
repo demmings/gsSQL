@@ -91,7 +91,7 @@ class GasSql {
         //  We expect:  "tableName", tableData[], ...["tableName", tableData[]], includeColumnOutput, ...bindings
         let i = 0;
         while (i + 1 < parms.length && typeof parms[i] !== 'boolean') {
-            Logger.log(`Add Table: ${parms[i]}. Items=${parms[i + 1].length}`);
+            // Logger.log(`Add Table: ${parms[i]}. Items=${parms[i + 1].length}`);
             sqlCmd.addTableData(parms[i], parms[i + 1], 0, true);
             i += 2;
         }
@@ -3213,7 +3213,7 @@ class DerivedTable {                     //  skipcq: JS-0128
             }
             else {
                 for (const rec of this.leftRecords[i]) {
-                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[rec]));    
+                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[rec]));
                 }
             }
         }
@@ -4940,7 +4940,7 @@ class TableField {
      */
     static getAllExtendedAliasNames(masterFields) {
         let concatFields = [];
-  
+
         masterFields.forEach(vField => {
             const fullNotationFields = vField.aliasNames.filter(aliasName => aliasName.indexOf(".") !== -1);
             concatFields = concatFields.concat(fullNotationFields);
@@ -5017,9 +5017,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         /** @property {DerivedTable} - result table after tables are joined */
         this.derivedTable = new DerivedTable();
 
-        for (const joinTable of ast.JOIN) {
-            this.joinNextTable(joinTable, ast.FROM.table.toUpperCase());
-        }
+        ast.JOIN.forEach(joinTable => this.joinNextTable(joinTable, ast.FROM.table.toUpperCase()));
     }
 
     /**
@@ -5135,9 +5133,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            for (const rec of recIds) {
-                temp = temp.concat(rec[i]);
-            }
+            recIds.forEach(rec => temp = temp.concat(rec[i]));
 
             if (typeof temp[0] !== 'undefined') {
                 result[i] = Array.from(new Set(temp));
@@ -5652,13 +5648,9 @@ class SqlParse {
         let words = parts_name_escaped.slice(0);
         words = words.map(item => SqlParse.protect(item));
 
-        // Split parts
-        const parts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
-
-        // Unhide words previously hidden with protect()
-        for (let i = 0; i < parts.length; i++) {
-            parts[i] = SqlParse.hideInnerSql(parts[i], words, SqlParse.unprotect);
-        }
+        // Split parts and Unhide words previously hidden with protect()
+        const parts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'))
+            .map(part => SqlParse.hideInnerSql(part, words, SqlParse.unprotect));
 
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
@@ -6328,7 +6320,7 @@ class CondParser {
                 leftNode.terms.push(rightNode);
             }
             else if (leftNode.operator === "BETWEEN" || leftNode.operator === "NOT BETWEEN") {
-               leftNode = CondParser.createWhereBetweenAstLogic(leftNode, rightNode);
+                leftNode = CondParser.createWhereBetweenAstLogic(leftNode, rightNode);
             }
             else {
                 const terms = [leftNode, rightNode].slice(0);
@@ -7643,9 +7635,7 @@ class Select2Object {           // skipcq: JS-0128
         parms.push(true);   //  We want column names returned.
 
         //  Add bind data.
-        for (const bind of this.bindVariables) {
-            parms.push(bind);
-        }
+        this.bindVariables.forEach(bind => parms.push(bind));
 
         const tableDataArray = GasSql.execute(statement, parms);
 
@@ -7682,8 +7672,9 @@ class Select2Object {           // skipcq: JS-0128
         }
 
         //  Leave the table name in the column since we have two or more tables.
-        if (uniqueTables.size > 1)
+        if (uniqueTables.size > 1) {
             return newColumns;
+        }
 
         return noTableColumns;
     }
@@ -7707,7 +7698,7 @@ class Select2Object {           // skipcq: JS-0128
      * @param {Boolean} outputTitleRow
      * @returns {any[][]}
      */
-    static convertObjectArrayToTableArray(objectArray, columnTitles, outputTitleRow=true) {
+    static convertObjectArrayToTableArray(objectArray, columnTitles, outputTitleRow = true) {
         const propertyNames = Select2Object.convertColumnTitleToPropertyName(columnTitles);
         const tableArray = [];
 
@@ -7762,7 +7753,7 @@ class Select2Object {           // skipcq: JS-0128
      * @returns {Number}
      */
     static getColumnNumber(object, columnTitle) {
-        const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];  
+        const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];
         let col = 1;
         for (const propName in object) {        // skipcq: JS-0051
             if (propName === prop) {
@@ -7790,9 +7781,7 @@ class Select2Object {           // skipcq: JS-0128
             const newRecord = {};
             Object.assign(newRecord, emptyTableRecord);
 
-            for (let j = 0; j < columnNames.length; j++) {
-                newRecord[columnNames[j]] = tableDataArray[i][j];
-            }
+            columnNames.forEach((col, j) => newRecord[col] = tableDataArray[i][j])
 
             tableData.push(newRecord);
         }
@@ -7808,9 +7797,7 @@ class Select2Object {           // skipcq: JS-0128
     static createEmptyRecordObject(columnNames) {
         //  Create empty table record object.
         const dataObject = {};
-        for (const col of columnNames) {
-            dataObject[col] = '';
-        }
+        columnNames.forEach(col => dataObject[col] = '');
 
         dataObject.get = function (columnTitle) {
             const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];

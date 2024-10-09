@@ -63,13 +63,9 @@ class SqlParse {
         let words = parts_name_escaped.slice(0);
         words = words.map(item => SqlParse.protect(item));
 
-        // Split parts
-        const parts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
-
-        // Unhide words previously hidden with protect()
-        for (let i = 0; i < parts.length; i++) {
-            parts[i] = SqlParse.hideInnerSql(parts[i], words, SqlParse.unprotect);
-        }
+        // Split parts and Unhide words previously hidden with protect()
+        const parts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'))
+            .map(part => SqlParse.hideInnerSql(part, words, SqlParse.unprotect));
 
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
@@ -739,7 +735,7 @@ class CondParser {
                 leftNode.terms.push(rightNode);
             }
             else if (leftNode.operator === "BETWEEN" || leftNode.operator === "NOT BETWEEN") {
-               leftNode = CondParser.createWhereBetweenAstLogic(leftNode, rightNode);
+                leftNode = CondParser.createWhereBetweenAstLogic(leftNode, rightNode);
             }
             else {
                 const terms = [leftNode, rightNode].slice(0);

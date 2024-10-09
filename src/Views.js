@@ -1455,7 +1455,7 @@ class DerivedTable {                     //  skipcq: JS-0128
             }
             else {
                 for (const rec of this.leftRecords[i]) {
-                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[rec]));    
+                    joinedData.push(this.leftField.tableInfo.tableData[i].concat(this.rightField.tableInfo.tableData[rec]));
                 }
             }
         }
@@ -3182,7 +3182,7 @@ class TableField {
      */
     static getAllExtendedAliasNames(masterFields) {
         let concatFields = [];
-  
+
         masterFields.forEach(vField => {
             const fullNotationFields = vField.aliasNames.filter(aliasName => aliasName.indexOf(".") !== -1);
             concatFields = concatFields.concat(fullNotationFields);

@@ -65,9 +65,7 @@ class Select2Object {           // skipcq: JS-0128
         parms.push(true);   //  We want column names returned.
 
         //  Add bind data.
-        for (const bind of this.bindVariables) {
-            parms.push(bind);
-        }
+        this.bindVariables.forEach(bind => parms.push(bind));
 
         const tableDataArray = GasSql.execute(statement, parms);
 
@@ -104,8 +102,9 @@ class Select2Object {           // skipcq: JS-0128
         }
 
         //  Leave the table name in the column since we have two or more tables.
-        if (uniqueTables.size > 1)
+        if (uniqueTables.size > 1) {
             return newColumns;
+        }
 
         return noTableColumns;
     }
@@ -129,7 +128,7 @@ class Select2Object {           // skipcq: JS-0128
      * @param {Boolean} outputTitleRow
      * @returns {any[][]}
      */
-    static convertObjectArrayToTableArray(objectArray, columnTitles, outputTitleRow=true) {
+    static convertObjectArrayToTableArray(objectArray, columnTitles, outputTitleRow = true) {
         const propertyNames = Select2Object.convertColumnTitleToPropertyName(columnTitles);
         const tableArray = [];
 
@@ -184,7 +183,7 @@ class Select2Object {           // skipcq: JS-0128
      * @returns {Number}
      */
     static getColumnNumber(object, columnTitle) {
-        const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];  
+        const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];
         let col = 1;
         for (const propName in object) {        // skipcq: JS-0051
             if (propName === prop) {
@@ -212,9 +211,7 @@ class Select2Object {           // skipcq: JS-0128
             const newRecord = {};
             Object.assign(newRecord, emptyTableRecord);
 
-            for (let j = 0; j < columnNames.length; j++) {
-                newRecord[columnNames[j]] = tableDataArray[i][j];
-            }
+            columnNames.forEach((col, j) => newRecord[col] = tableDataArray[i][j])
 
             tableData.push(newRecord);
         }
@@ -230,9 +227,7 @@ class Select2Object {           // skipcq: JS-0128
     static createEmptyRecordObject(columnNames) {
         //  Create empty table record object.
         const dataObject = {};
-        for (const col of columnNames) {
-            dataObject[col] = '';
-        }
+        columnNames.forEach(col => dataObject[col] = '');
 
         dataObject.get = function (columnTitle) {
             const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];

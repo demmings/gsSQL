@@ -105,7 +105,7 @@ class GasSql {
         //  We expect:  "tableName", tableData[], ...["tableName", tableData[]], includeColumnOutput, ...bindings
         let i = 0;
         while (i + 1 < parms.length && typeof parms[i] !== 'boolean') {
-            Logger.log(`Add Table: ${parms[i]}. Items=${parms[i + 1].length}`);
+            // Logger.log(`Add Table: ${parms[i]}. Items=${parms[i + 1].length}`);
             sqlCmd.addTableData(parms[i], parms[i + 1], 0, true);
             i += 2;
         }

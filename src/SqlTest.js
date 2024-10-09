@@ -4257,6 +4257,19 @@ class SqlTester {
         return this.isEqual("selectLocate", data, expected);
     }
 
+    selectSumMinusSum() {
+        // let stmt = "select sum(quantity) - sum(price) from booksales";
+        let stmt = "select sum(quantity - price) from booksales";
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["sum(quantity) - sum(price)"],[24.73]];
+
+        return this.isEqual("selectSumMinusSum", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5452,6 +5465,8 @@ function testerSql() {
     result = result && tester.selectAddDateLastDay();
     result = result && tester.selectCalculatedFieldNotInSelectFieldsWitinGroupBY();
     result = result && tester.selectLocate();
+    //  Not supported (yet)
+    // result = result && tester.selectSumMinusSum();
 
     Logger.log("============================================================================");
 
