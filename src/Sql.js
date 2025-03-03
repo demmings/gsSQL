@@ -40,6 +40,9 @@ class GasSql {
      * @returns {any[][]}
      */
     static execute(statement, parms) {
+        // Remove comments with '--' and join lines together.
+        statement = statement.split('\n').filter(line => !line.trim().startsWith('--')).join(' ');
+
         if (parms.length === 0 || (parms.length > 0 && (Array.isArray(parms[0]) || parms[0] === ''))) {
             return GasSql.executeSqlv1(statement, parms);
         }
@@ -949,7 +952,7 @@ class TableExtract {
         if (typeof ast.SELECT === 'undefined')
             return;
 
-       ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
+        ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
     }
 }
 

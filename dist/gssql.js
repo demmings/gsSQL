@@ -26,6 +26,9 @@ class GasSql {
      * @returns {any[][]}
      */
     static execute(statement, parms) {
+        // Remove comments with '--' and join lines together.
+        statement = statement.split('\n').filter(line => !line.trim().startsWith('--')).join(' ');
+
         if (parms.length === 0 || (parms.length > 0 && (Array.isArray(parms[0]) || parms[0] === ''))) {
             return GasSql.executeSqlv1(statement, parms);
         }
@@ -935,7 +938,7 @@ class TableExtract {
         if (typeof ast.SELECT === 'undefined')
             return;
 
-       ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
+        ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
     }
 }
 
@@ -1562,7 +1565,7 @@ class Schema {
 
         /** @property {Map<String,Number>} - String=Field Name, Number=Column Number */
         this.fields = new Map();
-        
+
         /** @property {VirtualFields} */
         this.virtualFields = new VirtualFields();
     }
@@ -5133,7 +5136,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            recIds.forEach(rec => {temp = temp.concat(rec[i])});
+            recIds.forEach(rec => { temp = temp.concat(rec[i]) });
 
             if (typeof temp[0] !== 'undefined') {
                 result[i] = Array.from(new Set(temp));
@@ -6940,7 +6943,7 @@ class TableData {       //  skipcq: JS-0128
 
         Logger.log(`loadTableData: ${namedRange}. Seconds=${cacheSeconds}`);
 
-        return  Table.removeEmptyRecordsAtEndOfTable(TableData.getValuesCached(namedRange, cacheSeconds));
+        return Table.removeEmptyRecordsAtEndOfTable(TableData.getValuesCached(namedRange, cacheSeconds));
     }
 
     /**
@@ -7447,7 +7450,7 @@ class ScriptSettings {      //  skipcq: JS-0128
         if (cacheKeys.length === 0) {
             return values;
         }
-        
+
         const allProperties = PropertiesService.getScriptProperties().getProperties();
 
         //  Removing properties is very slow, so remove only 1 at a time.  This is enough as this function is called frequently.
@@ -7781,7 +7784,7 @@ class Select2Object {           // skipcq: JS-0128
             const newRecord = {};
             Object.assign(newRecord, emptyTableRecord);
 
-            columnNames.forEach((col, j) => {newRecord[col] = tableDataArray[i][j]});
+            columnNames.forEach((col, j) => { newRecord[col] = tableDataArray[i][j] });
 
             tableData.push(newRecord);
         }
@@ -7797,7 +7800,7 @@ class Select2Object {           // skipcq: JS-0128
     static createEmptyRecordObject(columnNames) {
         //  Create empty table record object.
         const dataObject = {};
-        columnNames.forEach(col => {dataObject[col] = ''});
+        columnNames.forEach(col => { dataObject[col] = '' });
 
         dataObject.get = function (columnTitle) {
             const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];
