@@ -34,10 +34,12 @@ class SqlParse {
 
     /**
      * Parse a query
-     * @param {String} query 
+     * @param {String} sqlStatement 
      * @returns {Object}
      */
-    static sql2ast(query) {
+    static sql2ast(sqlStatement) {
+        const query = SqlParse.filterCommentsFromStatement(sqlStatement)
+
         // Define which words can act as separator
         const myKeyWords = SqlParse.generateUsedKeywordList(query);
         const [parts_name, parts_name_escaped] = SqlParse.generateSqlSeparatorWords(myKeyWords);
@@ -81,6 +83,20 @@ class SqlParse {
         }
 
         return result;
+    }
+
+    /**
+     * Remove comments from SQL statement.
+     * @param {String} statement 
+     * @returns {String}
+     */
+    static filterCommentsFromStatement(statement) {
+        // Remove comments with lines starting with '--' and join lines together.
+        // If comment is within a STRING on a newline, it will fail ...
+        // We leave inline comments and multi-line /* */ comments for another day.
+        const filteredStatement = statement.split('\n').filter(line => !line.trim().startsWith('--')).join(' ');
+
+        return filteredStatement;
     }
 
     /**

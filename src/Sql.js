@@ -949,7 +949,7 @@ class TableExtract {
         if (typeof ast.SELECT === 'undefined')
             return;
 
-       ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
+        ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
     }
 }
 

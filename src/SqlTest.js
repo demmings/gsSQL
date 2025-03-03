@@ -4270,6 +4270,28 @@ class SqlTester {
         return this.isEqual("selectSumMinusSum", data, expected);
     }
 
+    innerSelectWithComments() {
+        let stmt = "SELECT *, customers.name FROM bookSales " +
+            "\n -- We join books to customers\n" +
+            "LEFT JOIN customers ON bookSales.customer_ID = customers.ID " +
+            "\n-- We only want the highest booksales\n" +
+            "WHERE bookSales.quantity > (select AVG(quantity) from booksales)";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL", "customers.name"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "ForMe Resellers"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "ForMe Resellers"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com", "ForMe Resellers"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com", "Dewy Tuesdays"]];
+
+        return this.isEqual("innerSelectWithComments", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5465,6 +5487,7 @@ function testerSql() {
     result = result && tester.selectAddDateLastDay();
     result = result && tester.selectCalculatedFieldNotInSelectFieldsWitinGroupBY();
     result = result && tester.selectLocate();
+    result = result && tester.innerSelectWithComments();
     //  Not supported (yet)
     // result = result && tester.selectSumMinusSum();
 

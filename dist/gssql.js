@@ -935,7 +935,7 @@ class TableExtract {
         if (typeof ast.SELECT === 'undefined')
             return;
 
-       ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
+        ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
     }
 }
 
@@ -5619,10 +5619,12 @@ class SqlParse {
 
     /**
      * Parse a query
-     * @param {String} query 
+     * @param {String} sqlStatement 
      * @returns {Object}
      */
-    static sql2ast(query) {
+    static sql2ast(sqlStatement) {
+        const query = SqlParse.filterCommentsFromStatement(sqlStatement)
+
         // Define which words can act as separator
         const myKeyWords = SqlParse.generateUsedKeywordList(query);
         const [parts_name, parts_name_escaped] = SqlParse.generateSqlSeparatorWords(myKeyWords);
@@ -5666,6 +5668,20 @@ class SqlParse {
         }
 
         return result;
+    }
+
+    /**
+     * Remove comments from SQL statement.
+     * @param {String} statement 
+     * @returns {String}
+     */
+    static filterCommentsFromStatement(statement) {
+        // Remove comments with lines starting with '--' and join lines together.
+        // If comment is within a STRING on a newline, it will fail ...
+        // We leave inline comments and multi-line /* */ comments for another day.
+        const filteredStatement = statement.split('\n').filter(line => !line.trim().startsWith('--')).join(' ');
+
+        return filteredStatement;
     }
 
     /**
@@ -7381,6 +7397,12 @@ class ScriptSettings {      //  skipcq: JS-0128
 
         /** @type {PropertyData} */
         const myPropertyData = JSON.parse(myData);
+
+        if (PropertyData.isExpired(myPropertyData))
+        {
+            this.delete(propertyKey);
+            return null;
+        }
 
         return PropertyData.getData(myPropertyData);
     }
