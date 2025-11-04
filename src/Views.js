@@ -1,7 +1,7 @@
 /*  *** DEBUG START ***
 //  Remove comments for testing in NODE
 
-export { DERIVEDTABLE, VirtualFields, VirtualField, SelectTables, TableFields, TableField, CalculatedField, SqlServerFunctions, DerivedTable };
+export { DERIVEDTABLE, VirtualFields, VirtualField, SelectTables, TableFields, TableField, CalculatedField, SqlServerFunctions, DerivedTable, FieldComparisons };
 import { Table } from './Table.js';
 import { Sql, BindData, TableExtract } from './Sql.js';
 import { SqlParse } from './SimpleParser.js';
@@ -117,8 +117,9 @@ class SelectTables {
      * @returns {void}
      */
     join(ast) {
-        if (typeof ast.JOIN !== 'undefined')
+        if (typeof ast.JOIN !== 'undefined') {
             this.dataJoin.load(ast);
+        }
     }
 
     /**
@@ -1437,13 +1438,25 @@ class DerivedTable {                     //  skipcq: JS-0128
     }
 
     /**
+     * 
+     * @param {String} leftAlias 
+     * @param {String} joinAlias 
+     * @returns {DerivedTable}
+     */
+    setJoinTableAlias(leftAlias = '', joinAlias = '') {
+        this.leftTableAlias = leftAlias;
+        this.rightTableAlias = joinAlias;
+        return this;
+    }
+
+    /**
      * Create derived table from the two tables that are joined.
      * @returns {DerivedTable}
      */
     createTable() {
         const columnCount = this.rightField.tableInfo.getColumnCount();
         const emptyRightRow = Array(columnCount).fill(null);
-        const joinedData = [DerivedTable.getCombinedColumnTitles(this.leftField, this.rightField)];
+        const joinedData = [DerivedTable.getCombinedColumnTitles(this.leftField, this.rightField, this.leftTableAlias, this.rightTableAlias)];
 
         for (let i = 1; i < this.leftField.tableInfo.tableData.length; i++) {
             if (typeof this.leftRecords[i] === "undefined") {
@@ -1485,11 +1498,16 @@ class DerivedTable {                     //  skipcq: JS-0128
      * Create title row from LEFT and RIGHT table.
      * @param {TableField} leftField 
      * @param {TableField} rightField 
+     * @param {String} leftTableAlias
+     * @param {String} rightTableAlias
      * @returns {String[]}
      */
-    static getCombinedColumnTitles(leftField, rightField) {
-        const titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames();
-        const rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames();
+    static getCombinedColumnTitles(leftField, rightField, leftTableAlias, rightTableAlias) {
+        const leftAlias = leftField.originalTable === rightField.originalTable ? leftTableAlias : '';
+        const rightAlias = leftField.originalTable === rightField.originalTable ? rightTableAlias : '';
+        const titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames(leftAlias);
+        const rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames(rightAlias);
+        
         return titleRow.concat(rightFieldNames);
     }
 }
@@ -2519,20 +2537,19 @@ class TableFields {
      * @param {Map<String,Table>} tableInfo - map of all loaded tables. 
      */
     loadVirtualFields(primaryTable, tableInfo) {
-        /** @type {String} */
         let tableName = "";
-        /** @type {Table} */
         let tableObject = null;
+
         // @ts-ignore
         for ([tableName, tableObject] of tableInfo.entries()) {
-            for (const field of tableObject.getAllFieldNames()) {
+            const tableFieldNames = tableObject.getAllFieldNames();
+
+            for (const field of tableFieldNames) {
                 const tableColumn = tableObject.getFieldColumn(field);
 
                 let virtualField = this.findTableField(tableName, tableColumn);
-                if (virtualField !== null) {
-                    virtualField.addAlias(field);
-                }
-                else {
+
+                if (virtualField === null) {
                     virtualField = new TableField()
                         .setOriginalTable(tableName)
                         .setOriginalTableColumn(tableColumn)
@@ -2542,12 +2559,39 @@ class TableFields {
 
                     this.allFields.push(virtualField);
                 }
+                else {
+                    virtualField.addAlias(field);
+                }
 
                 this.indexTableField(virtualField, primaryTable.toUpperCase() === tableName.toUpperCase());
             }
         }
 
         this.allFields.sort(TableFields.sortPrimaryFields);
+    }
+
+    /**
+     * Set up mapping to quickly find field info - by all (alias) names, by table+column.
+     * @param {TableField} field - field info.
+     * @param {Boolean} isPrimaryTable - is this a field from the SELECT FROM TABLE.
+     */
+    indexTableField(field, isPrimaryTable = false) {
+        for (const aliasField of field.aliasNames) {
+            const fieldInfo = this.fieldNameMap.get(aliasField);
+
+            if (typeof fieldInfo === 'undefined' || isPrimaryTable) {
+                this.fieldNameMap.set(aliasField, field);
+            }
+        }
+
+        //  This is something referenced in GROUP BY but is NOT in the SELECTED fields list.
+        if (field.tempField && !this.fieldNameMap.has(field.columnName.toUpperCase())) {
+            this.fieldNameMap.set(field.columnName.toUpperCase(), field);
+        }
+
+        if (field.originalTableColumn !== -1) {
+            this.setTableField(field);
+        }
     }
 
     /**
@@ -2571,33 +2615,6 @@ class TableFields {
     }
 
     /**
-     * Set up mapping to quickly find field info - by all (alias) names, by table+column.
-     * @param {TableField} field - field info.
-     * @param {Boolean} isPrimaryTable - is this a field from the SELECT FROM TABLE.
-     */
-    indexTableField(field, isPrimaryTable = false) {
-        for (const aliasField of field.aliasNames) {
-            const fieldInfo = this.fieldNameMap.get(aliasField);
-
-            if (typeof fieldInfo === 'undefined' || isPrimaryTable) {
-                this.fieldNameMap.set(aliasField, field);
-            }
-        }
-
-        //  This is something referenced in GROUP BY but is NOT in the SELECTED fields list.
-        if (field.tempField && !this.fieldNameMap.has(field.columnName.toUpperCase())) {
-            this.fieldNameMap.set(field.columnName.toUpperCase(), field);
-        }
-
-        if (field.originalTableColumn !== -1) {
-            const key = `${field.originalTable}:${field.originalTableColumn}`;
-            if (!this.tableColumnMap.has(key)) {
-                this.tableColumnMap.set(key, field);
-            }
-        }
-    }
-
-    /**
      * Quickly find field info for TABLE + COLUMN NUMBER (key of map)
      * @param {String} tableName - Table name to search for.
      * @param {Number} tableColumn - Column number to search for.
@@ -2606,6 +2623,19 @@ class TableFields {
     findTableField(tableName, tableColumn) {
         const key = `${tableName}:${tableColumn}`;
         return !this.tableColumnMap.has(key) ? null : this.tableColumnMap.get(key);
+    }
+
+    /**
+     * @param {TableField} field - field info.
+     * @returns {TableFields}
+     */
+    setTableField(field) {
+        const key = `${field.originalTable}:${field.originalTableColumn}`;
+        if (!this.tableColumnMap.has(key)) {
+            this.tableColumnMap.set(key, field);
+        }
+
+        return this;
     }
 
     /**
@@ -2643,7 +2673,7 @@ class TableFields {
      */
     getFieldColumn(field) {
         const fld = this.getFieldInfo(field);
-        return fld !== null ? fld.tableColumn : -1;
+        return fld !== null ? fld.getTableColumn(field) : -1;
     }
 
     /**
@@ -2715,9 +2745,8 @@ class TableFields {
         if (selectedFieldParms.parsedField.aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
             //  A new SELECT field, not from existing.
             const newFieldInfo = new TableField();
-            Object.assign(newFieldInfo, fieldInfo);
+            Object.assign(newFieldInfo, fieldInfo);          
             fieldInfo = newFieldInfo;
-
             this.allFields.push(fieldInfo);
         }
 
@@ -2873,7 +2902,7 @@ class TableFields {
         for (const field of derivedTableFields) {
             if (this.hasField(field.fieldName)) {
                 const originalField = this.getFieldInfo(field.fieldName);
-                originalField.derivedTableColumn = fieldNo;
+                originalField.setDerivedTableColumn(field.fieldName, fieldNo);
                 originalField.tableInfo = derivedTable.tableInfo;
             }
 
@@ -2975,8 +3004,8 @@ class TableField {
         this.aliasNames = [];
         /** @property {String} */
         this.fieldName = "";
-        /** @property {Number} */
-        this.derivedTableColumn = -1;
+        /** @property {Map<String, Number>} */
+        this._derivedTableColumn = new Map();
         /** @property {Number} */
         this.selectColumn = -1;
         /** @property {Boolean} */
@@ -3004,8 +3033,39 @@ class TableField {
      * Get field column number.
      * @returns {Number} - column number
      */
-    get tableColumn() {
-        return this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
+    getTableColumn(fieldName = "") {
+        return this.getDerivedTableColumn(fieldName) === -1 ? this.originalTableColumn : this.getDerivedTableColumn(fieldName);
+    }
+
+    /**
+     * 
+     * @param {String} fieldName 
+     * @param {Number} columnNumber 
+     * @returns {TableField}
+     */
+    setDerivedTableColumn(fieldName, columnNumber) {
+        this._derivedTableColumn.set(fieldName, columnNumber);
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} fieldName 
+     * @returns {Number}
+     */
+    getDerivedTableColumn(fieldName) {
+        if (this._derivedTableColumn.size === 1) {
+            const mapIterator = this._derivedTableColumn.entries();
+            const firstElement = mapIterator.next().value;
+
+            return firstElement[1]; // [key,value] - we extract the value.
+        }
+
+        if (this._derivedTableColumn.has(fieldName.toUpperCase())) {
+            return this._derivedTableColumn.get(fieldName.toUpperCase());
+        }
+
+        return -1;
     }
 
     /**
@@ -3170,7 +3230,7 @@ class TableField {
      * @returns {any} - data
      */
     getData(tableRow) {
-        const columnNumber = this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
+        const columnNumber = this.getDerivedTableColumn(this.columnName) === -1 ? this.originalTableColumn : this.getDerivedTableColumn(this.columnName);
 
         return this.tableInfo.tableData[tableRow][columnNumber];
     }

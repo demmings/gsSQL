@@ -39,7 +39,7 @@ class Table {       //  skipcq: JS-0128
 
     /**
      * Set associated table alias name to object.
-     * @param {String} tableAlias - table alias that may be used to prefix column names.
+     * @param {String[]} tableAlias - table alias that may be used to prefix column names.
      * @returns {Table}
      */
     setTableAlias(tableAlias) {
@@ -214,10 +214,11 @@ class Table {       //  skipcq: JS-0128
 
     /**
      * Returns table field names that are prefixed with table name.
+     * @param {String} aliasName
      * @returns {String[]} - field names
      */
-    getAllExtendedNotationFieldNames() {
-        return this.schema.getAllExtendedNotationFieldNames();
+    getAllExtendedNotationFieldNames(aliasName = '') {
+        return this.schema.getAllExtendedNotationFieldNames(aliasName);
     }
 
     /**
@@ -321,7 +322,7 @@ class Schema {
         this.tableName = "";
 
         /** @property {String} - Alias name of table. */
-        this.tableAlias = "";
+        this.tableAlias = [];
 
         /** @property {any[][]} - Table data double array. */
         this.tableData = [];
@@ -351,11 +352,20 @@ class Schema {
 
     /**
      * Associate the table alias to this object.
-     * @param {String} tableAlias - table alias name
+     * @param {String[]} tableAlias - table alias name
      * @returns {Schema}  
      */
     setTableAlias(tableAlias) {
-        this.tableAlias = tableAlias.toUpperCase();
+        const uniqueAliasSet = new Set();
+
+        for (const alias of tableAlias) {
+            if (alias !== '') {
+                uniqueAliasSet.add(alias.toUpperCase());   
+            }
+        }
+
+        this.tableAlias = Array.from(uniqueAliasSet);
+
         return this;
     }
 
@@ -398,18 +408,20 @@ class Schema {
 
     /**
      * All table fields names with 'TABLE.field_name'.
+     * @param {String} aliasName
      * @returns {String[]} - list of all field names with table prefix.
      */
-    getAllExtendedNotationFieldNames() {
+    getAllExtendedNotationFieldNames(aliasName) {
         /** @type {String[]} */
         const fieldNames = [];
+        const tableName = aliasName !== '' ? aliasName : this.tableName;
 
         // @ts-ignore
         for (const [key, value] of this.fields.entries()) {
             if (value !== null) {
                 const fieldParts = key.split(".");
                 if (typeof fieldNames[value] === 'undefined' ||
-                    (fieldParts.length === 2 && (fieldParts[0] === this.tableName || this.isDerivedTable)))
+                    (fieldParts.length === 2 && (fieldParts[0] === tableName || this.isDerivedTable)))
                     fieldNames[value] = key;
             }
         }
@@ -495,8 +507,7 @@ class Schema {
     /**
      * @typedef {Object} FieldVariants
      * @property {String} columnName
-     * @property {String} fullColumnName
-     * @property {String} fullColumnAliasName
+     * @property {String[]} columnNameVariants
      */
 
     /**
@@ -507,15 +518,17 @@ class Schema {
      */
     getColumnNameVariants(colName) {
         const columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
-        let fullColumnName = columnName;
-        let fullColumnAliasName = "";
+        const columnNameVariants = [];
+
         if (columnName.indexOf(".") === -1) {
-            fullColumnName = `${this.tableName}.${columnName}`;
-            if (this.tableAlias !== "")
-                fullColumnAliasName = `${this.tableAlias}.${columnName}`;
+            columnNameVariants.push(`${this.tableName}.${columnName}`);
+
+            for (const tableAlias of this.tableAlias) {
+                columnNameVariants.push(`${tableAlias}.${columnName}`);
+            }
         }
 
-        return { columnName, fullColumnName, fullColumnAliasName };
+        return { columnName, columnNameVariants };
     }
 
     /**
@@ -528,10 +541,8 @@ class Schema {
             this.fields.set(fieldVariants.columnName, colNum);
 
             if (!this.isDerivedTable) {
-                this.fields.set(fieldVariants.fullColumnName, colNum);
-
-                if (fieldVariants.fullColumnAliasName !== "") {
-                    this.fields.set(fieldVariants.fullColumnAliasName, colNum);
+                for (const fld of fieldVariants.columnNameVariants) {
+                    this.fields.set(fld, colNum);
                 }
             }
         }

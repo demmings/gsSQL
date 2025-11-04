@@ -614,6 +614,7 @@ class TableAlias {
         // @ts-ignore
         for (const table of tables.keys()) {
             const tableAlias = TableAlias.getTableAlias(table, ast);
+
             const tableInfo = tables.get(table.toUpperCase());
             tableInfo.setTableAlias(tableAlias);
         }
@@ -623,38 +624,35 @@ class TableAlias {
     * Find table alias name (if any) for input actual table name.
     * @param {String} tableName - Actual table name.
     * @param {Object} ast - Abstract Syntax Tree for SQL.
-    * @returns {String} - Table alias.  Empty string if not found.
+    * @returns {String[]} - Table alias.  Empty string if not found.
     */
     static getTableAlias(tableName, ast) {
-        let tableAlias = "";
+        let tableAlias = [];
         const ucTableName = tableName.toUpperCase();
 
-        tableAlias = TableAlias.getTableAliasFromJoin(tableAlias, ucTableName, ast);
-        tableAlias = TableAlias.getTableAliasUnion(tableAlias, ucTableName, ast);
-        tableAlias = TableAlias.getTableAliasWhereIn(tableAlias, ucTableName, ast);
-        tableAlias = TableAlias.getTableAliasWhereTerms(tableAlias, ucTableName, ast);
+        tableAlias.push(...TableAlias.getTableAliasFromJoin(ucTableName, ast));
+        tableAlias.push(...TableAlias.getTableAliasUnion(ucTableName, ast));
+        tableAlias.push(...TableAlias.getTableAliasWhereIn(ucTableName, ast));
+        tableAlias.push(...TableAlias.getTableAliasWhereTerms(ucTableName, ast));
 
         return tableAlias;
     }
 
     /**
      * Searches the FROM and JOIN components of a SELECT to find the table alias.
-     * @param {String} tableAlias - Default alias name
      * @param {String} tableName - table name to search for.
      * @param {Object} ast - Abstract Syntax Tree to search
-     * @returns {String} - Table alias name.
+     * @returns {String[]} - Table alias name.
      */
-    static getTableAliasFromJoin(tableAlias, tableName, ast) {
+    static getTableAliasFromJoin(tableName, ast) {
         const astTableBlocks = ['FROM', 'JOIN'];
-        let aliasNameFound = tableAlias;
+        const aliasList = [];
 
-        let i = 0;
-        while (aliasNameFound === "" && i < astTableBlocks.length) {
-            aliasNameFound = TableAlias.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
-            i++;
+        for (const block of astTableBlocks) {
+            aliasList.push(...TableAlias.locateAstTableAlias(tableName, ast, block));
         }
 
-        return aliasNameFound;
+        return aliasList;
     }
 
     /**
@@ -662,11 +660,14 @@ class TableAlias {
      * @param {String} tableName - Table name to find in AST.
      * @param {Object} ast - AST of SELECT.
      * @param {String} astBlock - AST property to search.
-     * @returns {String} - Alias name or "" if not found.
+     * @returns {String[]} - Alias name or "" if not found.
      */
     static locateAstTableAlias(tableName, ast, astBlock) {
-        if (typeof ast[astBlock] === 'undefined')
-            return "";
+        const aliastSet = new Set();
+
+        if (typeof ast[astBlock] === 'undefined') {
+            return Array.from(aliastSet);
+        }
 
         let block = [ast[astBlock]];
         if (TableAlias.isIterable(ast[astBlock])) {
@@ -675,11 +676,11 @@ class TableAlias {
 
         for (const astItem of block) {
             if (typeof astItem.table === 'string' && tableName === astItem.table.toUpperCase() && astItem.as !== "") {
-                return astItem.as;
+                aliastSet.add(astItem.as);
             }
         }
 
-        return "";
+        return Array.from(aliastSet);
     }
 
     /**
@@ -697,23 +698,19 @@ class TableAlias {
 
     /**
      * Searches the UNION portion of the SELECT to locate the table alias.
-     * @param {String} tableAlias - default table alias.
      * @param {String} tableName - table name to search for.
      * @param {Object} ast - Abstract Syntax Tree to search
-     * @returns {String} - table alias
+     * @returns {String[]} - table alias
      */
-    static getTableAliasUnion(tableAlias, tableName, ast) {
+    static getTableAliasUnion(tableName, ast) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
-        let extractedAlias = tableAlias;
+        let extractedAlias = [];
 
         let i = 0;
-        while (extractedAlias === "" && i < astRecursiveTableBlocks.length) {
+        while (i < astRecursiveTableBlocks.length) {
             if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
                 for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
-                    extractedAlias = TableAlias.getTableAlias(tableName, unionAst);
-
-                    if (extractedAlias !== "")
-                        break;
+                    extractedAlias.push(...TableAlias.getTableAlias(tableName, unionAst));
                 }
             }
             i++;
@@ -724,19 +721,19 @@ class TableAlias {
 
     /**
      * Search WHERE IN component of SELECT to find table alias.
-     * @param {String} tableAlias - default table alias
      * @param {String} tableName - table name to search for
      * @param {Object} ast - Abstract Syntax Tree to search
-     * @returns {String} - table alias
+     * @returns {String[]} - table alias
      */
-    static getTableAliasWhereIn(tableAlias, tableName, ast) {
-        let extractedAlias = tableAlias;
-        if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
-            extractedAlias = TableAlias.getTableAlias(tableName, ast.WHERE.right);
+    static getTableAliasWhereIn(tableName, ast) {
+        let extractedAlias = [];
+
+        if (typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
+            extractedAlias.push(...TableAlias.getTableAlias(tableName, ast.WHERE.right));
         }
 
-        if (extractedAlias === "" && ast.operator === "IN") {
-            extractedAlias = TableAlias.getTableAlias(tableName, ast.right);
+        if (ast.operator === "IN") {
+            extractedAlias.push(...TableAlias.getTableAlias(tableName, ast.right));
         }
 
         return extractedAlias;
@@ -744,17 +741,16 @@ class TableAlias {
 
     /**
      * Search WHERE terms of SELECT to find table alias.
-     * @param {String} tableAlias - default table alias
      * @param {String} tableName  - table name to search for.
      * @param {Object} ast - Abstract Syntax Tree to search.
-     * @returns {String} - table alias
+     * @returns {String[]} - table alias
      */
-    static getTableAliasWhereTerms(tableAlias, tableName, ast) {
-        let extractedTableAlias = tableAlias;
-        if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
+    static getTableAliasWhereTerms(tableName, ast) {
+        let extractedTableAlias = [];
+
+        if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
             for (const term of ast.WHERE.terms) {
-                if (extractedTableAlias === "")
-                    extractedTableAlias = TableAlias.getTableAlias(tableName, term);
+                extractedTableAlias.push(...TableAlias.getTableAlias(tableName, term));
             }
         }
 
@@ -1267,7 +1263,7 @@ class Table {       //  skipcq: JS-0128
 
     /**
      * Set associated table alias name to object.
-     * @param {String} tableAlias - table alias that may be used to prefix column names.
+     * @param {String[]} tableAlias - table alias that may be used to prefix column names.
      * @returns {Table}
      */
     setTableAlias(tableAlias) {
@@ -1442,10 +1438,11 @@ class Table {       //  skipcq: JS-0128
 
     /**
      * Returns table field names that are prefixed with table name.
+     * @param {String} aliasName
      * @returns {String[]} - field names
      */
-    getAllExtendedNotationFieldNames() {
-        return this.schema.getAllExtendedNotationFieldNames();
+    getAllExtendedNotationFieldNames(aliasName = '') {
+        return this.schema.getAllExtendedNotationFieldNames(aliasName);
     }
 
     /**
@@ -1549,7 +1546,7 @@ class Schema {
         this.tableName = "";
 
         /** @property {String} - Alias name of table. */
-        this.tableAlias = "";
+        this.tableAlias = [];
 
         /** @property {any[][]} - Table data double array. */
         this.tableData = [];
@@ -1579,11 +1576,20 @@ class Schema {
 
     /**
      * Associate the table alias to this object.
-     * @param {String} tableAlias - table alias name
+     * @param {String[]} tableAlias - table alias name
      * @returns {Schema}  
      */
     setTableAlias(tableAlias) {
-        this.tableAlias = tableAlias.toUpperCase();
+        const uniqueAliasSet = new Set();
+
+        for (const alias of tableAlias) {
+            if (alias !== '') {
+                uniqueAliasSet.add(alias.toUpperCase());   
+            }
+        }
+
+        this.tableAlias = Array.from(uniqueAliasSet);
+
         return this;
     }
 
@@ -1626,18 +1632,20 @@ class Schema {
 
     /**
      * All table fields names with 'TABLE.field_name'.
+     * @param {String} aliasName
      * @returns {String[]} - list of all field names with table prefix.
      */
-    getAllExtendedNotationFieldNames() {
+    getAllExtendedNotationFieldNames(aliasName) {
         /** @type {String[]} */
         const fieldNames = [];
+        const tableName = aliasName !== '' ? aliasName : this.tableName;
 
         // @ts-ignore
         for (const [key, value] of this.fields.entries()) {
             if (value !== null) {
                 const fieldParts = key.split(".");
                 if (typeof fieldNames[value] === 'undefined' ||
-                    (fieldParts.length === 2 && (fieldParts[0] === this.tableName || this.isDerivedTable)))
+                    (fieldParts.length === 2 && (fieldParts[0] === tableName || this.isDerivedTable)))
                     fieldNames[value] = key;
             }
         }
@@ -1723,8 +1731,7 @@ class Schema {
     /**
      * @typedef {Object} FieldVariants
      * @property {String} columnName
-     * @property {String} fullColumnName
-     * @property {String} fullColumnAliasName
+     * @property {String[]} columnNameVariants
      */
 
     /**
@@ -1735,15 +1742,17 @@ class Schema {
      */
     getColumnNameVariants(colName) {
         const columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
-        let fullColumnName = columnName;
-        let fullColumnAliasName = "";
+        const columnNameVariants = [];
+
         if (columnName.indexOf(".") === -1) {
-            fullColumnName = `${this.tableName}.${columnName}`;
-            if (this.tableAlias !== "")
-                fullColumnAliasName = `${this.tableAlias}.${columnName}`;
+            columnNameVariants.push(`${this.tableName}.${columnName}`);
+
+            for (const tableAlias of this.tableAlias) {
+                columnNameVariants.push(`${tableAlias}.${columnName}`);
+            }
         }
 
-        return { columnName, fullColumnName, fullColumnAliasName };
+        return { columnName, columnNameVariants };
     }
 
     /**
@@ -1756,10 +1765,8 @@ class Schema {
             this.fields.set(fieldVariants.columnName, colNum);
 
             if (!this.isDerivedTable) {
-                this.fields.set(fieldVariants.fullColumnName, colNum);
-
-                if (fieldVariants.fullColumnAliasName !== "") {
-                    this.fields.set(fieldVariants.fullColumnAliasName, colNum);
+                for (const fld of fieldVariants.columnNameVariants) {
+                    this.fields.set(fld, colNum);
                 }
             }
         }
@@ -1875,8 +1882,9 @@ class SelectTables {
      * @returns {void}
      */
     join(ast) {
-        if (typeof ast.JOIN !== 'undefined')
+        if (typeof ast.JOIN !== 'undefined') {
             this.dataJoin.load(ast);
+        }
     }
 
     /**
@@ -3195,13 +3203,25 @@ class DerivedTable {                     //  skipcq: JS-0128
     }
 
     /**
+     * 
+     * @param {String} leftAlias 
+     * @param {String} joinAlias 
+     * @returns {DerivedTable}
+     */
+    setJoinTableAlias(leftAlias = '', joinAlias = '') {
+        this.leftTableAlias = leftAlias;
+        this.rightTableAlias = joinAlias;
+        return this;
+    }
+
+    /**
      * Create derived table from the two tables that are joined.
      * @returns {DerivedTable}
      */
     createTable() {
         const columnCount = this.rightField.tableInfo.getColumnCount();
         const emptyRightRow = Array(columnCount).fill(null);
-        const joinedData = [DerivedTable.getCombinedColumnTitles(this.leftField, this.rightField)];
+        const joinedData = [DerivedTable.getCombinedColumnTitles(this.leftField, this.rightField, this.leftTableAlias, this.rightTableAlias)];
 
         for (let i = 1; i < this.leftField.tableInfo.tableData.length; i++) {
             if (typeof this.leftRecords[i] === "undefined") {
@@ -3243,11 +3263,16 @@ class DerivedTable {                     //  skipcq: JS-0128
      * Create title row from LEFT and RIGHT table.
      * @param {TableField} leftField 
      * @param {TableField} rightField 
+     * @param {String} leftTableAlias
+     * @param {String} rightTableAlias
      * @returns {String[]}
      */
-    static getCombinedColumnTitles(leftField, rightField) {
-        const titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames();
-        const rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames();
+    static getCombinedColumnTitles(leftField, rightField, leftTableAlias, rightTableAlias) {
+        const leftAlias = leftField.originalTable === rightField.originalTable ? leftTableAlias : '';
+        const rightAlias = leftField.originalTable === rightField.originalTable ? rightTableAlias : '';
+        const titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames(leftAlias);
+        const rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames(rightAlias);
+        
         return titleRow.concat(rightFieldNames);
     }
 }
@@ -4277,20 +4302,19 @@ class TableFields {
      * @param {Map<String,Table>} tableInfo - map of all loaded tables. 
      */
     loadVirtualFields(primaryTable, tableInfo) {
-        /** @type {String} */
         let tableName = "";
-        /** @type {Table} */
         let tableObject = null;
+
         // @ts-ignore
         for ([tableName, tableObject] of tableInfo.entries()) {
-            for (const field of tableObject.getAllFieldNames()) {
+            const tableFieldNames = tableObject.getAllFieldNames();
+
+            for (const field of tableFieldNames) {
                 const tableColumn = tableObject.getFieldColumn(field);
 
                 let virtualField = this.findTableField(tableName, tableColumn);
-                if (virtualField !== null) {
-                    virtualField.addAlias(field);
-                }
-                else {
+
+                if (virtualField === null) {
                     virtualField = new TableField()
                         .setOriginalTable(tableName)
                         .setOriginalTableColumn(tableColumn)
@@ -4300,12 +4324,39 @@ class TableFields {
 
                     this.allFields.push(virtualField);
                 }
+                else {
+                    virtualField.addAlias(field);
+                }
 
                 this.indexTableField(virtualField, primaryTable.toUpperCase() === tableName.toUpperCase());
             }
         }
 
         this.allFields.sort(TableFields.sortPrimaryFields);
+    }
+
+    /**
+     * Set up mapping to quickly find field info - by all (alias) names, by table+column.
+     * @param {TableField} field - field info.
+     * @param {Boolean} isPrimaryTable - is this a field from the SELECT FROM TABLE.
+     */
+    indexTableField(field, isPrimaryTable = false) {
+        for (const aliasField of field.aliasNames) {
+            const fieldInfo = this.fieldNameMap.get(aliasField);
+
+            if (typeof fieldInfo === 'undefined' || isPrimaryTable) {
+                this.fieldNameMap.set(aliasField, field);
+            }
+        }
+
+        //  This is something referenced in GROUP BY but is NOT in the SELECTED fields list.
+        if (field.tempField && !this.fieldNameMap.has(field.columnName.toUpperCase())) {
+            this.fieldNameMap.set(field.columnName.toUpperCase(), field);
+        }
+
+        if (field.originalTableColumn !== -1) {
+            this.setTableField(field);
+        }
     }
 
     /**
@@ -4329,33 +4380,6 @@ class TableFields {
     }
 
     /**
-     * Set up mapping to quickly find field info - by all (alias) names, by table+column.
-     * @param {TableField} field - field info.
-     * @param {Boolean} isPrimaryTable - is this a field from the SELECT FROM TABLE.
-     */
-    indexTableField(field, isPrimaryTable = false) {
-        for (const aliasField of field.aliasNames) {
-            const fieldInfo = this.fieldNameMap.get(aliasField);
-
-            if (typeof fieldInfo === 'undefined' || isPrimaryTable) {
-                this.fieldNameMap.set(aliasField, field);
-            }
-        }
-
-        //  This is something referenced in GROUP BY but is NOT in the SELECTED fields list.
-        if (field.tempField && !this.fieldNameMap.has(field.columnName.toUpperCase())) {
-            this.fieldNameMap.set(field.columnName.toUpperCase(), field);
-        }
-
-        if (field.originalTableColumn !== -1) {
-            const key = `${field.originalTable}:${field.originalTableColumn}`;
-            if (!this.tableColumnMap.has(key)) {
-                this.tableColumnMap.set(key, field);
-            }
-        }
-    }
-
-    /**
      * Quickly find field info for TABLE + COLUMN NUMBER (key of map)
      * @param {String} tableName - Table name to search for.
      * @param {Number} tableColumn - Column number to search for.
@@ -4364,6 +4388,19 @@ class TableFields {
     findTableField(tableName, tableColumn) {
         const key = `${tableName}:${tableColumn}`;
         return !this.tableColumnMap.has(key) ? null : this.tableColumnMap.get(key);
+    }
+
+    /**
+     * @param {TableField} field - field info.
+     * @returns {TableFields}
+     */
+    setTableField(field) {
+        const key = `${field.originalTable}:${field.originalTableColumn}`;
+        if (!this.tableColumnMap.has(key)) {
+            this.tableColumnMap.set(key, field);
+        }
+
+        return this;
     }
 
     /**
@@ -4401,7 +4438,7 @@ class TableFields {
      */
     getFieldColumn(field) {
         const fld = this.getFieldInfo(field);
-        return fld !== null ? fld.tableColumn : -1;
+        return fld !== null ? fld.getTableColumn(field) : -1;
     }
 
     /**
@@ -4473,9 +4510,8 @@ class TableFields {
         if (selectedFieldParms.parsedField.aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
             //  A new SELECT field, not from existing.
             const newFieldInfo = new TableField();
-            Object.assign(newFieldInfo, fieldInfo);
+            Object.assign(newFieldInfo, fieldInfo);          
             fieldInfo = newFieldInfo;
-
             this.allFields.push(fieldInfo);
         }
 
@@ -4631,7 +4667,7 @@ class TableFields {
         for (const field of derivedTableFields) {
             if (this.hasField(field.fieldName)) {
                 const originalField = this.getFieldInfo(field.fieldName);
-                originalField.derivedTableColumn = fieldNo;
+                originalField.setDerivedTableColumn(field.fieldName, fieldNo);
                 originalField.tableInfo = derivedTable.tableInfo;
             }
 
@@ -4733,8 +4769,8 @@ class TableField {
         this.aliasNames = [];
         /** @property {String} */
         this.fieldName = "";
-        /** @property {Number} */
-        this.derivedTableColumn = -1;
+        /** @property {Map<String, Number>} */
+        this._derivedTableColumn = new Map();
         /** @property {Number} */
         this.selectColumn = -1;
         /** @property {Boolean} */
@@ -4762,8 +4798,39 @@ class TableField {
      * Get field column number.
      * @returns {Number} - column number
      */
-    get tableColumn() {
-        return this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
+    getTableColumn(fieldName = "") {
+        return this.getDerivedTableColumn(fieldName) === -1 ? this.originalTableColumn : this.getDerivedTableColumn(fieldName);
+    }
+
+    /**
+     * 
+     * @param {String} fieldName 
+     * @param {Number} columnNumber 
+     * @returns {TableField}
+     */
+    setDerivedTableColumn(fieldName, columnNumber) {
+        this._derivedTableColumn.set(fieldName, columnNumber);
+        return this;
+    }
+
+    /**
+     * 
+     * @param {String} fieldName 
+     * @returns {Number}
+     */
+    getDerivedTableColumn(fieldName) {
+        if (this._derivedTableColumn.size === 1) {
+            const mapIterator = this._derivedTableColumn.entries();
+            const firstElement = mapIterator.next().value;
+
+            return firstElement[1]; // [key,value] - we extract the value.
+        }
+
+        if (this._derivedTableColumn.has(fieldName.toUpperCase())) {
+            return this._derivedTableColumn.get(fieldName.toUpperCase());
+        }
+
+        return -1;
     }
 
     /**
@@ -4928,7 +4995,7 @@ class TableField {
      * @returns {any} - data
      */
     getData(tableRow) {
-        const columnNumber = this.derivedTableColumn === -1 ? this.originalTableColumn : this.derivedTableColumn;
+        const columnNumber = this.getDerivedTableColumn(this.columnName) === -1 ? this.originalTableColumn : this.getDerivedTableColumn(this.columnName);
 
         return this.tableInfo.tableData[tableRow][columnNumber];
     }
@@ -5017,19 +5084,20 @@ class JoinTables {                                   //  skipcq: JS-0128
         /** @property {DerivedTable} - result table after tables are joined */
         this.derivedTable = new DerivedTable();
 
-        ast.JOIN.forEach(joinTable => this.joinNextTable(joinTable, ast.FROM.table.toUpperCase()));
+        ast.JOIN.forEach(joinTable => this.joinNextTable(joinTable, ast.FROM.table.toUpperCase(), ast.FROM.as));
     }
 
     /**
      * Updates derived table with join to new table.
      * @param {Object} astJoin
      * @param {String} leftTableName
+     * @param {String} leftAlias
      */
-    joinNextTable(astJoin, leftTableName) {
+    joinNextTable(astJoin, leftTableName, leftAlias) {
         const recIds = this.joinCondition(astJoin, leftTableName);
-
         const joinFieldsInfo = this.joinTableIDs.getJoinFieldsInfo();
-        this.derivedTable = JoinTables.joinTables(joinFieldsInfo, astJoin, recIds);
+
+        this.derivedTable = JoinTables.joinTables(joinFieldsInfo, astJoin, recIds, leftAlias);
 
         //  Field locations have changed to the derived table, so update our
         //  virtual field list with proper settings.
@@ -5133,7 +5201,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            recIds.forEach(rec => {temp = temp.concat(rec[i])});
+            recIds.forEach(rec => { temp = temp.concat(rec[i]) });
 
             if (typeof temp[0] !== 'undefined') {
                 result[i] = Array.from(new Set(temp));
@@ -5168,9 +5236,10 @@ class JoinTables {                                   //  skipcq: JS-0128
     * @param {LeftRightJoinFields} leftRightFieldInfo - left table field of join
     * @param {Object} joinTable - AST that contains join type.
     * @param {MatchingJoinRecordIDs} recIds
+    * @param {String} leftAlias
     * @returns {DerivedTable} - new derived table after join of left and right tables.
     */
-    static joinTables(leftRightFieldInfo, joinTable, recIds) {
+    static joinTables(leftRightFieldInfo, joinTable, recIds, leftAlias) {
         let derivedTable = null;
         let rightDerivedTable = null;
 
@@ -5181,6 +5250,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
                     .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
+                    .setJoinTableAlias(leftAlias, joinTable.as)
                     .createTable();
                 break;
 
@@ -5190,6 +5260,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
                     .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(false)
+                    .setJoinTableAlias(leftAlias, joinTable.as)
                     .createTable();
                 break;
 
@@ -5199,6 +5270,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                     .setRightField(leftRightFieldInfo.leftSideInfo.fieldInfo)
                     .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
+                    .setJoinTableAlias(leftAlias, joinTable.as)
                     .createTable();
 
                 break;
@@ -5209,6 +5281,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
                     .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
+                    .setJoinTableAlias(joinTable.as)
                     .createTable();
 
                 rightDerivedTable = new DerivedTable()
@@ -5216,6 +5289,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                     .setRightField(leftRightFieldInfo.leftSideInfo.fieldInfo)
                     .setLeftRecords(recIds.rightJoinRecordIDs)
                     .setIsOuterJoin(true)
+                    .setJoinTableAlias(joinTable.as)
                     .createTable();
 
                 derivedTable.tableInfo.concat(rightDerivedTable.tableInfo); // skipcq: JS-D008
@@ -5356,6 +5430,7 @@ class JoinTablesRecordIds {
      * @typedef {Object} LeftRightJoinFields
      * @property {JoinSideInfo} leftSideInfo
      * @property {JoinSideInfo} rightSideInfo
+     * @property {String} operator
      * 
      */
 
@@ -5378,9 +5453,11 @@ class JoinTablesRecordIds {
 
         const left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
         const right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
+        const operator = typeof astJoin.cond === 'undefined' ? astJoin.operator : astJoin.cond.operator;
 
         leftFieldInfo = this.getTableInfoFromCalculatedField(left);
         rightFieldInfo = this.getTableInfoFromCalculatedField(right);
+        const isSelfJoin = leftFieldInfo.originalTable === rightFieldInfo.originalTable;
 
         /** @type {JoinSideInfo} */
         const leftSideInfo = {
@@ -5394,14 +5471,15 @@ class JoinTablesRecordIds {
         }
 
         //  joinTable.table is the RIGHT table, so switch if equal to condition left.
-        if (typeof leftFieldInfo !== 'undefined' && this.rightTableName === leftFieldInfo.originalTable) {
+        if (typeof leftFieldInfo !== 'undefined' && this.rightTableName === leftFieldInfo.originalTable && !isSelfJoin) {
             return {
                 leftSideInfo: rightSideInfo,
-                rightSideInfo: leftSideInfo
+                rightSideInfo: leftSideInfo,
+                operator: operator
             };
         }
 
-        return { leftSideInfo, rightSideInfo };
+        return { leftSideInfo, rightSideInfo, operator };
     }
 
     /**
@@ -5511,7 +5589,7 @@ class JoinTablesRecordIds {
     }
 
     /**
-     * Returns array of each matching record ID from right table for every record in left table.
+     * Returns array of each CONDITIONAL matching record ID from right table for every record in left table.
      * If the right table entry could NOT be found, -1 is set for that record index.
      * @param {JoinSideInfo} leftField - left table field
      * @param {JoinSideInfo} rightField - right table field
@@ -5524,23 +5602,37 @@ class JoinTablesRecordIds {
         //  First record is the column title.
         leftRecordsIDs.push([0]);
 
+        const conditionFunction = FieldComparisons.getComparisonFunction(this.joinFields.operator);
         const leftTableData = leftField.fieldInfo.tableInfo.tableData;
-
-        //  Map the RIGHT JOIN key to record numbers.
         const keyFieldMap = this.createKeyFieldRecordMap(rightField);
 
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
             const keyMasterJoinField = this.getJoinColumnData(leftField, leftTableRecordNum);
+            let rightRecordIDs = [];
+
+            if (this.joinFields.operator === '=') {
+                //  "=" - special case.  
+                //  Most common case AND far fewer comparisons - especially if right table is large.
+                rightRecordIDs = keyFieldMap.has(keyMasterJoinField) ? keyFieldMap.get(keyMasterJoinField) : [];
+            }
+            else {
+                // @ts-ignore
+                for (const [key, data] of keyFieldMap) {
+                    if (conditionFunction(keyMasterJoinField, key)) {
+                        rightRecordIDs.unshift(...data);
+                    }
+                }
+            }
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
-            if (!keyFieldMap.has(keyMasterJoinField)) {
+            if (rightRecordIDs.length === 0) {
                 if (type !== "inner") {
                     leftRecordsIDs[leftTableRecordNum] = [-1];
                 }
             }
             else if (type !== "outer") {
                 //  Excludes all match recordgs (is outer the right word for this?)
-                leftRecordsIDs[leftTableRecordNum] = keyFieldMap.get(keyMasterJoinField);
+                leftRecordsIDs[leftTableRecordNum] = rightRecordIDs;
             }
         }
 
@@ -5555,9 +5647,9 @@ class JoinTablesRecordIds {
      */
     getJoinColumnData(fieldInfo, recordNumber) {
         let keyMasterJoinField = null;
-        const tableColumnNumber = fieldInfo.fieldInfo.tableColumn;
 
-        if (typeof tableColumnNumber !== 'undefined') {
+        if (typeof fieldInfo.fieldInfo.getTableColumn === 'function') {
+            const tableColumnNumber = fieldInfo.fieldInfo.getTableColumn(fieldInfo.fieldInfo.fieldName);
             keyMasterJoinField = fieldInfo.fieldInfo.tableInfo.tableData[recordNumber][tableColumnNumber];
         }
         else {
@@ -5575,7 +5667,7 @@ class JoinTablesRecordIds {
     createKeyFieldRecordMap(rightField) {
         let keyFieldMap = null;
 
-        if (typeof rightField.fieldInfo.tableColumn !== 'undefined') {
+        if (typeof rightField.fieldInfo.getTableColumn === 'function') {
             keyFieldMap = rightField.fieldInfo.tableInfo.createKeyFieldRecordMap(rightField.fieldInfo.fieldName);
         }
         else {

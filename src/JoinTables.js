@@ -3,7 +3,7 @@
 
 import { Table } from './Table.js';
 import { BindData } from './Sql.js';
-import { DerivedTable, TableFields, TableField, CalculatedField, SqlServerFunctions } from './Views.js';
+import { DerivedTable, TableFields, TableField, CalculatedField, SqlServerFunctions, FieldComparisons } from './Views.js';
 export { JoinTables, JoinTablesRecordIds };
 //  *** DEBUG END ***/
 
@@ -74,19 +74,20 @@ class JoinTables {                                   //  skipcq: JS-0128
         /** @property {DerivedTable} - result table after tables are joined */
         this.derivedTable = new DerivedTable();
 
-        ast.JOIN.forEach(joinTable => this.joinNextTable(joinTable, ast.FROM.table.toUpperCase()));
+        ast.JOIN.forEach(joinTable => this.joinNextTable(joinTable, ast.FROM.table.toUpperCase(), ast.FROM.as));
     }
 
     /**
      * Updates derived table with join to new table.
      * @param {Object} astJoin
      * @param {String} leftTableName
+     * @param {String} leftAlias
      */
-    joinNextTable(astJoin, leftTableName) {
+    joinNextTable(astJoin, leftTableName, leftAlias) {
         const recIds = this.joinCondition(astJoin, leftTableName);
-
         const joinFieldsInfo = this.joinTableIDs.getJoinFieldsInfo();
-        this.derivedTable = JoinTables.joinTables(joinFieldsInfo, astJoin, recIds);
+
+        this.derivedTable = JoinTables.joinTables(joinFieldsInfo, astJoin, recIds, leftAlias);
 
         //  Field locations have changed to the derived table, so update our
         //  virtual field list with proper settings.
@@ -190,7 +191,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            recIds.forEach(rec => {temp = temp.concat(rec[i])});
+            recIds.forEach(rec => { temp = temp.concat(rec[i]) });
 
             if (typeof temp[0] !== 'undefined') {
                 result[i] = Array.from(new Set(temp));
@@ -225,9 +226,10 @@ class JoinTables {                                   //  skipcq: JS-0128
     * @param {LeftRightJoinFields} leftRightFieldInfo - left table field of join
     * @param {Object} joinTable - AST that contains join type.
     * @param {MatchingJoinRecordIDs} recIds
+    * @param {String} leftAlias
     * @returns {DerivedTable} - new derived table after join of left and right tables.
     */
-    static joinTables(leftRightFieldInfo, joinTable, recIds) {
+    static joinTables(leftRightFieldInfo, joinTable, recIds, leftAlias) {
         let derivedTable = null;
         let rightDerivedTable = null;
 
@@ -238,6 +240,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
                     .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
+                    .setJoinTableAlias(leftAlias, joinTable.as)
                     .createTable();
                 break;
 
@@ -247,6 +250,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
                     .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(false)
+                    .setJoinTableAlias(leftAlias, joinTable.as)
                     .createTable();
                 break;
 
@@ -256,6 +260,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                     .setRightField(leftRightFieldInfo.leftSideInfo.fieldInfo)
                     .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
+                    .setJoinTableAlias(leftAlias, joinTable.as)
                     .createTable();
 
                 break;
@@ -266,6 +271,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                     .setRightField(leftRightFieldInfo.rightSideInfo.fieldInfo)
                     .setLeftRecords(recIds.leftJoinRecordIDs)
                     .setIsOuterJoin(true)
+                    .setJoinTableAlias(joinTable.as)
                     .createTable();
 
                 rightDerivedTable = new DerivedTable()
@@ -273,6 +279,7 @@ class JoinTables {                                   //  skipcq: JS-0128
                     .setRightField(leftRightFieldInfo.leftSideInfo.fieldInfo)
                     .setLeftRecords(recIds.rightJoinRecordIDs)
                     .setIsOuterJoin(true)
+                    .setJoinTableAlias(joinTable.as)
                     .createTable();
 
                 derivedTable.tableInfo.concat(rightDerivedTable.tableInfo); // skipcq: JS-D008
@@ -413,6 +420,7 @@ class JoinTablesRecordIds {
      * @typedef {Object} LeftRightJoinFields
      * @property {JoinSideInfo} leftSideInfo
      * @property {JoinSideInfo} rightSideInfo
+     * @property {String} operator
      * 
      */
 
@@ -435,9 +443,11 @@ class JoinTablesRecordIds {
 
         const left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
         const right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
+        const operator = typeof astJoin.cond === 'undefined' ? astJoin.operator : astJoin.cond.operator;
 
         leftFieldInfo = this.getTableInfoFromCalculatedField(left);
         rightFieldInfo = this.getTableInfoFromCalculatedField(right);
+        const isSelfJoin = leftFieldInfo.originalTable === rightFieldInfo.originalTable;
 
         /** @type {JoinSideInfo} */
         const leftSideInfo = {
@@ -451,14 +461,15 @@ class JoinTablesRecordIds {
         }
 
         //  joinTable.table is the RIGHT table, so switch if equal to condition left.
-        if (typeof leftFieldInfo !== 'undefined' && this.rightTableName === leftFieldInfo.originalTable) {
+        if (typeof leftFieldInfo !== 'undefined' && this.rightTableName === leftFieldInfo.originalTable && !isSelfJoin) {
             return {
                 leftSideInfo: rightSideInfo,
-                rightSideInfo: leftSideInfo
+                rightSideInfo: leftSideInfo,
+                operator: operator
             };
         }
 
-        return { leftSideInfo, rightSideInfo };
+        return { leftSideInfo, rightSideInfo, operator };
     }
 
     /**
@@ -568,7 +579,7 @@ class JoinTablesRecordIds {
     }
 
     /**
-     * Returns array of each matching record ID from right table for every record in left table.
+     * Returns array of each CONDITIONAL matching record ID from right table for every record in left table.
      * If the right table entry could NOT be found, -1 is set for that record index.
      * @param {JoinSideInfo} leftField - left table field
      * @param {JoinSideInfo} rightField - right table field
@@ -581,23 +592,37 @@ class JoinTablesRecordIds {
         //  First record is the column title.
         leftRecordsIDs.push([0]);
 
+        const conditionFunction = FieldComparisons.getComparisonFunction(this.joinFields.operator);
         const leftTableData = leftField.fieldInfo.tableInfo.tableData;
-
-        //  Map the RIGHT JOIN key to record numbers.
         const keyFieldMap = this.createKeyFieldRecordMap(rightField);
 
         for (let leftTableRecordNum = 1; leftTableRecordNum < leftTableData.length; leftTableRecordNum++) {
             const keyMasterJoinField = this.getJoinColumnData(leftField, leftTableRecordNum);
+            let rightRecordIDs = [];
+
+            if (this.joinFields.operator === '=') {
+                //  "=" - special case.  
+                //  Most common case AND far fewer comparisons - especially if right table is large.
+                rightRecordIDs = keyFieldMap.has(keyMasterJoinField) ? keyFieldMap.get(keyMasterJoinField) : [];
+            }
+            else {
+                // @ts-ignore
+                for (const [key, data] of keyFieldMap) {
+                    if (conditionFunction(keyMasterJoinField, key)) {
+                        rightRecordIDs.unshift(...data);
+                    }
+                }
+            }
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
-            if (!keyFieldMap.has(keyMasterJoinField)) {
+            if (rightRecordIDs.length === 0) {
                 if (type !== "inner") {
                     leftRecordsIDs[leftTableRecordNum] = [-1];
                 }
             }
             else if (type !== "outer") {
                 //  Excludes all match recordgs (is outer the right word for this?)
-                leftRecordsIDs[leftTableRecordNum] = keyFieldMap.get(keyMasterJoinField);
+                leftRecordsIDs[leftTableRecordNum] = rightRecordIDs;
             }
         }
 
@@ -612,9 +637,9 @@ class JoinTablesRecordIds {
      */
     getJoinColumnData(fieldInfo, recordNumber) {
         let keyMasterJoinField = null;
-        const tableColumnNumber = fieldInfo.fieldInfo.tableColumn;
 
-        if (typeof tableColumnNumber !== 'undefined') {
+        if (typeof fieldInfo.fieldInfo.getTableColumn === 'function') {
+            const tableColumnNumber = fieldInfo.fieldInfo.getTableColumn(fieldInfo.fieldInfo.fieldName);
             keyMasterJoinField = fieldInfo.fieldInfo.tableInfo.tableData[recordNumber][tableColumnNumber];
         }
         else {
@@ -632,7 +657,7 @@ class JoinTablesRecordIds {
     createKeyFieldRecordMap(rightField) {
         let keyFieldMap = null;
 
-        if (typeof rightField.fieldInfo.tableColumn !== 'undefined') {
+        if (typeof rightField.fieldInfo.getTableColumn === 'function') {
             keyFieldMap = rightField.fieldInfo.tableInfo.createKeyFieldRecordMap(rightField.fieldInfo.fieldName);
         }
         else {

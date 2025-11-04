@@ -628,6 +628,7 @@ class TableAlias {
         // @ts-ignore
         for (const table of tables.keys()) {
             const tableAlias = TableAlias.getTableAlias(table, ast);
+
             const tableInfo = tables.get(table.toUpperCase());
             tableInfo.setTableAlias(tableAlias);
         }
@@ -637,38 +638,35 @@ class TableAlias {
     * Find table alias name (if any) for input actual table name.
     * @param {String} tableName - Actual table name.
     * @param {Object} ast - Abstract Syntax Tree for SQL.
-    * @returns {String} - Table alias.  Empty string if not found.
+    * @returns {String[]} - Table alias.  Empty string if not found.
     */
     static getTableAlias(tableName, ast) {
-        let tableAlias = "";
+        let tableAlias = [];
         const ucTableName = tableName.toUpperCase();
 
-        tableAlias = TableAlias.getTableAliasFromJoin(tableAlias, ucTableName, ast);
-        tableAlias = TableAlias.getTableAliasUnion(tableAlias, ucTableName, ast);
-        tableAlias = TableAlias.getTableAliasWhereIn(tableAlias, ucTableName, ast);
-        tableAlias = TableAlias.getTableAliasWhereTerms(tableAlias, ucTableName, ast);
+        tableAlias.push(...TableAlias.getTableAliasFromJoin(ucTableName, ast));
+        tableAlias.push(...TableAlias.getTableAliasUnion(ucTableName, ast));
+        tableAlias.push(...TableAlias.getTableAliasWhereIn(ucTableName, ast));
+        tableAlias.push(...TableAlias.getTableAliasWhereTerms(ucTableName, ast));
 
         return tableAlias;
     }
 
     /**
      * Searches the FROM and JOIN components of a SELECT to find the table alias.
-     * @param {String} tableAlias - Default alias name
      * @param {String} tableName - table name to search for.
      * @param {Object} ast - Abstract Syntax Tree to search
-     * @returns {String} - Table alias name.
+     * @returns {String[]} - Table alias name.
      */
-    static getTableAliasFromJoin(tableAlias, tableName, ast) {
+    static getTableAliasFromJoin(tableName, ast) {
         const astTableBlocks = ['FROM', 'JOIN'];
-        let aliasNameFound = tableAlias;
+        const aliasList = [];
 
-        let i = 0;
-        while (aliasNameFound === "" && i < astTableBlocks.length) {
-            aliasNameFound = TableAlias.locateAstTableAlias(tableName, ast, astTableBlocks[i]);
-            i++;
+        for (const block of astTableBlocks) {
+            aliasList.push(...TableAlias.locateAstTableAlias(tableName, ast, block));
         }
 
-        return aliasNameFound;
+        return aliasList;
     }
 
     /**
@@ -676,11 +674,14 @@ class TableAlias {
      * @param {String} tableName - Table name to find in AST.
      * @param {Object} ast - AST of SELECT.
      * @param {String} astBlock - AST property to search.
-     * @returns {String} - Alias name or "" if not found.
+     * @returns {String[]} - Alias name or "" if not found.
      */
     static locateAstTableAlias(tableName, ast, astBlock) {
-        if (typeof ast[astBlock] === 'undefined')
-            return "";
+        const aliastSet = new Set();
+
+        if (typeof ast[astBlock] === 'undefined') {
+            return Array.from(aliastSet);
+        }
 
         let block = [ast[astBlock]];
         if (TableAlias.isIterable(ast[astBlock])) {
@@ -689,11 +690,11 @@ class TableAlias {
 
         for (const astItem of block) {
             if (typeof astItem.table === 'string' && tableName === astItem.table.toUpperCase() && astItem.as !== "") {
-                return astItem.as;
+                aliastSet.add(astItem.as);
             }
         }
 
-        return "";
+        return Array.from(aliastSet);
     }
 
     /**
@@ -711,23 +712,19 @@ class TableAlias {
 
     /**
      * Searches the UNION portion of the SELECT to locate the table alias.
-     * @param {String} tableAlias - default table alias.
      * @param {String} tableName - table name to search for.
      * @param {Object} ast - Abstract Syntax Tree to search
-     * @returns {String} - table alias
+     * @returns {String[]} - table alias
      */
-    static getTableAliasUnion(tableAlias, tableName, ast) {
+    static getTableAliasUnion(tableName, ast) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
-        let extractedAlias = tableAlias;
+        let extractedAlias = [];
 
         let i = 0;
-        while (extractedAlias === "" && i < astRecursiveTableBlocks.length) {
+        while (i < astRecursiveTableBlocks.length) {
             if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
                 for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
-                    extractedAlias = TableAlias.getTableAlias(tableName, unionAst);
-
-                    if (extractedAlias !== "")
-                        break;
+                    extractedAlias.push(...TableAlias.getTableAlias(tableName, unionAst));
                 }
             }
             i++;
@@ -738,19 +735,19 @@ class TableAlias {
 
     /**
      * Search WHERE IN component of SELECT to find table alias.
-     * @param {String} tableAlias - default table alias
      * @param {String} tableName - table name to search for
      * @param {Object} ast - Abstract Syntax Tree to search
-     * @returns {String} - table alias
+     * @returns {String[]} - table alias
      */
-    static getTableAliasWhereIn(tableAlias, tableName, ast) {
-        let extractedAlias = tableAlias;
-        if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
-            extractedAlias = TableAlias.getTableAlias(tableName, ast.WHERE.right);
+    static getTableAliasWhereIn(tableName, ast) {
+        let extractedAlias = [];
+
+        if (typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
+            extractedAlias.push(...TableAlias.getTableAlias(tableName, ast.WHERE.right));
         }
 
-        if (extractedAlias === "" && ast.operator === "IN") {
-            extractedAlias = TableAlias.getTableAlias(tableName, ast.right);
+        if (ast.operator === "IN") {
+            extractedAlias.push(...TableAlias.getTableAlias(tableName, ast.right));
         }
 
         return extractedAlias;
@@ -758,17 +755,16 @@ class TableAlias {
 
     /**
      * Search WHERE terms of SELECT to find table alias.
-     * @param {String} tableAlias - default table alias
      * @param {String} tableName  - table name to search for.
      * @param {Object} ast - Abstract Syntax Tree to search.
-     * @returns {String} - table alias
+     * @returns {String[]} - table alias
      */
-    static getTableAliasWhereTerms(tableAlias, tableName, ast) {
-        let extractedTableAlias = tableAlias;
-        if (tableAlias === "" && typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
+    static getTableAliasWhereTerms(tableName, ast) {
+        let extractedTableAlias = [];
+
+        if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
             for (const term of ast.WHERE.terms) {
-                if (extractedTableAlias === "")
-                    extractedTableAlias = TableAlias.getTableAlias(tableName, term);
+                extractedTableAlias.push(...TableAlias.getTableAlias(tableName, term));
             }
         }
 

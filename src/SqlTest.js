@@ -4265,7 +4265,7 @@ class SqlTester {
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["sum(quantity) - sum(price)"],[24.73]];
+        let expected = [["sum(quantity) - sum(price)"], [24.73]];
 
         return this.isEqual("selectSumMinusSum", data, expected);
     }
@@ -4290,6 +4290,158 @@ class SqlTester {
         ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com", "Dewy Tuesdays"]];
 
         return this.isEqual("innerSelectWithComments", data, expected);
+    }
+
+    JoinTableNotEqualCondition() {
+        let stmt = "select * from booksales join customers on booksales.customer_id <> customers.id";
+
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "CUSTOMERS.ID", "CUSTOMERS.NAME", "CUSTOMERS.ADDRESS", "CUSTOMERS.CITY", "CUSTOMERS.PHONE", "CUSTOMERS.EMAIL"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["I7200", "9", "C1", 10, 34.95, "05/01/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"],
+        ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"],
+        ["I7203", "1", "", 1, 90, "05/02/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"],
+        ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"],
+        ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"],
+        ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["I7205", "7", "C1", 1, 33.97, "05/04/2022", "C2", "Dewy Tuesdays", "202 Second St.", "Second City", "4162022222", "twoguys@gmail.com"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C7", "7th Heaven", "7 Eight Crt.", "Lucky City", "5551117777", " timesAcharm@gmail.com "],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C6", "Sx in Cars", "6 Seventh St", "Sx City", "6661116666", "gotyourSix@hotmail.com   "],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C5", "Fe Fi Fo Giant Tiger", "5 ohFive St.", "FifthDom", "4165551234", "   fiver@gmail.com"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C4", "ForMe Resellers", "40 Four St", "FourtNight City", "2894441234", "fourtimes@hotmail.com"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C3", "Tres Buon Goods", "3 Way St", "Tres City", "5193133303", "thrice@hotmail.com"],
+        ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "C1", "Numereo Uno", "101 One Way", "One Point City", "9051112111", "bigOne@gmail.com"]];
+
+        return this.isEqual("JoinTableNotEqualCondition", data, expected);
+    }
+
+    JoinTableNotEqualCalcCondition() {
+        let stmt = " select invoice, rma from booksales join bookreturns on substr(booksales.customer_id, 2, 1) <> substr(bookreturns.customer_id, 2, 1) where rma = 'Rma001' order by invoice, rma";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["invoice", "rma"],
+        ["I7201", "Rma001"],
+        ["I7201", "Rma001"],
+        ["I7202", "Rma001"],
+        ["I7203", "Rma001"],
+        ["I7204", "Rma001"],
+        ["I7204", "Rma001"],
+        ["I7204", "Rma001"],
+        ["I7206", "Rma001"]];
+
+        return this.isEqual("JoinTableNotEqualCalcCondition", data, expected);
+    }
+
+    SelectTableSelfJoin() {
+        let stmt = "select A.name as custname1, B.name as custname2 from customers as A join customers as B on A.id <> B.id";
+
+        let data = new TestSql()
+            .addTableData("customers", this.customerTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["custname1", "custname2"],
+        ["Numereo Uno", "7th Heaven"],
+        ["Numereo Uno", "Sx in Cars"],
+        ["Numereo Uno", "Fe Fi Fo Giant Tiger"],
+        ["Numereo Uno", "ForMe Resellers"],
+        ["Numereo Uno", "Tres Buon Goods"],
+        ["Numereo Uno", "Dewy Tuesdays"],
+        ["Dewy Tuesdays", "7th Heaven"],
+        ["Dewy Tuesdays", "Sx in Cars"],
+        ["Dewy Tuesdays", "Fe Fi Fo Giant Tiger"],
+        ["Dewy Tuesdays", "ForMe Resellers"],
+        ["Dewy Tuesdays", "Tres Buon Goods"],
+        ["Dewy Tuesdays", "Numereo Uno"],
+        ["Tres Buon Goods", "7th Heaven"],
+        ["Tres Buon Goods", "Sx in Cars"],
+        ["Tres Buon Goods", "Fe Fi Fo Giant Tiger"],
+        ["Tres Buon Goods", "ForMe Resellers"],
+        ["Tres Buon Goods", "Dewy Tuesdays"],
+        ["Tres Buon Goods", "Numereo Uno"],
+        ["ForMe Resellers", "7th Heaven"],
+        ["ForMe Resellers", "Sx in Cars"],
+        ["ForMe Resellers", "Fe Fi Fo Giant Tiger"],
+        ["ForMe Resellers", "Tres Buon Goods"],
+        ["ForMe Resellers", "Dewy Tuesdays"],
+        ["ForMe Resellers", "Numereo Uno"],
+        ["Fe Fi Fo Giant Tiger", "7th Heaven"],
+        ["Fe Fi Fo Giant Tiger", "Sx in Cars"],
+        ["Fe Fi Fo Giant Tiger", "ForMe Resellers"],
+        ["Fe Fi Fo Giant Tiger", "Tres Buon Goods"],
+        ["Fe Fi Fo Giant Tiger", "Dewy Tuesdays"],
+        ["Fe Fi Fo Giant Tiger", "Numereo Uno"],
+        ["Sx in Cars", "7th Heaven"],
+        ["Sx in Cars", "Fe Fi Fo Giant Tiger"],
+        ["Sx in Cars", "ForMe Resellers"],
+        ["Sx in Cars", "Tres Buon Goods"],
+        ["Sx in Cars", "Dewy Tuesdays"],
+        ["Sx in Cars", "Numereo Uno"],
+        ["7th Heaven", "Sx in Cars"],
+        ["7th Heaven", "Fe Fi Fo Giant Tiger"],
+        ["7th Heaven", "ForMe Resellers"],
+        ["7th Heaven", "Tres Buon Goods"],
+        ["7th Heaven", "Dewy Tuesdays"],
+        ["7th Heaven", "Numereo Uno"]];
+
+        return this.isEqual("SelectTableSelfJoin", data, expected);
     }
 
     //  S T A R T   O T H E R   T E S T S
@@ -5488,6 +5640,9 @@ function testerSql() {
     result = result && tester.selectCalculatedFieldNotInSelectFieldsWitinGroupBY();
     result = result && tester.selectLocate();
     result = result && tester.innerSelectWithComments();
+    result = result && tester.JoinTableNotEqualCondition();
+    result = result && tester.JoinTableNotEqualCalcCondition();
+    result = result && tester.SelectTableSelfJoin();
     //  Not supported (yet)
     // result = result && tester.selectSumMinusSum();
 
