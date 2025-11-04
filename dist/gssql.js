@@ -627,7 +627,7 @@ class TableAlias {
     * @returns {String[]} - Table alias.  Empty string if not found.
     */
     static getTableAlias(tableName, ast) {
-        let tableAlias = [];
+        const tableAlias = [];
         const ucTableName = tableName.toUpperCase();
 
         tableAlias.push(...TableAlias.getTableAliasFromJoin(ucTableName, ast));
