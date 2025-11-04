@@ -718,7 +718,7 @@ class TableAlias {
      */
     static getTableAliasUnion(tableName, ast) {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
-        let extractedAlias = [];
+        const extractedAlias = [];
 
         let i = 0;
         while (i < astRecursiveTableBlocks.length) {
@@ -740,7 +740,7 @@ class TableAlias {
      * @returns {String[]} - table alias
      */
     static getTableAliasWhereIn(tableName, ast) {
-        let extractedAlias = [];
+        const extractedAlias = [];
 
         if (typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
             extractedAlias.push(...TableAlias.getTableAlias(tableName, ast.WHERE.right));
@@ -760,7 +760,7 @@ class TableAlias {
      * @returns {String[]} - table alias
      */
     static getTableAliasWhereTerms(tableName, ast) {
-        let extractedTableAlias = [];
+        const extractedTableAlias = [];
 
         if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
             for (const term of ast.WHERE.terms) {
