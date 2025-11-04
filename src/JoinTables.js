@@ -465,7 +465,7 @@ class JoinTablesRecordIds {
             return {
                 leftSideInfo: rightSideInfo,
                 rightSideInfo: leftSideInfo,
-                operator: operator
+                operator
             };
         }
 
