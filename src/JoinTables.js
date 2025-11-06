@@ -535,7 +535,7 @@ class JoinTablesRecordIds {
      */
     searchColumnsForTable(calcField, columns) {
         const fieldInfoList = columns.map(col => this.tableFields.getFieldInfo(col));
-        const validFieldInfo = fieldInfoList.filter(fld => fld != undefined);
+        const validFieldInfo = fieldInfoList.filter(fld => fld !== undefined);
 
         if (validFieldInfo.length > 0) {
             const foundTableField = { ...validFieldInfo[0] };
@@ -609,7 +609,7 @@ class JoinTablesRecordIds {
                 rightRecordIDs = keyFieldMap.has(keyMasterJoinField) ? keyFieldMap.get(keyMasterJoinField) : [];
             }
             else {
-                rightRecordIDs = this.getJoinRecordIdsForNonEqualCondition(keyMasterJoinField, keyFieldMap, conditionFunction);
+                rightRecordIDs = JoinTablesRecordIds.getJoinRecordIdsForNonEqualCondition(keyMasterJoinField, keyFieldMap, conditionFunction);
             }
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
@@ -674,7 +674,7 @@ class JoinTablesRecordIds {
      * @param {Function} conditionFunction 
      * @returns {Number[]}
      */
-    getJoinRecordIdsForNonEqualCondition(keyMasterJoinField, keyFieldMap, conditionFunction) {
+    static getJoinRecordIdsForNonEqualCondition(keyMasterJoinField, keyFieldMap, conditionFunction) {
         const recordIDs = [];
 
         // @ts-ignore
