@@ -57,15 +57,16 @@ class Select2Object {           // skipcq: JS-0128
 
         //  Add the table name and range.
         for (const tab of this.tables) {
-            parms.push(tab.tableName);
-            parms.push(tab.data);
+            parms.push(tab.tableName, tab.data);
         }
 
         //  Add column output indicator.
         parms.push(true);   //  We want column names returned.
 
         //  Add bind data.
-        this.bindVariables.forEach(bind => parms.push(bind));
+        for (const bind of this.bindVariables) {
+            parms.push(bind);
+        }
 
         const tableDataArray = GasSql.execute(statement, parms);
 
@@ -211,7 +212,9 @@ class Select2Object {           // skipcq: JS-0128
             const newRecord = {};
             Object.assign(newRecord, emptyTableRecord);
 
-            columnNames.forEach((col, j) => {newRecord[col] = tableDataArray[i][j]});
+            for (const [index, col] of columnNames.entries()) {
+                newRecord[col] = tableDataArray[i][index];
+            }
 
             tableData.push(newRecord);
         }
@@ -227,7 +230,9 @@ class Select2Object {           // skipcq: JS-0128
     static createEmptyRecordObject(columnNames) {
         //  Create empty table record object.
         const dataObject = {};
-        columnNames.forEach(col => {dataObject[col] = ''});
+        for (const col of columnNames) {
+            dataObject[col] = '';
+        }
 
         dataObject.get = function (columnTitle) {
             const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];

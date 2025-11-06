@@ -37,7 +37,7 @@ class TableData {       //  skipcq: JS-0128
     * @returns {any[][]}
     */
     static loadTableData(namedRange, cacheSeconds = 0) {
-        if (typeof namedRange === 'undefined' || namedRange === "")
+        if (namedRange === undefined || namedRange === "")
             return [];
 
         Logger.log(`loadTableData: ${namedRange}. Seconds=${cacheSeconds}`);
@@ -222,13 +222,13 @@ class TableData {       //  skipcq: JS-0128
      * @returns {any[][]}
      */
     static waitForRangeToLoad(cache, namedRange, cacheSeconds) {
-        const start = new Date().getTime();
-        let current = new Date().getTime();
+        const start = Date.now();
+        let current = Date.now();
 
         Logger.log(`waitForRangeToLoad() - Start: ${namedRange}`);
         while (TableData.isRangeLoading(cache, namedRange) && (current - start) < 10000) {
             Utilities.sleep(250);
-            current = new Date().getTime();
+            current = Date.now();
         }
         Logger.log("waitForRangeToLoad() - End");
 
@@ -306,8 +306,8 @@ class TableData {       //  skipcq: JS-0128
 
                 //  Actual sheet may have spaces in name.  The SQL must reference that table with
                 //  underscores replacing those spaces.
-                if (sheetHandle === null && tableNamedRange.indexOf("_") !== -1) {
-                    tableNamedRange = tableNamedRange.replace(/_/g, " ");
+                if (sheetHandle === null && tableNamedRange.includes("_")) {
+                    tableNamedRange = tableNamedRange.replaceAll('_', " ");
                     sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
                 }
 
@@ -345,7 +345,7 @@ class TableData {       //  skipcq: JS-0128
 
         //  Split up data (for re-assembly on get() later)
         let splitCount = (json.length / (100 * 1024)) * 1.3;    // 1.3 - assumes some blocks may be bigger.
-        splitCount = splitCount < 1 ? 1 : splitCount;
+        splitCount = Math.max(splitCount, 1);
         const arrayLength = Math.ceil(arrData.length / splitCount);
         const putObject = {};
         let blockCount = 0;

@@ -248,7 +248,7 @@ class Sql {
      * Modifies AST when FROM is a sub-query rather than a table name.
      */
     selectFromSubQuery() {
-        if (typeof this.ast.FROM === 'undefined' || typeof this.ast.FROM.SELECT === 'undefined')
+        if (this.ast.FROM === undefined || this.ast.FROM.SELECT === undefined)
             return;
 
         const data = new Sql()
@@ -257,7 +257,7 @@ class Sql {
             .replaceColumnTableNameWith(this.ast.FROM.table)
             .execute(this.ast.FROM);
 
-        if (typeof this.ast.FROM.table !== 'undefined') {
+        if (this.ast.FROM.table !== undefined) {
             this.addTableData(this.ast.FROM.table, data);
         }
 
@@ -275,7 +275,7 @@ class Sql {
      * @returns {void}
      */
     selectJoinSubQuery() {
-        if (typeof this.ast.JOIN === 'undefined')
+        if (this.ast.JOIN === undefined)
             return;
 
         //  When joinAst.table is an OBJECT, then it is a sub-query.
@@ -288,7 +288,7 @@ class Sql {
                 .replaceColumnTableNameWith(joinAst.as)
                 .execute(joinAst.table);
 
-            if (typeof joinAst.as !== 'undefined') {
+            if (joinAst.as !== undefined) {
                 this.addTableData(joinAst.as, data);
             }
 
@@ -536,11 +536,11 @@ class Sql {
      * @param {object} ast 
      */
     static errorCheckSelectAST(ast) {
-        if (typeof ast.SELECT === 'undefined') {
+        if (ast.SELECT === undefined) {
             throw new Error("Only SELECT statements are supported.");
         }
 
-        if (typeof ast.FROM === 'undefined') {
+        if (ast.FROM === undefined) {
             throw new Error("Missing keyword FROM");
         }
     }
@@ -561,7 +561,7 @@ class Sql {
         if (firstField.startsWith("DISTINCT")) {
             astFields[0].name = firstField.replace("DISTINCT", "").trim();
 
-            if (typeof ast['GROUP BY'] === 'undefined') {
+            if (ast['GROUP BY'] === undefined) {
                 ast["GROUP BY"] = astFields.map(astItem => ({ name: astItem.name, as: '' }));
             }
         }
@@ -630,10 +630,11 @@ class TableAlias {
         const tableAlias = [];
         const ucTableName = tableName.toUpperCase();
 
-        tableAlias.push(...TableAlias.getTableAliasFromJoin(ucTableName, ast));
-        tableAlias.push(...TableAlias.getTableAliasUnion(ucTableName, ast));
-        tableAlias.push(...TableAlias.getTableAliasWhereIn(ucTableName, ast));
-        tableAlias.push(...TableAlias.getTableAliasWhereTerms(ucTableName, ast));
+        tableAlias.push(
+            ...TableAlias.getTableAliasFromJoin(ucTableName, ast),
+            ...TableAlias.getTableAliasUnion(ucTableName, ast),
+            ...TableAlias.getTableAliasWhereIn(ucTableName, ast),
+            ...TableAlias.getTableAliasWhereTerms(ucTableName, ast));
 
         return tableAlias;
     }
@@ -665,7 +666,7 @@ class TableAlias {
     static locateAstTableAlias(tableName, ast, astBlock) {
         const aliastSet = new Set();
 
-        if (typeof ast[astBlock] === 'undefined') {
+        if (ast[astBlock] === undefined) {
             return Array.from(aliastSet);
         }
 
@@ -708,7 +709,7 @@ class TableAlias {
 
         let i = 0;
         while (i < astRecursiveTableBlocks.length) {
-            if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
+            if (ast[astRecursiveTableBlocks[i]] !== undefined) {
                 for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
                     extractedAlias.push(...TableAlias.getTableAlias(tableName, unionAst));
                 }
@@ -728,7 +729,7 @@ class TableAlias {
     static getTableAliasWhereIn(tableName, ast) {
         const extractedAlias = [];
 
-        if (typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
+        if (ast.WHERE !== undefined && ast.WHERE.operator === "IN") {
             extractedAlias.push(...TableAlias.getTableAlias(tableName, ast.WHERE.right));
         }
 
@@ -748,7 +749,7 @@ class TableAlias {
     static getTableAliasWhereTerms(tableName, ast) {
         const extractedTableAlias = [];
 
-        if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
+        if (ast.WHERE !== undefined && ast.WHERE.terms !== undefined) {
             for (const term of ast.WHERE.terms) {
                 extractedTableAlias.push(...TableAlias.getTableAlias(tableName, term));
             }
@@ -824,8 +825,8 @@ class TableExtract {
      */
     static getTableNamesFrom(ast, tableSet) {
         let fromAst = ast.FROM;
-        while (typeof fromAst !== 'undefined') {
-            if (typeof fromAst.isDerived === 'undefined') {
+        while (fromAst !== undefined) {
+            if (fromAst.isDerived === undefined) {
                 tableSet.set(fromAst.table.toUpperCase(), typeof fromAst.as === 'undefined' ? '' : fromAst.as.toUpperCase());
             }
             else {
@@ -842,12 +843,12 @@ class TableExtract {
     * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
     */
     static getTableNamesJoin(ast, tableSet) {
-        if (typeof ast.JOIN === 'undefined')
+        if (ast.JOIN === undefined)
             return;
 
         for (const astItem of ast.JOIN) {
             if (typeof astItem.table === 'string') {
-                tableSet.set(astItem.table.toUpperCase(), typeof astItem.as === 'undefined' ? '' : astItem.as.toUpperCase());
+                tableSet.set(astItem.table.toUpperCase(), astItem.as === undefined ? '' : astItem.as.toUpperCase());
             }
             else {
                 TableExtract.extractAstTables(astItem.table, tableSet);
@@ -864,7 +865,7 @@ class TableExtract {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
 
         for (const block of astRecursiveTableBlocks) {
-            if (typeof ast[block] !== 'undefined') {
+            if (ast[block] !== undefined) {
                 for (const unionAst of ast[block]) {
                     this.extractAstTables(unionAst, tableSet);
                 }
@@ -879,11 +880,11 @@ class TableExtract {
      */
     static getTableNamesWhereIn(ast, tableSet) {
         const subQueryTerms = ["IN", "NOT IN", "EXISTS", "NOT EXISTS"]
-        if (typeof ast.WHERE !== 'undefined' && (subQueryTerms.indexOf(ast.WHERE.operator) !== -1)) {
+        if (ast.WHERE !== undefined && (subQueryTerms.includes(ast.WHERE.operator))) {
             this.extractAstTables(ast.WHERE.right, tableSet);
         }
 
-        if (subQueryTerms.indexOf(ast.operator) !== -1) {
+        if (subQueryTerms.includes(ast.operator)) {
             this.extractAstTables(ast.right, tableSet);
         }
     }
@@ -894,7 +895,7 @@ class TableExtract {
      * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesWhereTerms(ast, tableSet) {
-        if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
+        if (ast.WHERE !== undefined && ast.WHERE.terms !== undefined) {
             for (const term of ast.WHERE.terms) {
                 this.extractAstTables(term, tableSet);
             }
@@ -915,7 +916,7 @@ class TableExtract {
         if (rParts.length > 1) {
             tableSet.set(rParts[0].toUpperCase(), "");
         }
-        if (typeof ast.terms !== 'undefined') {
+        if (ast.terms !== undefined) {
             for (const term of ast.terms) {
                 TableExtract.getTableNamesWhereCondition(term, tableSet);
             }
@@ -928,10 +929,12 @@ class TableExtract {
      * @param {*} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesCorrelatedSelect(ast, tableSet) {
-        if (typeof ast.SELECT === 'undefined')
+        if (ast.SELECT === undefined)
             return;
 
-        ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
+        for (const term of ast.SELECT) {
+            this.extractAstTables(term.subQuery, tableSet);
+        }
     }
 }
 
@@ -948,12 +951,12 @@ class Pivot {
      */
     static pivotField(ast, tables, bindData) {
         //  If we are doing a PIVOT, it then requires a GROUP BY.
-        if (typeof ast.PIVOT !== 'undefined') {
-            if (typeof ast['GROUP BY'] === 'undefined')
-                throw new Error("PIVOT requires GROUP BY");
+        if (ast.PIVOT === undefined) {
+            return ast;
         }
         else {
-            return ast;
+            if (ast['GROUP BY'] === undefined)
+                throw new Error("PIVOT requires GROUP BY");
         }
 
         // These are all of the unique PIVOT field data points.
@@ -1010,7 +1013,7 @@ class Pivot {
 
                 for (const fld of pivotFieldData) {
                     const caseTxt = `${matches[0]}(CASE WHEN ${ast.PIVOT[0].name} = '${fld}' THEN ${args[1]} ELSE 'null' END)`;
-                    const asField = `${fld[0]} ${typeof selectField.as !== 'undefined' && selectField.as !== "" ? selectField.as : selectField.name}`;
+                    const asField = `${fld[0]} ${selectField.as !== undefined && selectField.as !== "" ? selectField.as : selectField.name}`;
                     newPivotAstFields.push({ name: caseTxt, as: asField });
                 }
             }
@@ -1043,7 +1046,7 @@ class SqlSets {
      */
     static getSetType(ast) {
         for (const type of SqlSets.getUnionTypes()) {
-            if (typeof ast[type] !== 'undefined') {
+            if (ast[type] !== undefined) {
                 return type;
             }
         }
@@ -1097,7 +1100,7 @@ class SqlSets {
      * @returns {Boolean}
      */
     static isSqlSet(ast) {
-        return SqlSets.getUnionTypes().some(type => typeof ast[type] !== 'undefined');
+        return SqlSets.getUnionTypes().some(type => ast[type] !== undefined);
     }
 
     /**
@@ -1313,7 +1316,7 @@ class Table {       //  skipcq: JS-0128
      * @returns {Table}
      */
     loadArrayData(tableData) {
-        if (typeof tableData === 'undefined' || tableData.length === 0)
+        if (tableData === undefined || tableData.length === 0)
             return this;
 
         if (!this.hasColumnTitle) {
@@ -1336,7 +1339,7 @@ class Table {       //  skipcq: JS-0128
     static removeEmptyRecordsAtEndOfTable(tableData) {
         let blankLines = 0;
         for (let i = tableData.length - 1; i > 0; i--) {
-            if (tableData[i].join().replace(/,/g, "").length > 0)
+            if (tableData[i].join().replaceAll(',', "").length > 0)
                 break;
             blankLines++;
         }
@@ -1463,7 +1466,7 @@ class Table {       //  skipcq: JS-0128
      */
     getRecords(startRecord, lastRecord, fields) {
         const selectedRecords = [];
-        const minStartRecord = startRecord < 1 ? 1 : startRecord;
+        const minStartRecord = Math.max(startRecord, 1);
         const maxLastRecord = lastRecord < 0 ? this.tableData.length - 1 : lastRecord;
 
         for (let i = minStartRecord; i <= maxLastRecord && i < this.tableData.length; i++) {
@@ -1498,7 +1501,7 @@ class Table {       //  skipcq: JS-0128
 
         for (let i = 1; i < this.tableData.length; i++) {
             value = calcSqlField === null ? this.tableData[i][fieldIndex] : calcSqlField.evaluateCalculatedField(calcField, i);
-            value = (value !== null) ? value.toString() : value;
+            value = (value === null) ? value : value.toString();
 
             if (value !== "") {
                 value = typeof value === 'string' ? value.toUpperCase() : value;
@@ -1559,7 +1562,7 @@ class Schema {
 
         /** @property {Map<String,Number>} - String=Field Name, Number=Column Number */
         this.fields = new Map();
-        
+
         /** @property {VirtualFields} */
         this.virtualFields = new VirtualFields();
     }
@@ -1584,7 +1587,7 @@ class Schema {
 
         for (const alias of tableAlias) {
             if (alias !== '') {
-                uniqueAliasSet.add(alias.toUpperCase());   
+                uniqueAliasSet.add(alias.toUpperCase());
             }
         }
 
@@ -1638,13 +1641,13 @@ class Schema {
     getAllExtendedNotationFieldNames(aliasName) {
         /** @type {String[]} */
         const fieldNames = [];
-        const tableName = aliasName !== '' ? aliasName : this.tableName;
+        const tableName = aliasName === '' ? this.tableName : aliasName;
 
         // @ts-ignore
         for (const [key, value] of this.fields.entries()) {
             if (value !== null) {
                 const fieldParts = key.split(".");
-                if (typeof fieldNames[value] === 'undefined' ||
+                if (fieldNames[value] === undefined ||
                     (fieldParts.length === 2 && (fieldParts[0] === tableName || this.isDerivedTable)))
                     fieldNames[value] = key;
             }
@@ -1744,7 +1747,7 @@ class Schema {
         const columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
         const columnNameVariants = [];
 
-        if (columnName.indexOf(".") === -1) {
+        if (!columnName.includes(".")) {
             columnNameVariants.push(`${this.tableName}.${columnName}`);
 
             for (const tableAlias of this.tableAlias) {
@@ -1826,7 +1829,7 @@ class SelectTables {
     updateSelectedFields(ast) {
         let astFields = ast.SELECT;
 
-        const tableInfo = !this.dataJoin.isDerivedTable() ? this.primaryTableInfo : this.dataJoin.derivedTable.tableInfo;
+        const tableInfo = this.dataJoin.isDerivedTable() ? this.dataJoin.derivedTable.tableInfo : this.primaryTableInfo;
 
         //  Expand any 'SELECT *' fields and add the actual field names into 'astFields'.
         astFields = VirtualFields.expandWildcardFields(tableInfo, astFields);
@@ -1837,14 +1840,14 @@ class SelectTables {
         //  These are fields REFERENCED, but not actually in the SELECT FIELDS.
         //  So columns referenced by GROUP BY, ORDER BY and not in SELECT.
         //  These temp columns need to be removed after processing.
-        if (typeof ast["GROUP BY"] !== 'undefined') {
+        if (ast["GROUP BY"] !== undefined) {
             const referencedFields = this.getAggregateFunctionFieldsInGroupByCalculation(astFields);
             this.tableFields.updateSelectFieldList(referencedFields, this.tableFields.getNextSelectColumnNumber(), true);
 
             this.tableFields.updateSelectFieldList(ast["GROUP BY"], this.tableFields.getNextSelectColumnNumber(), true);
         }
 
-        if (typeof ast["ORDER BY"] !== 'undefined') {
+        if (ast["ORDER BY"] !== undefined) {
             this.tableFields.updateSelectFieldList(ast["ORDER BY"], this.tableFields.getNextSelectColumnNumber(), true);
         }
     }
@@ -1859,7 +1862,7 @@ class SelectTables {
         const aggFuncList = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
 
         //  When fld.terms is defined, it is a calculation, not just a single function.
-        const aggregateFunctions = astFields.filter(f => typeof f.terms !== 'undefined');
+        const aggregateFunctions = astFields.filter(f => f.terms !== undefined);
         for (const fld of aggregateFunctions) {
             const functionString = SelectTables.toUpperCaseExceptQuoted(fld.name, true);
             const usedFunctions = aggFuncList.map(func => SelectTables.parseForFunctions(functionString, func)).filter(f => f != null);
@@ -1882,7 +1885,7 @@ class SelectTables {
      * @returns {void}
      */
     join(ast) {
-        if (typeof ast.JOIN !== 'undefined') {
+        if (ast.JOIN !== undefined) {
             this.dataJoin.load(ast);
         }
     }
@@ -1895,16 +1898,16 @@ class SelectTables {
     whereCondition(ast) {
         // Default is entire table is selected.
         let conditions = { operator: "=", left: "\"A\"", right: "\"A\"" };
-        if (typeof ast.WHERE !== 'undefined') {
+        if (ast.WHERE !== undefined) {
             conditions = ast.WHERE;
         }
-        else if (typeof ast["GROUP BY"] === 'undefined' && typeof ast.HAVING !== 'undefined') {
+        else if (ast["GROUP BY"] === undefined && ast.HAVING !== undefined) {
             //  This will work in mySql as long as select field is in having clause.
             conditions = ast.HAVING;
         }
 
         let sqlData = [];
-        if (typeof conditions.logic === 'undefined') {
+        if (conditions.logic === undefined) {
             sqlData = this.resolveCondition("OR", [conditions]);
         }
         else {
@@ -1921,7 +1924,7 @@ class SelectTables {
     * @returns {Number[]} - record ID's 
     */
     resolveCondition(logic, terms) {
-        const recordIDs = terms.map(cond => typeof cond.logic === 'undefined'
+        const recordIDs = terms.map(cond => cond.logic === undefined
             ? this.getRecordIDs(cond)
             : this.resolveCondition(cond.logic, cond.terms));
 
@@ -2005,7 +2008,7 @@ class SelectTables {
         }
         else if (fieldConditions.subQuery !== null) {
             const arrayResult = fieldConditions.subQuery.select(masterRecordID, calcSqlField);
-            if (typeof arrayResult !== 'undefined' && arrayResult !== null && arrayResult.length > 0) {
+            if (arrayResult !== undefined && arrayResult !== null && arrayResult.length > 0) {
                 fieldValue = arrayResult[0][0];
             }
         }
@@ -2090,7 +2093,7 @@ class SelectTables {
      */
     static parseForFunctions(functionString, func) {
         const args = [];
-        const expMatch = "\\b%1\\b\\s*\\(";
+        const expMatch = String.raw`\b%1\b\s*\(`;
 
         const matchStr = new RegExp(expMatch.replace("%1", func));
         const startMatchPos = functionString.search(matchStr);
@@ -2105,8 +2108,10 @@ class SelectTables {
                 if (ch === ")") leftBracket--;
 
                 if (leftBracket === 0) {
-                    args.push(searchStr.substring(0, i + 1));
-                    args.push(searchStr.substring(startLeft + 1, i));
+                    args.push(
+                        searchStr.substring(0, i + 1),
+                        searchStr.substring(startLeft + 1, i)
+                    );
                     return args;
                 }
             }
@@ -2195,10 +2200,10 @@ class SelectTables {
     groupBy(ast, viewTableData) {
         let groupedTableData = viewTableData;
 
-        if (typeof ast['GROUP BY'] !== 'undefined') {
+        if (ast['GROUP BY'] !== undefined) {
             groupedTableData = this.groupByFields(ast['GROUP BY'], viewTableData);
 
-            if (typeof ast.HAVING !== 'undefined') {
+            if (ast.HAVING !== undefined) {
                 groupedTableData = this.having(ast.HAVING, groupedTableData);
             }
         }
@@ -2304,7 +2309,7 @@ class SelectTables {
      * @returns {any[][]}
      */
     orderBy(ast, selectedData) {
-        if (typeof ast['ORDER BY'] === 'undefined')
+        if (ast['ORDER BY'] === undefined)
             return selectedData;
 
         return this.orderDataByListOfFields(ast['ORDER BY'].reverse(), selectedData);
@@ -2324,7 +2329,7 @@ class SelectTables {
                 throw new Error(`Invalid FIELD: ${orderField.name}`);
             }
 
-            if (typeof orderField.order !== 'undefined' && orderField.order.toUpperCase() === "DESC") {
+            if (orderField.order !== undefined && orderField.order.toUpperCase() === "DESC") {
                 SelectTables.sortByColumnDESC(selectedData, selectColumn);
             }
             else {
@@ -2364,7 +2369,7 @@ class SelectTables {
      * @returns {any[][]} Table data after limit is applied.
      */
     static limit(ast, viewTableData) {
-        if (typeof ast.LIMIT !== 'undefined') {
+        if (ast.LIMIT !== undefined) {
             const maxItems = ast.LIMIT.nb;
             if (viewTableData.length > maxItems)
                 viewTableData.splice(maxItems);
@@ -2444,7 +2449,7 @@ class SelectTables {
         let calculatedField = "";
         let subQuery = null;
 
-        if (typeof fieldCondition.SELECT !== 'undefined') {
+        if (fieldCondition.SELECT !== undefined) {
             //  Maybe a SELECT within...
             [subQuery, constantData] = this.resolveSubQuery(fieldCondition);
         }
@@ -2508,7 +2513,7 @@ class SelectTables {
         //  Bind variable data.
         const constantData = this.bindVariables.get(fieldCondition);
 
-        if (typeof constantData !== 'undefined') {
+        if (constantData !== undefined) {
             return constantData;
         }
 
@@ -2530,7 +2535,7 @@ class SelectTables {
         TableExtract.extractAstTables(ast, tableSet);
 
         const tableSetCorrelated = new Map();
-        if (typeof ast.WHERE !== 'undefined') {
+        if (ast.WHERE !== undefined) {
             TableExtract.getTableNamesWhereCondition(ast.WHERE, tableSetCorrelated);
         }
 
@@ -2591,10 +2596,10 @@ class SelectTables {
      */
     static extractStringConstant(value) {
         if (value.startsWith('"') && value.endsWith('"'))
-            return value.replace(/"/g, '');
+            return value.replaceAll('"', '');
 
         if (value.startsWith("'") && value.endsWith("'"))
-            return value.replace(/'/g, '');
+            return value.replaceAll("'", '');
 
         return value;
     }
@@ -2754,7 +2759,7 @@ class FieldComparisons {
      */
     static likeConditionMatch(leftValue, rightValue) {
         // @ts-ignore
-        const expanded = `^${rightValue.replace(/%/g, ".*").replace(/_/g, ".")}`;
+        const expanded = `^${rightValue.replaceAll("%", ".*").replaceAll("_", ".")}`;
 
         const result = leftValue.search(expanded);
 
@@ -2830,7 +2835,9 @@ class CalculatedField {
 
         /** @property {Map<String, TableField>} */
         this.mapMasterFields = new Map();
-        this.masterFields.forEach(fld => this.mapMasterFields.set(fld.fieldName, fld));
+        for (const fld of this.masterFields) {
+            this.mapMasterFields.set(fld.fieldName, fld)
+        }
     }
 
     /**
@@ -2841,7 +2848,7 @@ class CalculatedField {
      */
     getData(fldName, masterRecordID) {
         const vField = this.mapMasterFields.get(fldName);
-        if (typeof vField === 'undefined')
+        if (vField === undefined)
             return vField;
 
         return vField.getData(masterRecordID);
@@ -2897,7 +2904,7 @@ class CalculatedField {
             let varData = vField.getData(masterRecordID);
 
             if (typeof varData === "string") {
-                varData = `'${varData.replace(/'/g, "\\'")}'`;
+                varData = `'${varData.replaceAll("'", String.raw`\'`)}'`;
             }
             else if (varData instanceof Date) {
                 varData = `'${varData}'`;
@@ -2931,11 +2938,11 @@ class CalculatedField {
         let myVars = "";
 
         for (const aliasName of vField.aliasNames) {
-            if ((this.primaryTable.tableName !== vField.tableInfo.tableName && aliasName.indexOf(".") === -1)) {
+            if ((this.primaryTable.tableName !== vField.tableInfo.tableName && !aliasName.includes("."))) {
                 continue;
             }
 
-            if (aliasName.indexOf(".") === -1) {
+            if (!aliasName.includes(".")) {
                 if (!variablesDeclared.has(aliasName)) {
                     myVars += `let ${aliasName} = ${varData};`;
                     variablesDeclared.set(aliasName, true);
@@ -3008,7 +3015,7 @@ class CorrelatedSubQuery {
      */
     select(masterRecordID, calcSqlField, ast = this.defaultSubQuery) {
         const innerTableInfo = this.tableInfo.get(ast.FROM.table.toUpperCase());
-        if (typeof innerTableInfo === 'undefined')
+        if (innerTableInfo === undefined)
             throw new Error(`No table data found: ${ast.FROM.table}`);
 
         //  Add BIND variable for all matching fields in WHERE.
@@ -3036,10 +3043,10 @@ class CorrelatedSubQuery {
     replaceOuterFieldValueInCorrelatedWhere(calcSqlField, masterRecordID, tempAst, bindData) {
         const where = tempAst.WHERE;
 
-        if (typeof where === 'undefined')
+        if (where === undefined)
             return;
 
-        if (typeof where.logic === 'undefined')
+        if (where.logic === undefined)
             this.traverseWhere(calcSqlField, [where], masterRecordID, bindData);
         else
             this.traverseWhere(calcSqlField, where.terms, masterRecordID, bindData);
@@ -3054,13 +3061,13 @@ class CorrelatedSubQuery {
      */
     traverseWhere(calcSqlField, terms, masterRecordID, bindData) {
         for (const cond of terms) {
-            if (typeof cond.logic === 'undefined') {
+            if (cond.logic === undefined) {
                 let result = calcSqlField.masterFields.find(item => item.fieldName === cond.left.toUpperCase());
-                if (typeof result !== 'undefined') {
+                if (result !== undefined) {
                     cond.left = bindData.add(calcSqlField.getData(cond.left.toUpperCase(), masterRecordID));
                 }
                 result = calcSqlField.masterFields.find(item => item.fieldName === cond.right.toUpperCase());
-                if (typeof result !== 'undefined') {
+                if (result !== undefined) {
                     cond.right = bindData.add(calcSqlField.getData(cond.right.toUpperCase(), masterRecordID));
                 }
             }
@@ -3220,15 +3227,15 @@ class DerivedTable {                     //  skipcq: JS-0128
      */
     createTable() {
         const columnCount = this.rightField.tableInfo.getColumnCount();
-        const emptyRightRow = Array(columnCount).fill(null);
+        const emptyRightRow = new Array(columnCount).fill(null);
         const joinedData = [DerivedTable.getCombinedColumnTitles(this.leftField, this.rightField, this.leftTableAlias, this.rightTableAlias)];
 
         for (let i = 1; i < this.leftField.tableInfo.tableData.length; i++) {
-            if (typeof this.leftRecords[i] === "undefined") {
+            if (this.leftRecords[i] === undefined) {
                 continue;
             }
 
-            if (typeof this.rightField.tableInfo.tableData[this.leftRecords[i][0]] === "undefined") {
+            if (this.rightField.tableInfo.tableData[this.leftRecords[i][0]] === undefined) {
                 joinedData.push(this.leftField.tableInfo.tableData[i].concat(emptyRightRow));
             }
             else {
@@ -3272,7 +3279,7 @@ class DerivedTable {                     //  skipcq: JS-0128
         const rightAlias = leftField.originalTable === rightField.originalTable ? rightTableAlias : '';
         const titleRow = leftField.tableInfo.getAllExtendedNotationFieldNames(leftAlias);
         const rightFieldNames = rightField.tableInfo.getAllExtendedNotationFieldNames(rightAlias);
-        
+
         return titleRow.concat(rightFieldNames);
     }
 }
@@ -3722,7 +3729,7 @@ class SqlServerFunctions {
     static charIndex(parms) {
         let replacement = "";
 
-        if (typeof parms[2] === 'undefined')
+        if (parms[2] === undefined)
             replacement = `${parms[1]}.toString().indexOf(${parms[0]}) + 1`;
         else
             replacement = `${parms[1]}.toString().indexOf(${parms[0]},${parms[2]} -1) + 1`;
@@ -3944,7 +3951,7 @@ class SqlServerFunctions {
         }
 
         let replacement = "";
-        if (typeof args[1] === 'undefined' && typeof args[2] === 'undefined') {
+        if (args[1] === undefined && args[2] === undefined) {
             replacement = `else return ${args[3]};`;
         }
         else {
@@ -4006,11 +4013,11 @@ class ConglomerateRecord {
 
         let i = 0;
         for (const field of this.selectVirtualFields) {
-            if (field.aggregateFunction !== "") {
-                row.push(ConglomerateRecord.aggregateColumn(field, groupRecords, i));
+            if (field.aggregateFunction === "") {
+                row.push(groupRecords[0][i]);
             }
             else {
-                row.push(groupRecords[0][i]);
+                row.push(ConglomerateRecord.aggregateColumn(field, groupRecords, i));
             }
 
             i++;
@@ -4100,7 +4107,9 @@ class ConglomerateRecord {
      * @returns {String}
      */
     static replaceFieldNames(calcFunc, mappedField) {
-        mappedField.forEach(item => (calcFunc = calcFunc.replaceAll(item.oldName, item.newName)));
+        for (const item of mappedField) {
+            calcFunc = calcFunc.replaceAll(item.oldName, item.newName);
+        }
 
         return calcFunc;
     }
@@ -4169,7 +4178,7 @@ class ConglomerateRecord {
         }
         else {
             numericData = Number(columnData);
-            numericData = (isNaN(numericData)) ? 0 : numericData;
+            numericData = (Number.isNaN(numericData)) ? 0 : numericData;
         }
 
         return numericData;
@@ -4387,7 +4396,7 @@ class TableFields {
      */
     findTableField(tableName, tableColumn) {
         const key = `${tableName}:${tableColumn}`;
-        return !this.tableColumnMap.has(key) ? null : this.tableColumnMap.get(key);
+        return this.tableColumnMap.has(key) ? this.tableColumnMap.get(key) : null;
     }
 
     /**
@@ -4428,7 +4437,7 @@ class TableFields {
      */
     getTableInfo(field) {
         const fldInfo = this.getFieldInfo(field);
-        return typeof fldInfo !== 'undefined' ? fldInfo.tableInfo : fldInfo;
+        return fldInfo === undefined ? undefined : fldInfo.tableInfo;
     }
 
     /**
@@ -4438,7 +4447,7 @@ class TableFields {
      */
     getFieldColumn(field) {
         const fld = this.getFieldInfo(field);
-        return fld !== null ? fld.getTableColumn(field) : -1;
+        return fld == null ? -1 : fld.getTableColumn(field)
     }
 
     /**
@@ -4448,7 +4457,7 @@ class TableFields {
      */
     getSelectFieldColumn(field) {
         const fld = this.getFieldInfo(field);
-        if (typeof fld !== 'undefined' && fld.selectColumn !== -1) {
+        if (fld !== undefined && fld.selectColumn !== -1) {
             return fld.selectColumn;
         }
 
@@ -4473,7 +4482,7 @@ class TableFields {
     updateSelectFieldList(astFields, nextColumnPosition, isTempField) {
         for (const selField of astFields) {
             const parsedField = this.parseAstSelectField(selField);
-            const columnTitle = (typeof selField.as !== 'undefined' && selField.as !== "" ? selField.as : selField.name);
+            const columnTitle = (selField.as !== undefined && selField.as !== "" ? selField.as : selField.name);
 
             /** @type {SelectFieldParameters} */
             const selectedFieldParms = {
@@ -4484,12 +4493,12 @@ class TableFields {
                 this.updateColumnAsSelected(selectedFieldParms);
                 nextColumnPosition = selectedFieldParms.nextColumnPosition;
             }
-            else if (parsedField.calculatedField !== null) {
-                this.updateCalculatedAsSelected(selectedFieldParms);
+            else if (parsedField.calculatedField === null) {
+                this.updateConstantAsSelected(selectedFieldParms);
                 nextColumnPosition++;
             }
             else {
-                this.updateConstantAsSelected(selectedFieldParms);
+                this.updateCalculatedAsSelected(selectedFieldParms);
                 nextColumnPosition++;
             }
         }
@@ -4510,7 +4519,7 @@ class TableFields {
         if (selectedFieldParms.parsedField.aggregateFunctionName !== "" || fieldInfo.selectColumn !== -1) {
             //  A new SELECT field, not from existing.
             const newFieldInfo = new TableField();
-            Object.assign(newFieldInfo, fieldInfo);          
+            Object.assign(newFieldInfo, fieldInfo);
             fieldInfo = newFieldInfo;
             this.allFields.push(fieldInfo);
         }
@@ -4594,7 +4603,7 @@ class TableFields {
     getNextSelectColumnNumber() {
         let next = -1;
         for (const fld of this.getSelectFields()) {
-            next = fld.selectColumn > next ? fld.selectColumn : next;
+            next = Math.max(fld.selectColumn, next);
         }
 
         return next === -1 ? next : ++next;
@@ -4629,7 +4638,9 @@ class TableFields {
      */
     getColumnNames() {
         const columnNames = [];
-        this.getSelectFields().forEach(fld => columnNames.push(fld.columnName));
+        for (const fld of this.getSelectFields()) {
+            columnNames.push(fld.columnName);
+        }
 
         return columnNames;
     }
@@ -4692,7 +4703,7 @@ class TableFields {
         let columnName = selField.name;
         let aggregateFunctionName = "";
         let fieldDistinct = "";
-        const calculatedField = (typeof selField.terms === 'undefined') ? null : selField.terms;
+        const calculatedField = (selField.terms === undefined) ? null : selField.terms;
 
         if (calculatedField === null && !this.hasField(columnName)) {
             const functionNameRegex = /^\w+\s*(?=\()/;
@@ -4860,11 +4871,11 @@ class TableField {
      */
     addAlias(columnAlias) {
         const alias = columnAlias.trim().toUpperCase();
-        if (this.fieldName === "" || alias.indexOf(".") !== -1) {
+        if (this.fieldName === "" || alias.includes(".")) {
             this.fieldName = alias;
         }
 
-        if (this.aliasNames.indexOf(alias) === -1) {
+        if (!this.aliasNames.includes(alias)) {
             this.aliasNames.push(alias);
         }
 
@@ -5008,10 +5019,10 @@ class TableField {
     static getAllExtendedAliasNames(masterFields) {
         let concatFields = [];
 
-        masterFields.forEach(vField => {
-            const fullNotationFields = vField.aliasNames.filter(aliasName => aliasName.indexOf(".") !== -1);
+        for (const vField of masterFields) {
+            const fullNotationFields = vField.aliasNames.filter(aliasName => aliasName.includes("."));
             concatFields = concatFields.concat(fullNotationFields);
-        })
+        }
 
         return concatFields;
     }
@@ -5084,7 +5095,9 @@ class JoinTables {                                   //  skipcq: JS-0128
         /** @property {DerivedTable} - result table after tables are joined */
         this.derivedTable = new DerivedTable();
 
-        ast.JOIN.forEach(joinTable => this.joinNextTable(joinTable, ast.FROM.table.toUpperCase(), ast.FROM.as));
+        for (const joinTable of ast.JOIN) {
+            this.joinNextTable(joinTable, ast.FROM.table.toUpperCase(), ast.FROM.as);
+        }
     }
 
     /**
@@ -5115,7 +5128,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         const rightTableName = conditions.table;
         const joinType = conditions.type;
 
-        if (typeof conditions.cond.logic === 'undefined') {
+        if (conditions.cond.logic === undefined) {
             recIds = this.resolveCondition("OR", [conditions], joinType, rightTableName, leftTableName);
         }
         else {
@@ -5179,7 +5192,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         const result = [];
 
         for (let i = 0; i < recIds[0].length; i++) {
-            const temp = recIds.map(rec => typeof rec[i] === 'undefined' ? [] : rec[i]);
+            const temp = recIds.map(rec => rec[i] === undefined ? [] : rec[i]);
             const row = temp.reduce((accumulator, currentRecords) => accumulator.filter(c => currentRecords.includes(c)), temp[0]);
 
             if (row.length > 0) {
@@ -5201,9 +5214,11 @@ class JoinTables {                                   //  skipcq: JS-0128
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            recIds.forEach(rec => { temp = temp.concat(rec[i]) });
+            for (const rec of recIds) {
+                temp = temp.concat(rec[i])
+            };
 
-            if (typeof temp[0] !== 'undefined') {
+            if (temp[0] !== undefined) {
                 result[i] = Array.from(new Set(temp));
             }
         }
@@ -5216,7 +5231,7 @@ class JoinTables {                                   //  skipcq: JS-0128
      * @returns {Boolean}
      */
     isDerivedTable() {
-        if (typeof this.derivedTable === 'undefined') {
+        if (this.derivedTable === undefined) {
             return false;
         }
 
@@ -5451,9 +5466,9 @@ class JoinTablesRecordIds {
         /** @type {TableField} */
         let rightFieldInfo = null;
 
-        const left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
-        const right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
-        const operator = typeof astJoin.cond === 'undefined' ? astJoin.operator : astJoin.cond.operator;
+        const left = astJoin.cond === undefined ? astJoin.left : astJoin.cond.left;
+        const right = astJoin.cond === undefined ? astJoin.right : astJoin.cond.right;
+        const operator = astJoin.cond === undefined ? astJoin.operator : astJoin.cond.operator;
 
         leftFieldInfo = this.getTableInfoFromCalculatedField(left);
         rightFieldInfo = this.getTableInfoFromCalculatedField(right);
@@ -5471,7 +5486,7 @@ class JoinTablesRecordIds {
         }
 
         //  joinTable.table is the RIGHT table, so switch if equal to condition left.
-        if (typeof leftFieldInfo !== 'undefined' && this.rightTableName === leftFieldInfo.originalTable && !isSelfJoin) {
+        if (leftFieldInfo !== undefined && this.rightTableName === leftFieldInfo.originalTable && !isSelfJoin) {
             return {
                 leftSideInfo: rightSideInfo,
                 rightSideInfo: leftSideInfo,
@@ -5490,7 +5505,7 @@ class JoinTablesRecordIds {
     getTableInfoFromCalculatedField(calcField) {
         let foundTableField = this.tableFields.getFieldInfo(calcField);
 
-        if (typeof foundTableField === 'undefined' && calcField !== '') {
+        if (foundTableField === undefined && calcField !== '') {
             //  Calculated expression.
             foundTableField = this.getReferencedTableInfo(calcField);
         }
@@ -5521,7 +5536,7 @@ class JoinTablesRecordIds {
         //  We search the calcField for valid columns - except within quotes.
         const quotedConstantsRegEx = /["'](.*?)["']/g;
         const opRegEx = /[+\-/*()]/g;
-        const results = calcField.replace(quotedConstantsRegEx, "");
+        const results = calcField.replaceAll(quotedConstantsRegEx, "");
         let parts = results.split(opRegEx);
         parts = parts.map(a => a.trim()).filter(a => a !== '');
 
@@ -5541,7 +5556,7 @@ class JoinTablesRecordIds {
      */
     searchColumnsForTable(calcField, columns) {
         const fieldInfoList = columns.map(col => this.tableFields.getFieldInfo(col));
-        const validFieldInfo = fieldInfoList.filter(fld => typeof fld != 'undefined');
+        const validFieldInfo = fieldInfoList.filter(fld => fld != undefined);
 
         if (validFieldInfo.length > 0) {
             const foundTableField = { ...validFieldInfo[0] };
@@ -5611,17 +5626,11 @@ class JoinTablesRecordIds {
             let rightRecordIDs = [];
 
             if (this.joinFields.operator === '=') {
-                //  "=" - special case.  
-                //  Most common case AND far fewer comparisons - especially if right table is large.
+                //  "=" - special case. Most common case AND far fewer comparisons - especially if right table is large.
                 rightRecordIDs = keyFieldMap.has(keyMasterJoinField) ? keyFieldMap.get(keyMasterJoinField) : [];
             }
             else {
-                // @ts-ignore
-                for (const [key, data] of keyFieldMap) {
-                    if (conditionFunction(keyMasterJoinField, key)) {
-                        rightRecordIDs.unshift(...data);
-                    }
-                }
+                rightRecordIDs = this.getJoinRecordIdsForNonEqualCondition(keyMasterJoinField, keyFieldMap, conditionFunction);
             }
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
@@ -5678,6 +5687,26 @@ class JoinTablesRecordIds {
 
         return keyFieldMap;
     }
+
+    /**
+     * 
+     * @param {String} keyMasterJoinField 
+     * @param {Map<String, Number[]>} keyFieldMap 
+     * @param {Function} conditionFunction 
+     * @returns {Number[]}
+     */
+    getJoinRecordIdsForNonEqualCondition(keyMasterJoinField, keyFieldMap, conditionFunction) {
+        const recordIDs = [];
+
+        // @ts-ignore
+        for (const [key, data] of keyFieldMap) {
+            if (conditionFunction(keyMasterJoinField, key)) {
+                recordIDs.unshift(...data);
+            }
+        }
+
+        return recordIDs;
+    }
 }
 
 //  Code inspired from:  https://github.com/dsferruzza/simpleSqlParser
@@ -5695,9 +5724,9 @@ class SqlParse {
         const ast = SqlParse.sql2ast(`SELECT A FROM c WHERE ${cond}`);
         let sqlData = "";
 
-        if (typeof ast.WHERE !== 'undefined') {
+        if (ast.WHERE !== undefined) {
             const conditions = ast.WHERE;
-            if (typeof conditions.logic === 'undefined') {
+            if (conditions.logic === undefined) {
                 sqlData = SqlParse.resolveSqlCondition("OR", [conditions]);
             }
             else {
@@ -5749,7 +5778,7 @@ class SqlParse {
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
 
-        if (typeof result.FROM !== 'undefined' && typeof result.FROM.FROM !== 'undefined' && typeof result.FROM.FROM.as !== 'undefined') {
+        if (result.FROM !== undefined && result.FROM.FROM !== undefined && result.FROM.FROM.as !== undefined) {
             if (result.FROM.FROM.as === '') {
                 throw new Error("Every derived table must have its own alias");
             }
@@ -5786,7 +5815,7 @@ class SqlParse {
         let jsCondition = "";
 
         for (const cond of terms) {
-            if (typeof cond.logic === 'undefined') {
+            if (cond.logic === undefined) {
                 if (jsCondition !== "" && logic === "AND") {
                     jsCondition += " && ";
                 }
@@ -5843,7 +5872,7 @@ class SqlParse {
     static generateSqlSeparatorWords(keywords) {
         let parts_name = keywords.map(item => `${item} `);
         parts_name = parts_name.concat(keywords.map(item => `${item}(`));
-        const parts_name_escaped = parts_name.map(item => item.replace('(', '[\\(]'));
+        const parts_name_escaped = parts_name.map(item => item.replace('(', String.raw`[\(]`));
 
         return [parts_name, parts_name_escaped];
     }
@@ -5855,8 +5884,9 @@ class SqlParse {
      * @param {Object} replaceFunction
      */
     static hideInnerSql(str, parts_name_escaped, replaceFunction) {
-        if (str.indexOf("(") === -1 && str.indexOf(")") === -1)
+        if (!str.includes("(") && !str.includes(")")) {
             return str;
+        }
 
         let bracketCount = 0;
         let endCount = -1;
@@ -5898,26 +5928,16 @@ class SqlParse {
         // Write the position(s) in query of these separators
         const parts_order = [];
 
-        /**
-         * 
-         * @param {String} _match 
-         * @param {String} name 
-         * @returns {String}
-         */
-        function realNameCallback(_match, name) {
-            return name;
-        }
-
-        parts_name.forEach(item => {
+        for (const item of parts_name) {
             let pos = 0;
             let part = 0;
 
             do {
                 part = modifiedQuery.indexOf(item, pos);
                 if (part !== -1) {
-                    const realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, realNameCallback);
+                    const realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, SqlParse.realNameCallback);
 
-                    if (typeof parts_order[part] === 'undefined' || parts_order[part].length < realName.length) {
+                    if (parts_order[part] === undefined || parts_order[part].length < realName.length) {
                         parts_order[part] = realName;	// Position won't be exact because the use of protect()  (above) and unprotect() alter the query string ; but we just need the order :)
                     }
 
@@ -5925,27 +5945,39 @@ class SqlParse {
                 }
             }
             while (part !== -1);
-        });
+        };
 
         return parts_order;
     }
 
     /**
-     * Delete duplicates (caused, for example, by JOIN and INNER JOIN)
-     * @param {String[]} parts_order
+     * 
+     * @param {String} _match 
+     * @param {String} name 
+     * @returns {String}
      */
-    static removeDuplicateEntries(parts_order) {
-        let busy_until = 0;
-        parts_order.forEach((item, key) => {
-            if (busy_until > key) {
-                delete parts_order[key];
+    static realNameCallback(_match, name) {
+        return name;
+    }
+
+    /**
+     * Delete duplicates (caused, for example, by JOIN and INNER JOIN)
+     * @param {String[]} partsOrder
+     */
+    static removeDuplicateEntries(partsOrder) {
+        let busyUntil = 0;
+
+        partsOrder.forEach((item, key) => {
+            if (busyUntil > key) {
+                delete partsOrder[key];
             }
             else {
-                busy_until = key + item.length;
+                busyUntil = key + item.length;
 
                 // Replace JOIN by INNER JOIN
-                if (item.toUpperCase() === 'JOIN')
-                    parts_order[key] = 'INNER JOIN';
+                if (item.toUpperCase() === 'JOIN') {
+                    partsOrder[key] = 'INNER JOIN';
+                }
             }
         });
     }
@@ -5978,20 +6010,23 @@ class SqlParse {
 
     /**
      * 
-     * @param {String[]} parts_order 
+     * @param {String[]} partsOrder 
      * @param {String[]} parts 
      * @returns {Object}
      */
-    static analyzeParts(parts_order, parts) {
+    static analyzeParts(partsOrder, parts) {
         const result = {};
         let j = 0;
-        parts_order.forEach(item => {
+        partsOrder.forEach(item => {
             const itemName = item.toUpperCase();
             j++;
             const selectComponentAst = SelectKeywordAnalysis.analyze(item, parts[j]);
 
-            if (typeof result[itemName] !== 'undefined') {
-                if (typeof result[itemName] === 'string' || typeof result[itemName][0] === 'undefined') {
+            if (result[itemName] === undefined) {
+                result[itemName] = selectComponentAst;
+            }
+            else {
+                if (typeof result[itemName] === 'string' || result[itemName][0] === undefined) {
                     const tmp = result[itemName];
                     result[itemName] = [];
                     result[itemName].push(tmp);
@@ -5999,17 +6034,16 @@ class SqlParse {
 
                 result[itemName].push(selectComponentAst);
             }
-            else {
-                result[itemName] = selectComponentAst;
-            }
 
         });
 
         // Reorganize joins
         SqlParse.reorganizeJoins(result);
 
-        if (typeof result.JOIN !== 'undefined') {
-            result.JOIN.forEach((item, key) => { result.JOIN[key].cond = CondParser.parse(item.cond) });
+        if (result.JOIN !== undefined) {
+            for (const [key, item] of result.JOIN.entries()) {
+                result.JOIN[key].cond = CondParser.parse(item.cond);
+            }
         }
 
         SqlUnionParse.reorganizeUnions(result);
@@ -6042,18 +6076,22 @@ class SqlParse {
      * @param {String} joinType 
      */
     static reorganizeSpecificJoin(result, joinName, joinType) {
-        if (typeof result[joinName] !== 'undefined') {
-            if (typeof result.JOIN === 'undefined') result.JOIN = [];
-            if (typeof result[joinName][0] !== 'undefined') {
-                result[joinName].forEach(item => {
-                    item.type = joinType;
-                    result.JOIN.push(item);
-                });
+        if (result[joinName] !== undefined) {
+            if (result.JOIN === undefined) {
+                result.JOIN = [];
             }
-            else {
+
+            if (result[joinName][0] === undefined) {
                 result[joinName].type = joinType;
                 result.JOIN.push(result[joinName]);
             }
+            else {
+                for (const item of result[joinName]) {
+                    item.type = joinType;
+                    result.JOIN.push(item);
+                }
+            }
+
             delete result[joinName];
         }
     }
@@ -6115,7 +6153,7 @@ class SqlUnionParse {
         let parts_name = keywords.map(item => `${item} `);
         parts_name = parts_name.concat(keywords.map(item => `${item}(`));
         parts_name = parts_name.concat(parts_name.map(item => item.toLowerCase()));
-        const parts_name_escaped = parts_name.map(item => item.replace('(', '[\\(]'));
+        const parts_name_escaped = parts_name.map(item => item.replace('(', String.raw`[\(]`));
 
         return new RegExp(parts_name_escaped.join('|'), 'gi');
     }
@@ -6131,7 +6169,7 @@ class SqlUnionParse {
             if (typeof result[union] === 'string') {
                 result[union] = [SqlParse.sql2ast(SqlUnionParse.parseUnion(result[union]))];
             }
-            else if (typeof result[union] !== 'undefined') {
+            else if (result[union] !== undefined) {
                 for (let i = 0; i < result[union].length; i++) {
                     result[union][i] = SqlParse.sql2ast(SqlUnionParse.parseUnion(result[union][i]));
                 }
@@ -6170,11 +6208,11 @@ class CondLexer {
 
     // Read the next character (or return an empty string if cursor is at the end of the source)
     readNextChar() {
-        if (typeof this.source !== 'string') {
-            this.currentChar = "";
+        if (typeof this.source === 'string') {
+            this.currentChar = this.source[this.cursor++] ?? "";
         }
         else {
-            this.currentChar = this.source[this.cursor++] ?? "";
+            this.currentChar = "";
         }
     }
 
@@ -6424,7 +6462,7 @@ class CondParser {
             const rightNode = this.parseConditionExpression();
 
             // If we are chaining the same logical operator, add nodes to existing object instead of creating another one
-            if (typeof leftNode.logic !== 'undefined' && leftNode.logic === logic && typeof leftNode.terms !== 'undefined') {
+            if (leftNode.logic !== undefined && leftNode.logic === logic && leftNode.terms !== undefined) {
                 leftNode.terms.push(rightNode);
             }
             else if (leftNode.operator === "BETWEEN" || leftNode.operator === "NOT BETWEEN") {
@@ -6480,9 +6518,11 @@ class CondParser {
         const firstOp = leftNode.operator === "BETWEEN" ? ">=" : "<";
         const secondOp = leftNode.operator === "BETWEEN" ? "<=" : ">";
         const logic = leftNode.operator === "BETWEEN" ? "AND" : "OR";
+
         const terms = [];
-        terms.push({ left: leftNode.left, right: leftNode.right, operator: firstOp });
-        terms.push({ left: leftNode.left, right: rightNode, operator: secondOp });
+        terms.push({ left: leftNode.left, right: leftNode.right, operator: firstOp },
+            { left: leftNode.left, right: rightNode, operator: secondOp });
+
         return { logic, terms };
     }
 
@@ -6635,9 +6675,9 @@ class SelectKeywordAnalysis {
      * @returns {any}
      */
     static analyze(itemName, part) {
-        const keyWord = itemName.toUpperCase().replace(/ /g, '_');
+        const keyWord = itemName.toUpperCase().replaceAll(' ', '_');
 
-        if (typeof SelectKeywordAnalysis[keyWord] === 'undefined') {
+        if (SelectKeywordAnalysis[keyWord] === undefined) {
             throw new Error(`Can't analyze statement ${itemName}`);
         }
 
@@ -6674,7 +6714,7 @@ class SelectKeywordAnalysis {
             const order_by = /^(.+?)(\s+ASC|DESC)?$/gi;
             const orderData = order_by.exec(item);
             if (orderData !== null) {
-                order = typeof orderData[2] === 'undefined' ? "ASC" : SelectKeywordAnalysis.trim(orderData[2]);
+                order = orderData[2] === undefined ? "ASC" : SelectKeywordAnalysis.trim(orderData[2]);
                 item = orderData[1].trim();
             }
         }
@@ -6687,7 +6727,7 @@ class SelectKeywordAnalysis {
 
         if (terms !== null) {
             const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
-            terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
+            terms = (aggFunc.includes(terms[0].toUpperCase())) ? null : terms;
         }
         if (name !== "*" && terms !== null && terms.length > 1) {
             const subQuery = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
@@ -6708,7 +6748,7 @@ class SelectKeywordAnalysis {
             //  If there is a subquery creating a DERIVED table, it must have a derived table name.
             //  Extract this subquery AS tableName.
             const [, alias] = SelectKeywordAnalysis.getNameAndAlias(str);
-            if (alias !== "" && typeof subqueryAst.FROM !== 'undefined') {
+            if (alias !== "" && subqueryAst.FROM !== undefined) {
                 subqueryAst.FROM.as = alias.toUpperCase();
             }
 
@@ -6773,7 +6813,7 @@ class SelectKeywordAnalysis {
         const strParts = str.toUpperCase().split(' ON ');
         const table = strParts[0].split(' AS ');
         const joinResult = {};
-        joinResult.table = subqueryAst !== null ? subqueryAst : SelectKeywordAnalysis.trim(table[0]);
+        joinResult.table = subqueryAst === null ? SelectKeywordAnalysis.trim(table[0]) : subqueryAst;
         joinResult.as = SelectKeywordAnalysis.trim(table[1]) ?? '';
         joinResult.cond = SelectKeywordAnalysis.trim(strParts[1]);
 
@@ -6816,7 +6856,7 @@ class SelectKeywordAnalysis {
         const strParts = str.split(',');
         const pivotResult = [];
 
-        strParts.forEach((item) => {
+        for (const item of strParts) {
             const pivotOn = /([\w.]+)/gi;
             const pivotData = pivotOn.exec(item);
             if (pivotData !== null) {
@@ -6825,7 +6865,7 @@ class SelectKeywordAnalysis {
                 tmp.as = "";
                 pivotResult.push(tmp);
             }
-        });
+        };
 
         return pivotResult;
     }
@@ -6942,7 +6982,7 @@ class SelectKeywordAnalysis {
         }
 
         let strParts = newStr.split(separator);
-        strParts = strParts.map(item => SelectKeywordAnalysis.trim(item.replace(new RegExp(sep, 'g'), separator)));
+        strParts = strParts.map(item => SelectKeywordAnalysis.trim(item.replaceAll(sep, separator)));
 
         return strParts;
     }
@@ -7006,7 +7046,7 @@ class SelectKeywordAnalysis {
                 if ((inQuote === "'" && ch === "'") || (inQuote === '"' && ch === '"') || (inQuote === "[" && ch === "]"))
                     inQuote = "";
             }
-            else if ("\"'[".indexOf(ch) !== -1) {
+            else if ("\"'[".includes(ch)) {
                 //  The starting quote.
                 inQuote = ch;
             }
@@ -7043,7 +7083,7 @@ class TableData {       //  skipcq: JS-0128
     * @returns {any[][]}
     */
     static loadTableData(namedRange, cacheSeconds = 0) {
-        if (typeof namedRange === 'undefined' || namedRange === "")
+        if (namedRange === undefined || namedRange === "")
             return [];
 
         Logger.log(`loadTableData: ${namedRange}. Seconds=${cacheSeconds}`);
@@ -7228,13 +7268,13 @@ class TableData {       //  skipcq: JS-0128
      * @returns {any[][]}
      */
     static waitForRangeToLoad(cache, namedRange, cacheSeconds) {
-        const start = new Date().getTime();
-        let current = new Date().getTime();
+        const start = Date.now();
+        let current = Date.now();
 
         Logger.log(`waitForRangeToLoad() - Start: ${namedRange}`);
         while (TableData.isRangeLoading(cache, namedRange) && (current - start) < 10000) {
             Utilities.sleep(250);
-            current = new Date().getTime();
+            current = Date.now();
         }
         Logger.log("waitForRangeToLoad() - End");
 
@@ -7312,8 +7352,8 @@ class TableData {       //  skipcq: JS-0128
 
                 //  Actual sheet may have spaces in name.  The SQL must reference that table with
                 //  underscores replacing those spaces.
-                if (sheetHandle === null && tableNamedRange.indexOf("_") !== -1) {
-                    tableNamedRange = tableNamedRange.replace(/_/g, " ");
+                if (sheetHandle === null && tableNamedRange.includes("_")) {
+                    tableNamedRange = tableNamedRange.replaceAll('_', " ");
                     sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
                 }
 
@@ -7351,7 +7391,7 @@ class TableData {       //  skipcq: JS-0128
 
         //  Split up data (for re-assembly on get() later)
         let splitCount = (json.length / (100 * 1024)) * 1.3;    // 1.3 - assumes some blocks may be bigger.
-        splitCount = splitCount < 1 ? 1 : splitCount;
+        splitCount = Math.max(splitCount, 1);
         const arrayLength = Math.ceil(arrData.length / splitCount);
         const putObject = {};
         let blockCount = 0;
@@ -7526,7 +7566,10 @@ class ScriptSettings {      //  skipcq: JS-0128
      */
     putAll(propertyDataObject, daysToHold = 1) {
         const keys = Object.keys(propertyDataObject);
-        keys.forEach(key => this.put(key, propertyDataObject[key], daysToHold));
+        // keys.forEach(key => this.put(key, propertyDataObject[key], daysToHold));
+        for (const key of keys) {
+            this.put(key, propertyDataObject[key], daysToHold);
+        }
     }
 
     /**
@@ -7570,7 +7613,7 @@ class ScriptSettings {      //  skipcq: JS-0128
         for (const key of cacheKeys) {
             const myData = allProperties[key];
 
-            if (typeof myData === 'undefined') {
+            if (myData === undefined) {
                 values.push(null);
             }
             else {
@@ -7741,15 +7784,16 @@ class Select2Object {           // skipcq: JS-0128
 
         //  Add the table name and range.
         for (const tab of this.tables) {
-            parms.push(tab.tableName);
-            parms.push(tab.data);
+            parms.push(tab.tableName, tab.data);
         }
 
         //  Add column output indicator.
         parms.push(true);   //  We want column names returned.
 
         //  Add bind data.
-        this.bindVariables.forEach(bind => parms.push(bind));
+        for (const bind of this.bindVariables) {
+            parms.push(bind);
+        }
 
         const tableDataArray = GasSql.execute(statement, parms);
 
@@ -7895,7 +7939,9 @@ class Select2Object {           // skipcq: JS-0128
             const newRecord = {};
             Object.assign(newRecord, emptyTableRecord);
 
-            columnNames.forEach((col, j) => {newRecord[col] = tableDataArray[i][j]});
+            for (const [index, col] of columnNames.entries()) {
+                newRecord[col] = tableDataArray[i][index];
+            }
 
             tableData.push(newRecord);
         }
@@ -7911,7 +7957,9 @@ class Select2Object {           // skipcq: JS-0128
     static createEmptyRecordObject(columnNames) {
         //  Create empty table record object.
         const dataObject = {};
-        columnNames.forEach(col => {dataObject[col] = ''});
+        for (const col of columnNames) {
+            dataObject[col] = '';
+        }
 
         dataObject.get = function (columnTitle) {
             const prop = Select2Object.convertColumnTitleToPropertyName([columnTitle])[0];

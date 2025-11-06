@@ -262,7 +262,7 @@ class Sql {
      * Modifies AST when FROM is a sub-query rather than a table name.
      */
     selectFromSubQuery() {
-        if (typeof this.ast.FROM === 'undefined' || typeof this.ast.FROM.SELECT === 'undefined')
+        if (this.ast.FROM === undefined || this.ast.FROM.SELECT === undefined)
             return;
 
         const data = new Sql()
@@ -271,7 +271,7 @@ class Sql {
             .replaceColumnTableNameWith(this.ast.FROM.table)
             .execute(this.ast.FROM);
 
-        if (typeof this.ast.FROM.table !== 'undefined') {
+        if (this.ast.FROM.table !== undefined) {
             this.addTableData(this.ast.FROM.table, data);
         }
 
@@ -289,7 +289,7 @@ class Sql {
      * @returns {void}
      */
     selectJoinSubQuery() {
-        if (typeof this.ast.JOIN === 'undefined')
+        if (this.ast.JOIN === undefined)
             return;
 
         //  When joinAst.table is an OBJECT, then it is a sub-query.
@@ -302,7 +302,7 @@ class Sql {
                 .replaceColumnTableNameWith(joinAst.as)
                 .execute(joinAst.table);
 
-            if (typeof joinAst.as !== 'undefined') {
+            if (joinAst.as !== undefined) {
                 this.addTableData(joinAst.as, data);
             }
 
@@ -550,11 +550,11 @@ class Sql {
      * @param {object} ast 
      */
     static errorCheckSelectAST(ast) {
-        if (typeof ast.SELECT === 'undefined') {
+        if (ast.SELECT === undefined) {
             throw new Error("Only SELECT statements are supported.");
         }
 
-        if (typeof ast.FROM === 'undefined') {
+        if (ast.FROM === undefined) {
             throw new Error("Missing keyword FROM");
         }
     }
@@ -575,7 +575,7 @@ class Sql {
         if (firstField.startsWith("DISTINCT")) {
             astFields[0].name = firstField.replace("DISTINCT", "").trim();
 
-            if (typeof ast['GROUP BY'] === 'undefined') {
+            if (ast['GROUP BY'] === undefined) {
                 ast["GROUP BY"] = astFields.map(astItem => ({ name: astItem.name, as: '' }));
             }
         }
@@ -644,10 +644,11 @@ class TableAlias {
         const tableAlias = [];
         const ucTableName = tableName.toUpperCase();
 
-        tableAlias.push(...TableAlias.getTableAliasFromJoin(ucTableName, ast));
-        tableAlias.push(...TableAlias.getTableAliasUnion(ucTableName, ast));
-        tableAlias.push(...TableAlias.getTableAliasWhereIn(ucTableName, ast));
-        tableAlias.push(...TableAlias.getTableAliasWhereTerms(ucTableName, ast));
+        tableAlias.push(
+            ...TableAlias.getTableAliasFromJoin(ucTableName, ast),
+            ...TableAlias.getTableAliasUnion(ucTableName, ast),
+            ...TableAlias.getTableAliasWhereIn(ucTableName, ast),
+            ...TableAlias.getTableAliasWhereTerms(ucTableName, ast));
 
         return tableAlias;
     }
@@ -679,7 +680,7 @@ class TableAlias {
     static locateAstTableAlias(tableName, ast, astBlock) {
         const aliastSet = new Set();
 
-        if (typeof ast[astBlock] === 'undefined') {
+        if (ast[astBlock] === undefined) {
             return Array.from(aliastSet);
         }
 
@@ -722,7 +723,7 @@ class TableAlias {
 
         let i = 0;
         while (i < astRecursiveTableBlocks.length) {
-            if (typeof ast[astRecursiveTableBlocks[i]] !== 'undefined') {
+            if (ast[astRecursiveTableBlocks[i]] !== undefined) {
                 for (const unionAst of ast[astRecursiveTableBlocks[i]]) {
                     extractedAlias.push(...TableAlias.getTableAlias(tableName, unionAst));
                 }
@@ -742,7 +743,7 @@ class TableAlias {
     static getTableAliasWhereIn(tableName, ast) {
         const extractedAlias = [];
 
-        if (typeof ast.WHERE !== 'undefined' && ast.WHERE.operator === "IN") {
+        if (ast.WHERE !== undefined && ast.WHERE.operator === "IN") {
             extractedAlias.push(...TableAlias.getTableAlias(tableName, ast.WHERE.right));
         }
 
@@ -762,7 +763,7 @@ class TableAlias {
     static getTableAliasWhereTerms(tableName, ast) {
         const extractedTableAlias = [];
 
-        if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
+        if (ast.WHERE !== undefined && ast.WHERE.terms !== undefined) {
             for (const term of ast.WHERE.terms) {
                 extractedTableAlias.push(...TableAlias.getTableAlias(tableName, term));
             }
@@ -838,8 +839,8 @@ class TableExtract {
      */
     static getTableNamesFrom(ast, tableSet) {
         let fromAst = ast.FROM;
-        while (typeof fromAst !== 'undefined') {
-            if (typeof fromAst.isDerived === 'undefined') {
+        while (fromAst !== undefined) {
+            if (fromAst.isDerived === undefined) {
                 tableSet.set(fromAst.table.toUpperCase(), typeof fromAst.as === 'undefined' ? '' : fromAst.as.toUpperCase());
             }
             else {
@@ -856,12 +857,12 @@ class TableExtract {
     * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
     */
     static getTableNamesJoin(ast, tableSet) {
-        if (typeof ast.JOIN === 'undefined')
+        if (ast.JOIN === undefined)
             return;
 
         for (const astItem of ast.JOIN) {
             if (typeof astItem.table === 'string') {
-                tableSet.set(astItem.table.toUpperCase(), typeof astItem.as === 'undefined' ? '' : astItem.as.toUpperCase());
+                tableSet.set(astItem.table.toUpperCase(), astItem.as === undefined ? '' : astItem.as.toUpperCase());
             }
             else {
                 TableExtract.extractAstTables(astItem.table, tableSet);
@@ -878,7 +879,7 @@ class TableExtract {
         const astRecursiveTableBlocks = ['UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT'];
 
         for (const block of astRecursiveTableBlocks) {
-            if (typeof ast[block] !== 'undefined') {
+            if (ast[block] !== undefined) {
                 for (const unionAst of ast[block]) {
                     this.extractAstTables(unionAst, tableSet);
                 }
@@ -893,11 +894,11 @@ class TableExtract {
      */
     static getTableNamesWhereIn(ast, tableSet) {
         const subQueryTerms = ["IN", "NOT IN", "EXISTS", "NOT EXISTS"]
-        if (typeof ast.WHERE !== 'undefined' && (subQueryTerms.indexOf(ast.WHERE.operator) !== -1)) {
+        if (ast.WHERE !== undefined && (subQueryTerms.includes(ast.WHERE.operator))) {
             this.extractAstTables(ast.WHERE.right, tableSet);
         }
 
-        if (subQueryTerms.indexOf(ast.operator) !== -1) {
+        if (subQueryTerms.includes(ast.operator)) {
             this.extractAstTables(ast.right, tableSet);
         }
     }
@@ -908,7 +909,7 @@ class TableExtract {
      * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesWhereTerms(ast, tableSet) {
-        if (typeof ast.WHERE !== 'undefined' && typeof ast.WHERE.terms !== 'undefined') {
+        if (ast.WHERE !== undefined && ast.WHERE.terms !== undefined) {
             for (const term of ast.WHERE.terms) {
                 this.extractAstTables(term, tableSet);
             }
@@ -929,7 +930,7 @@ class TableExtract {
         if (rParts.length > 1) {
             tableSet.set(rParts[0].toUpperCase(), "");
         }
-        if (typeof ast.terms !== 'undefined') {
+        if (ast.terms !== undefined) {
             for (const term of ast.terms) {
                 TableExtract.getTableNamesWhereCondition(term, tableSet);
             }
@@ -942,10 +943,12 @@ class TableExtract {
      * @param {*} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesCorrelatedSelect(ast, tableSet) {
-        if (typeof ast.SELECT === 'undefined')
+        if (ast.SELECT === undefined)
             return;
 
-        ast.SELECT.forEach(term => this.extractAstTables(term.subQuery, tableSet));
+        for (const term of ast.SELECT) {
+            this.extractAstTables(term.subQuery, tableSet);
+        }
     }
 }
 
@@ -962,12 +965,12 @@ class Pivot {
      */
     static pivotField(ast, tables, bindData) {
         //  If we are doing a PIVOT, it then requires a GROUP BY.
-        if (typeof ast.PIVOT !== 'undefined') {
-            if (typeof ast['GROUP BY'] === 'undefined')
-                throw new Error("PIVOT requires GROUP BY");
+        if (ast.PIVOT === undefined) {
+            return ast;
         }
         else {
-            return ast;
+            if (ast['GROUP BY'] === undefined)
+                throw new Error("PIVOT requires GROUP BY");
         }
 
         // These are all of the unique PIVOT field data points.
@@ -1024,7 +1027,7 @@ class Pivot {
 
                 for (const fld of pivotFieldData) {
                     const caseTxt = `${matches[0]}(CASE WHEN ${ast.PIVOT[0].name} = '${fld}' THEN ${args[1]} ELSE 'null' END)`;
-                    const asField = `${fld[0]} ${typeof selectField.as !== 'undefined' && selectField.as !== "" ? selectField.as : selectField.name}`;
+                    const asField = `${fld[0]} ${selectField.as !== undefined && selectField.as !== "" ? selectField.as : selectField.name}`;
                     newPivotAstFields.push({ name: caseTxt, as: asField });
                 }
             }
@@ -1057,7 +1060,7 @@ class SqlSets {
      */
     static getSetType(ast) {
         for (const type of SqlSets.getUnionTypes()) {
-            if (typeof ast[type] !== 'undefined') {
+            if (ast[type] !== undefined) {
                 return type;
             }
         }
@@ -1111,7 +1114,7 @@ class SqlSets {
      * @returns {Boolean}
      */
     static isSqlSet(ast) {
-        return SqlSets.getUnionTypes().some(type => typeof ast[type] !== 'undefined');
+        return SqlSets.getUnionTypes().some(type => ast[type] !== undefined);
     }
 
     /**

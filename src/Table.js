@@ -89,7 +89,7 @@ class Table {       //  skipcq: JS-0128
      * @returns {Table}
      */
     loadArrayData(tableData) {
-        if (typeof tableData === 'undefined' || tableData.length === 0)
+        if (tableData === undefined || tableData.length === 0)
             return this;
 
         if (!this.hasColumnTitle) {
@@ -112,7 +112,7 @@ class Table {       //  skipcq: JS-0128
     static removeEmptyRecordsAtEndOfTable(tableData) {
         let blankLines = 0;
         for (let i = tableData.length - 1; i > 0; i--) {
-            if (tableData[i].join().replace(/,/g, "").length > 0)
+            if (tableData[i].join().replaceAll(',', "").length > 0)
                 break;
             blankLines++;
         }
@@ -239,7 +239,7 @@ class Table {       //  skipcq: JS-0128
      */
     getRecords(startRecord, lastRecord, fields) {
         const selectedRecords = [];
-        const minStartRecord = startRecord < 1 ? 1 : startRecord;
+        const minStartRecord = Math.max(startRecord, 1);
         const maxLastRecord = lastRecord < 0 ? this.tableData.length - 1 : lastRecord;
 
         for (let i = minStartRecord; i <= maxLastRecord && i < this.tableData.length; i++) {
@@ -274,7 +274,7 @@ class Table {       //  skipcq: JS-0128
 
         for (let i = 1; i < this.tableData.length; i++) {
             value = calcSqlField === null ? this.tableData[i][fieldIndex] : calcSqlField.evaluateCalculatedField(calcField, i);
-            value = (value !== null) ? value.toString() : value;
+            value = (value === null) ? value : value.toString();
 
             if (value !== "") {
                 value = typeof value === 'string' ? value.toUpperCase() : value;
@@ -335,7 +335,7 @@ class Schema {
 
         /** @property {Map<String,Number>} - String=Field Name, Number=Column Number */
         this.fields = new Map();
-        
+
         /** @property {VirtualFields} */
         this.virtualFields = new VirtualFields();
     }
@@ -360,7 +360,7 @@ class Schema {
 
         for (const alias of tableAlias) {
             if (alias !== '') {
-                uniqueAliasSet.add(alias.toUpperCase());   
+                uniqueAliasSet.add(alias.toUpperCase());
             }
         }
 
@@ -414,13 +414,13 @@ class Schema {
     getAllExtendedNotationFieldNames(aliasName) {
         /** @type {String[]} */
         const fieldNames = [];
-        const tableName = aliasName !== '' ? aliasName : this.tableName;
+        const tableName = aliasName === '' ? this.tableName : aliasName;
 
         // @ts-ignore
         for (const [key, value] of this.fields.entries()) {
             if (value !== null) {
                 const fieldParts = key.split(".");
-                if (typeof fieldNames[value] === 'undefined' ||
+                if (fieldNames[value] === undefined ||
                     (fieldParts.length === 2 && (fieldParts[0] === tableName || this.isDerivedTable)))
                     fieldNames[value] = key;
             }
@@ -520,7 +520,7 @@ class Schema {
         const columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
         const columnNameVariants = [];
 
-        if (columnName.indexOf(".") === -1) {
+        if (!columnName.includes(".")) {
             columnNameVariants.push(`${this.tableName}.${columnName}`);
 
             for (const tableAlias of this.tableAlias) {

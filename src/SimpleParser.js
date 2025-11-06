@@ -18,9 +18,9 @@ class SqlParse {
         const ast = SqlParse.sql2ast(`SELECT A FROM c WHERE ${cond}`);
         let sqlData = "";
 
-        if (typeof ast.WHERE !== 'undefined') {
+        if (ast.WHERE !== undefined) {
             const conditions = ast.WHERE;
-            if (typeof conditions.logic === 'undefined') {
+            if (conditions.logic === undefined) {
                 sqlData = SqlParse.resolveSqlCondition("OR", [conditions]);
             }
             else {
@@ -72,7 +72,7 @@ class SqlParse {
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
 
-        if (typeof result.FROM !== 'undefined' && typeof result.FROM.FROM !== 'undefined' && typeof result.FROM.FROM.as !== 'undefined') {
+        if (result.FROM !== undefined && result.FROM.FROM !== undefined && result.FROM.FROM.as !== undefined) {
             if (result.FROM.FROM.as === '') {
                 throw new Error("Every derived table must have its own alias");
             }
@@ -109,7 +109,7 @@ class SqlParse {
         let jsCondition = "";
 
         for (const cond of terms) {
-            if (typeof cond.logic === 'undefined') {
+            if (cond.logic === undefined) {
                 if (jsCondition !== "" && logic === "AND") {
                     jsCondition += " && ";
                 }
@@ -166,7 +166,7 @@ class SqlParse {
     static generateSqlSeparatorWords(keywords) {
         let parts_name = keywords.map(item => `${item} `);
         parts_name = parts_name.concat(keywords.map(item => `${item}(`));
-        const parts_name_escaped = parts_name.map(item => item.replace('(', '[\\(]'));
+        const parts_name_escaped = parts_name.map(item => item.replace('(', String.raw`[\(]`));
 
         return [parts_name, parts_name_escaped];
     }
@@ -178,8 +178,9 @@ class SqlParse {
      * @param {Object} replaceFunction
      */
     static hideInnerSql(str, parts_name_escaped, replaceFunction) {
-        if (str.indexOf("(") === -1 && str.indexOf(")") === -1)
+        if (!str.includes("(") && !str.includes(")")) {
             return str;
+        }
 
         let bracketCount = 0;
         let endCount = -1;
@@ -221,26 +222,16 @@ class SqlParse {
         // Write the position(s) in query of these separators
         const parts_order = [];
 
-        /**
-         * 
-         * @param {String} _match 
-         * @param {String} name 
-         * @returns {String}
-         */
-        function realNameCallback(_match, name) {
-            return name;
-        }
-
-        parts_name.forEach(item => {
+        for (const item of parts_name) {
             let pos = 0;
             let part = 0;
 
             do {
                 part = modifiedQuery.indexOf(item, pos);
                 if (part !== -1) {
-                    const realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, realNameCallback);
+                    const realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, SqlParse.realNameCallback);
 
-                    if (typeof parts_order[part] === 'undefined' || parts_order[part].length < realName.length) {
+                    if (parts_order[part] === undefined || parts_order[part].length < realName.length) {
                         parts_order[part] = realName;	// Position won't be exact because the use of protect()  (above) and unprotect() alter the query string ; but we just need the order :)
                     }
 
@@ -248,27 +239,39 @@ class SqlParse {
                 }
             }
             while (part !== -1);
-        });
+        };
 
         return parts_order;
     }
 
     /**
-     * Delete duplicates (caused, for example, by JOIN and INNER JOIN)
-     * @param {String[]} parts_order
+     * 
+     * @param {String} _match 
+     * @param {String} name 
+     * @returns {String}
      */
-    static removeDuplicateEntries(parts_order) {
-        let busy_until = 0;
-        parts_order.forEach((item, key) => {
-            if (busy_until > key) {
-                delete parts_order[key];
+    static realNameCallback(_match, name) {
+        return name;
+    }
+
+    /**
+     * Delete duplicates (caused, for example, by JOIN and INNER JOIN)
+     * @param {String[]} partsOrder
+     */
+    static removeDuplicateEntries(partsOrder) {
+        let busyUntil = 0;
+
+        partsOrder.forEach((item, key) => {
+            if (busyUntil > key) {
+                delete partsOrder[key];
             }
             else {
-                busy_until = key + item.length;
+                busyUntil = key + item.length;
 
                 // Replace JOIN by INNER JOIN
-                if (item.toUpperCase() === 'JOIN')
-                    parts_order[key] = 'INNER JOIN';
+                if (item.toUpperCase() === 'JOIN') {
+                    partsOrder[key] = 'INNER JOIN';
+                }
             }
         });
     }
@@ -301,20 +304,23 @@ class SqlParse {
 
     /**
      * 
-     * @param {String[]} parts_order 
+     * @param {String[]} partsOrder 
      * @param {String[]} parts 
      * @returns {Object}
      */
-    static analyzeParts(parts_order, parts) {
+    static analyzeParts(partsOrder, parts) {
         const result = {};
         let j = 0;
-        parts_order.forEach(item => {
+        partsOrder.forEach(item => {
             const itemName = item.toUpperCase();
             j++;
             const selectComponentAst = SelectKeywordAnalysis.analyze(item, parts[j]);
 
-            if (typeof result[itemName] !== 'undefined') {
-                if (typeof result[itemName] === 'string' || typeof result[itemName][0] === 'undefined') {
+            if (result[itemName] === undefined) {
+                result[itemName] = selectComponentAst;
+            }
+            else {
+                if (typeof result[itemName] === 'string' || result[itemName][0] === undefined) {
                     const tmp = result[itemName];
                     result[itemName] = [];
                     result[itemName].push(tmp);
@@ -322,17 +328,16 @@ class SqlParse {
 
                 result[itemName].push(selectComponentAst);
             }
-            else {
-                result[itemName] = selectComponentAst;
-            }
 
         });
 
         // Reorganize joins
         SqlParse.reorganizeJoins(result);
 
-        if (typeof result.JOIN !== 'undefined') {
-            result.JOIN.forEach((item, key) => { result.JOIN[key].cond = CondParser.parse(item.cond) });
+        if (result.JOIN !== undefined) {
+            for (const [key, item] of result.JOIN.entries()) {
+                result.JOIN[key].cond = CondParser.parse(item.cond);
+            }
         }
 
         SqlUnionParse.reorganizeUnions(result);
@@ -365,18 +370,22 @@ class SqlParse {
      * @param {String} joinType 
      */
     static reorganizeSpecificJoin(result, joinName, joinType) {
-        if (typeof result[joinName] !== 'undefined') {
-            if (typeof result.JOIN === 'undefined') result.JOIN = [];
-            if (typeof result[joinName][0] !== 'undefined') {
-                result[joinName].forEach(item => {
-                    item.type = joinType;
-                    result.JOIN.push(item);
-                });
+        if (result[joinName] !== undefined) {
+            if (result.JOIN === undefined) {
+                result.JOIN = [];
             }
-            else {
+
+            if (result[joinName][0] === undefined) {
                 result[joinName].type = joinType;
                 result.JOIN.push(result[joinName]);
             }
+            else {
+                for (const item of result[joinName]) {
+                    item.type = joinType;
+                    result.JOIN.push(item);
+                }
+            }
+
             delete result[joinName];
         }
     }
@@ -438,7 +447,7 @@ class SqlUnionParse {
         let parts_name = keywords.map(item => `${item} `);
         parts_name = parts_name.concat(keywords.map(item => `${item}(`));
         parts_name = parts_name.concat(parts_name.map(item => item.toLowerCase()));
-        const parts_name_escaped = parts_name.map(item => item.replace('(', '[\\(]'));
+        const parts_name_escaped = parts_name.map(item => item.replace('(', String.raw`[\(]`));
 
         return new RegExp(parts_name_escaped.join('|'), 'gi');
     }
@@ -454,7 +463,7 @@ class SqlUnionParse {
             if (typeof result[union] === 'string') {
                 result[union] = [SqlParse.sql2ast(SqlUnionParse.parseUnion(result[union]))];
             }
-            else if (typeof result[union] !== 'undefined') {
+            else if (result[union] !== undefined) {
                 for (let i = 0; i < result[union].length; i++) {
                     result[union][i] = SqlParse.sql2ast(SqlUnionParse.parseUnion(result[union][i]));
                 }
@@ -493,11 +502,11 @@ class CondLexer {
 
     // Read the next character (or return an empty string if cursor is at the end of the source)
     readNextChar() {
-        if (typeof this.source !== 'string') {
-            this.currentChar = "";
+        if (typeof this.source === 'string') {
+            this.currentChar = this.source[this.cursor++] ?? "";
         }
         else {
-            this.currentChar = this.source[this.cursor++] ?? "";
+            this.currentChar = "";
         }
     }
 
@@ -747,7 +756,7 @@ class CondParser {
             const rightNode = this.parseConditionExpression();
 
             // If we are chaining the same logical operator, add nodes to existing object instead of creating another one
-            if (typeof leftNode.logic !== 'undefined' && leftNode.logic === logic && typeof leftNode.terms !== 'undefined') {
+            if (leftNode.logic !== undefined && leftNode.logic === logic && leftNode.terms !== undefined) {
                 leftNode.terms.push(rightNode);
             }
             else if (leftNode.operator === "BETWEEN" || leftNode.operator === "NOT BETWEEN") {
@@ -803,9 +812,11 @@ class CondParser {
         const firstOp = leftNode.operator === "BETWEEN" ? ">=" : "<";
         const secondOp = leftNode.operator === "BETWEEN" ? "<=" : ">";
         const logic = leftNode.operator === "BETWEEN" ? "AND" : "OR";
+
         const terms = [];
-        terms.push({ left: leftNode.left, right: leftNode.right, operator: firstOp });
-        terms.push({ left: leftNode.left, right: rightNode, operator: secondOp });
+        terms.push({ left: leftNode.left, right: leftNode.right, operator: firstOp },
+            { left: leftNode.left, right: rightNode, operator: secondOp });
+
         return { logic, terms };
     }
 
@@ -958,9 +969,9 @@ class SelectKeywordAnalysis {
      * @returns {any}
      */
     static analyze(itemName, part) {
-        const keyWord = itemName.toUpperCase().replace(/ /g, '_');
+        const keyWord = itemName.toUpperCase().replaceAll(' ', '_');
 
-        if (typeof SelectKeywordAnalysis[keyWord] === 'undefined') {
+        if (SelectKeywordAnalysis[keyWord] === undefined) {
             throw new Error(`Can't analyze statement ${itemName}`);
         }
 
@@ -997,7 +1008,7 @@ class SelectKeywordAnalysis {
             const order_by = /^(.+?)(\s+ASC|DESC)?$/gi;
             const orderData = order_by.exec(item);
             if (orderData !== null) {
-                order = typeof orderData[2] === 'undefined' ? "ASC" : SelectKeywordAnalysis.trim(orderData[2]);
+                order = orderData[2] === undefined ? "ASC" : SelectKeywordAnalysis.trim(orderData[2]);
                 item = orderData[1].trim();
             }
         }
@@ -1010,7 +1021,7 @@ class SelectKeywordAnalysis {
 
         if (terms !== null) {
             const aggFunc = ["SUM", "MIN", "MAX", "COUNT", "AVG", "DISTINCT", "GROUP_CONCAT"];
-            terms = (aggFunc.indexOf(terms[0].toUpperCase()) === -1) ? terms : null;
+            terms = (aggFunc.includes(terms[0].toUpperCase())) ? null : terms;
         }
         if (name !== "*" && terms !== null && terms.length > 1) {
             const subQuery = SelectKeywordAnalysis.parseForCorrelatedSubQuery(item);
@@ -1031,7 +1042,7 @@ class SelectKeywordAnalysis {
             //  If there is a subquery creating a DERIVED table, it must have a derived table name.
             //  Extract this subquery AS tableName.
             const [, alias] = SelectKeywordAnalysis.getNameAndAlias(str);
-            if (alias !== "" && typeof subqueryAst.FROM !== 'undefined') {
+            if (alias !== "" && subqueryAst.FROM !== undefined) {
                 subqueryAst.FROM.as = alias.toUpperCase();
             }
 
@@ -1096,7 +1107,7 @@ class SelectKeywordAnalysis {
         const strParts = str.toUpperCase().split(' ON ');
         const table = strParts[0].split(' AS ');
         const joinResult = {};
-        joinResult.table = subqueryAst !== null ? subqueryAst : SelectKeywordAnalysis.trim(table[0]);
+        joinResult.table = subqueryAst === null ? SelectKeywordAnalysis.trim(table[0]) : subqueryAst;
         joinResult.as = SelectKeywordAnalysis.trim(table[1]) ?? '';
         joinResult.cond = SelectKeywordAnalysis.trim(strParts[1]);
 
@@ -1139,7 +1150,7 @@ class SelectKeywordAnalysis {
         const strParts = str.split(',');
         const pivotResult = [];
 
-        strParts.forEach((item) => {
+        for (const item of strParts) {
             const pivotOn = /([\w.]+)/gi;
             const pivotData = pivotOn.exec(item);
             if (pivotData !== null) {
@@ -1148,7 +1159,7 @@ class SelectKeywordAnalysis {
                 tmp.as = "";
                 pivotResult.push(tmp);
             }
-        });
+        };
 
         return pivotResult;
     }
@@ -1265,7 +1276,7 @@ class SelectKeywordAnalysis {
         }
 
         let strParts = newStr.split(separator);
-        strParts = strParts.map(item => SelectKeywordAnalysis.trim(item.replace(new RegExp(sep, 'g'), separator)));
+        strParts = strParts.map(item => SelectKeywordAnalysis.trim(item.replaceAll(sep, separator)));
 
         return strParts;
     }
@@ -1329,7 +1340,7 @@ class SelectKeywordAnalysis {
                 if ((inQuote === "'" && ch === "'") || (inQuote === '"' && ch === '"') || (inQuote === "[" && ch === "]"))
                     inQuote = "";
             }
-            else if ("\"'[".indexOf(ch) !== -1) {
+            else if ("\"'[".includes(ch)) {
                 //  The starting quote.
                 inQuote = ch;
             }

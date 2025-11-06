@@ -74,7 +74,9 @@ class JoinTables {                                   //  skipcq: JS-0128
         /** @property {DerivedTable} - result table after tables are joined */
         this.derivedTable = new DerivedTable();
 
-        ast.JOIN.forEach(joinTable => this.joinNextTable(joinTable, ast.FROM.table.toUpperCase(), ast.FROM.as));
+        for (const joinTable of ast.JOIN) {
+            this.joinNextTable(joinTable, ast.FROM.table.toUpperCase(), ast.FROM.as);
+        }
     }
 
     /**
@@ -105,7 +107,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         const rightTableName = conditions.table;
         const joinType = conditions.type;
 
-        if (typeof conditions.cond.logic === 'undefined') {
+        if (conditions.cond.logic === undefined) {
             recIds = this.resolveCondition("OR", [conditions], joinType, rightTableName, leftTableName);
         }
         else {
@@ -169,7 +171,7 @@ class JoinTables {                                   //  skipcq: JS-0128
         const result = [];
 
         for (let i = 0; i < recIds[0].length; i++) {
-            const temp = recIds.map(rec => typeof rec[i] === 'undefined' ? [] : rec[i]);
+            const temp = recIds.map(rec => rec[i] === undefined ? [] : rec[i]);
             const row = temp.reduce((accumulator, currentRecords) => accumulator.filter(c => currentRecords.includes(c)), temp[0]);
 
             if (row.length > 0) {
@@ -191,9 +193,11 @@ class JoinTables {                                   //  skipcq: JS-0128
         for (let i = 0; i < recIds[0].length; i++) {
             let temp = [];
 
-            recIds.forEach(rec => { temp = temp.concat(rec[i]) });
+            for (const rec of recIds) {
+                temp = temp.concat(rec[i])
+            };
 
-            if (typeof temp[0] !== 'undefined') {
+            if (temp[0] !== undefined) {
                 result[i] = Array.from(new Set(temp));
             }
         }
@@ -206,7 +210,7 @@ class JoinTables {                                   //  skipcq: JS-0128
      * @returns {Boolean}
      */
     isDerivedTable() {
-        if (typeof this.derivedTable === 'undefined') {
+        if (this.derivedTable === undefined) {
             return false;
         }
 
@@ -441,9 +445,9 @@ class JoinTablesRecordIds {
         /** @type {TableField} */
         let rightFieldInfo = null;
 
-        const left = typeof astJoin.cond === 'undefined' ? astJoin.left : astJoin.cond.left;
-        const right = typeof astJoin.cond === 'undefined' ? astJoin.right : astJoin.cond.right;
-        const operator = typeof astJoin.cond === 'undefined' ? astJoin.operator : astJoin.cond.operator;
+        const left = astJoin.cond === undefined ? astJoin.left : astJoin.cond.left;
+        const right = astJoin.cond === undefined ? astJoin.right : astJoin.cond.right;
+        const operator = astJoin.cond === undefined ? astJoin.operator : astJoin.cond.operator;
 
         leftFieldInfo = this.getTableInfoFromCalculatedField(left);
         rightFieldInfo = this.getTableInfoFromCalculatedField(right);
@@ -461,7 +465,7 @@ class JoinTablesRecordIds {
         }
 
         //  joinTable.table is the RIGHT table, so switch if equal to condition left.
-        if (typeof leftFieldInfo !== 'undefined' && this.rightTableName === leftFieldInfo.originalTable && !isSelfJoin) {
+        if (leftFieldInfo !== undefined && this.rightTableName === leftFieldInfo.originalTable && !isSelfJoin) {
             return {
                 leftSideInfo: rightSideInfo,
                 rightSideInfo: leftSideInfo,
@@ -480,7 +484,7 @@ class JoinTablesRecordIds {
     getTableInfoFromCalculatedField(calcField) {
         let foundTableField = this.tableFields.getFieldInfo(calcField);
 
-        if (typeof foundTableField === 'undefined' && calcField !== '') {
+        if (foundTableField === undefined && calcField !== '') {
             //  Calculated expression.
             foundTableField = this.getReferencedTableInfo(calcField);
         }
@@ -511,7 +515,7 @@ class JoinTablesRecordIds {
         //  We search the calcField for valid columns - except within quotes.
         const quotedConstantsRegEx = /["'](.*?)["']/g;
         const opRegEx = /[+\-/*()]/g;
-        const results = calcField.replace(quotedConstantsRegEx, "");
+        const results = calcField.replaceAll(quotedConstantsRegEx, "");
         let parts = results.split(opRegEx);
         parts = parts.map(a => a.trim()).filter(a => a !== '');
 
@@ -531,7 +535,7 @@ class JoinTablesRecordIds {
      */
     searchColumnsForTable(calcField, columns) {
         const fieldInfoList = columns.map(col => this.tableFields.getFieldInfo(col));
-        const validFieldInfo = fieldInfoList.filter(fld => typeof fld != 'undefined');
+        const validFieldInfo = fieldInfoList.filter(fld => fld != undefined);
 
         if (validFieldInfo.length > 0) {
             const foundTableField = { ...validFieldInfo[0] };
@@ -601,17 +605,11 @@ class JoinTablesRecordIds {
             let rightRecordIDs = [];
 
             if (this.joinFields.operator === '=') {
-                //  "=" - special case.  
-                //  Most common case AND far fewer comparisons - especially if right table is large.
+                //  "=" - special case. Most common case AND far fewer comparisons - especially if right table is large.
                 rightRecordIDs = keyFieldMap.has(keyMasterJoinField) ? keyFieldMap.get(keyMasterJoinField) : [];
             }
             else {
-                // @ts-ignore
-                for (const [key, data] of keyFieldMap) {
-                    if (conditionFunction(keyMasterJoinField, key)) {
-                        rightRecordIDs.unshift(...data);
-                    }
-                }
+                rightRecordIDs = this.getJoinRecordIdsForNonEqualCondition(keyMasterJoinField, keyFieldMap, conditionFunction);
             }
 
             //  For the current LEFT TABLE record, record the linking RIGHT TABLE records.
@@ -667,5 +665,25 @@ class JoinTablesRecordIds {
         }
 
         return keyFieldMap;
+    }
+
+    /**
+     * 
+     * @param {String} keyMasterJoinField 
+     * @param {Map<String, Number[]>} keyFieldMap 
+     * @param {Function} conditionFunction 
+     * @returns {Number[]}
+     */
+    getJoinRecordIdsForNonEqualCondition(keyMasterJoinField, keyFieldMap, conditionFunction) {
+        const recordIDs = [];
+
+        // @ts-ignore
+        for (const [key, data] of keyFieldMap) {
+            if (conditionFunction(keyMasterJoinField, key)) {
+                recordIDs.unshift(...data);
+            }
+        }
+
+        return recordIDs;
     }
 }
