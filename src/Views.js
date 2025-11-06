@@ -1174,19 +1174,19 @@ class CalculatedField {
                 continue;
             }
 
-            if (!aliasName.includes(".")) {
-                if (!variablesDeclared.has(aliasName)) {
-                    myVars += `let ${aliasName} = ${varData};`;
-                    variablesDeclared.set(aliasName, true);
-                }
-            }
-            else {
+            if (aliasName.includes(".")) {
                 const parts = aliasName.split(".");
                 if (!objectsDeclared.has(parts[0])) {
                     myVars += `let ${parts[0]} = {};`;
                     objectsDeclared.set(parts[0], true);
                 }
                 myVars += `${aliasName} = ${varData};`;
+            }
+            else {
+                if (!variablesDeclared.has(aliasName)) {
+                    myVars += `let ${aliasName} = ${varData};`;
+                    variablesDeclared.set(aliasName, true);
+                }
             }
         }
 
@@ -1553,7 +1553,7 @@ class SqlServerFunctions {
             while (args !== null && args.length > 0) {
                 try {
                     // Split on COMMA, except within brackets.
-                    const parms = typeof args[1] === 'undefined' ? [] : SelectTables.parseForParams(args[1]);
+                    const parms = args[1] === undefined ? [] : SelectTables.parseForParams(args[1]);
                     const replacement = this[func.toLocaleLowerCase()](parms, args, masterFields);
                     functionString = functionString.replace(args[0], replacement);
                     args = this.parseFunctionArgs(func, functionString);
@@ -2585,7 +2585,7 @@ class TableFields {
         for (const aliasField of field.aliasNames) {
             const fieldInfo = this.fieldNameMap.get(aliasField);
 
-            if (typeof fieldInfo === 'undefined' || isPrimaryTable) {
+            if (fieldInfo === undefined || isPrimaryTable) {
                 this.fieldNameMap.set(aliasField, field);
             }
         }

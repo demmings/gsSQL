@@ -806,7 +806,7 @@ class TableExtract {
      * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
      */
     static extractAstTables(ast, tableSet) {
-        if (typeof ast === 'undefined' || ast === null) {
+        if (ast === undefined || ast === null) {
             return;
         }
 
@@ -954,9 +954,8 @@ class Pivot {
         if (ast.PIVOT === undefined) {
             return ast;
         }
-        else {
-            if (ast['GROUP BY'] === undefined)
-                throw new Error("PIVOT requires GROUP BY");
+        else if (ast['GROUP BY'] === undefined) {
+            throw new Error("PIVOT requires GROUP BY");
         }
 
         // These are all of the unique PIVOT field data points.
@@ -2942,19 +2941,19 @@ class CalculatedField {
                 continue;
             }
 
-            if (!aliasName.includes(".")) {
-                if (!variablesDeclared.has(aliasName)) {
-                    myVars += `let ${aliasName} = ${varData};`;
-                    variablesDeclared.set(aliasName, true);
-                }
-            }
-            else {
+            if (aliasName.includes(".")) {
                 const parts = aliasName.split(".");
                 if (!objectsDeclared.has(parts[0])) {
                     myVars += `let ${parts[0]} = {};`;
                     objectsDeclared.set(parts[0], true);
                 }
                 myVars += `${aliasName} = ${varData};`;
+            }
+            else {
+                if (!variablesDeclared.has(aliasName)) {
+                    myVars += `let ${aliasName} = ${varData};`;
+                    variablesDeclared.set(aliasName, true);
+                }
             }
         }
 
@@ -3321,7 +3320,7 @@ class SqlServerFunctions {
             while (args !== null && args.length > 0) {
                 try {
                     // Split on COMMA, except within brackets.
-                    const parms = typeof args[1] === 'undefined' ? [] : SelectTables.parseForParams(args[1]);
+                    const parms = args[1] === undefined ? [] : SelectTables.parseForParams(args[1]);
                     const replacement = this[func.toLocaleLowerCase()](parms, args, masterFields);
                     functionString = functionString.replace(args[0], replacement);
                     args = this.parseFunctionArgs(func, functionString);
@@ -4353,7 +4352,7 @@ class TableFields {
         for (const aliasField of field.aliasNames) {
             const fieldInfo = this.fieldNameMap.get(aliasField);
 
-            if (typeof fieldInfo === 'undefined' || isPrimaryTable) {
+            if (fieldInfo === undefined || isPrimaryTable) {
                 this.fieldNameMap.set(aliasField, field);
             }
         }
@@ -5160,7 +5159,7 @@ class JoinTables {                                   //  skipcq: JS-0128
             .setTableFields(this.tableFields);
 
         for (const cond of astConditions) {
-            if (typeof cond.logic === 'undefined') {
+            if (cond.logic === undefined) {
                 matchedIDs = this.joinTableIDs.getRecordIDs(cond);
             }
             else {
@@ -7566,7 +7565,6 @@ class ScriptSettings {      //  skipcq: JS-0128
      */
     putAll(propertyDataObject, daysToHold = 1) {
         const keys = Object.keys(propertyDataObject);
-        // keys.forEach(key => this.put(key, propertyDataObject[key], daysToHold));
         for (const key of keys) {
             this.put(key, propertyDataObject[key], daysToHold);
         }

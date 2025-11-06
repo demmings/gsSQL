@@ -139,7 +139,7 @@ class JoinTables {                                   //  skipcq: JS-0128
             .setTableFields(this.tableFields);
 
         for (const cond of astConditions) {
-            if (typeof cond.logic === 'undefined') {
+            if (cond.logic === undefined) {
                 matchedIDs = this.joinTableIDs.getRecordIDs(cond);
             }
             else {

@@ -820,7 +820,7 @@ class TableExtract {
      * @param {Map<String,String>} tableSet  - Function updates this map of table names and alias name.
      */
     static extractAstTables(ast, tableSet) {
-        if (typeof ast === 'undefined' || ast === null) {
+        if (ast === undefined || ast === null) {
             return;
         }
 
@@ -968,9 +968,8 @@ class Pivot {
         if (ast.PIVOT === undefined) {
             return ast;
         }
-        else {
-            if (ast['GROUP BY'] === undefined)
-                throw new Error("PIVOT requires GROUP BY");
+        else if (ast['GROUP BY'] === undefined) {
+            throw new Error("PIVOT requires GROUP BY");
         }
 
         // These are all of the unique PIVOT field data points.
