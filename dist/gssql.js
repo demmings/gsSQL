@@ -5485,7 +5485,7 @@ class JoinTablesRecordIds {
         }
 
         //  joinTable.table is the RIGHT table, so switch if equal to condition left.
-        if (leftFieldInfo !== undefined && this.rightTableName === leftFieldInfo.originalTable && !isSelfJoin) {
+        if (this.rightTableName === leftFieldInfo.originalTable && !isSelfJoin) {
             return {
                 leftSideInfo: rightSideInfo,
                 rightSideInfo: leftSideInfo,
@@ -7181,43 +7181,6 @@ class TableData {       //  skipcq: JS-0128
         }
 
         return singleData;
-    }
-
-    /**
-     * For updating a sheet VALUE that may be later read from cache.
-     * @param {String} namedRange 
-     * @param {any} singleData 
-     * @param {Number} seconds 
-     */
-    static setValueCached(namedRange, singleData, seconds = 60) {
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        ss.getRangeByName(namedRange).setValue(singleData);
-        let cache = null;
-
-        if (seconds === 0) {
-            return;
-        }
-        else if (seconds > 21600) {
-            cache = new ScriptSettings();
-        }
-        else {
-            cache = CacheService.getScriptCache();
-        }
-        cache.put(namedRange, JSON.stringify(singleData), seconds);
-    }
-
-    /**
-     * For updating a sheet array that may be later read from cache.
-     * @param {String} namedRange 
-     * @param {any[][]} arrData 
-     * @param {Number} seconds 
-     */
-    static setValuesCached(namedRange, arrData, seconds = 60) {
-        const cache = CacheService.getScriptCache();
-
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        ss.getRangeByName(namedRange).setValues(arrData);
-        cache.put(namedRange, JSON.stringify(arrData), seconds)
     }
 
     /**

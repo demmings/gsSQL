@@ -465,7 +465,7 @@ class JoinTablesRecordIds {
         }
 
         //  joinTable.table is the RIGHT table, so switch if equal to condition left.
-        if (leftFieldInfo !== undefined && this.rightTableName === leftFieldInfo.originalTable && !isSelfJoin) {
+        if (this.rightTableName === leftFieldInfo.originalTable && !isSelfJoin) {
             return {
                 leftSideInfo: rightSideInfo,
                 rightSideInfo: leftSideInfo,
