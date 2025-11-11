@@ -4543,13 +4543,16 @@ class TableFields {
         const fieldInfo = new TableField();
         this.allFields.push(fieldInfo);
 
+        const columnName = selectedFieldParms.selField.as !== "" ? selectedFieldParms.selField.as : selectedFieldParms.selField.name;
+
         fieldInfo
             .setColumnTitle(selectedFieldParms.columnTitle)
-            .setColumnName(selectedFieldParms.selField.name)
+            .setColumnName(columnName)
             .setSelectColumn(selectedFieldParms.nextColumnPosition)
             .setCalculatedFormula(selectedFieldParms.selField.name)
             .setSubQueryAst(selectedFieldParms.selField.subQuery)
-            .setIsTempField(selectedFieldParms.isTempField);
+            .setIsTempField(selectedFieldParms.isTempField)
+            .addAlias(selectedFieldParms.selField.as);
 
         this.indexTableField(fieldInfo);
     }

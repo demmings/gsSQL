@@ -4444,6 +4444,71 @@ class SqlTester {
         return this.isEqual("SelectTableSelfJoin", data, expected);
     }
 
+    aliasInOrderBy() {
+        let stmt = "SELECT CONCAT(last_name,', ',first_name) AS full_name FROM authors ORDER BY full_name";
+
+        let data = new TestSql()
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["full_name"],
+        ["Brain, Donald"],
+        ["Dou, Yao"],
+        ["Savelieva, Olga"],
+        ["Smart, Jack"],
+        ["Writer, Ellen"]];
+
+        return this.isEqual("aliasInOrderBy", data, expected);
+    }
+
+    aliasInGroupBy() {
+        let stmt = "SELECT CONCAT(last_name,', ',first_name) AS full_name FROM authors GROUP BY full_name";
+
+        let data = new TestSql()
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["full_name"],
+        ["Brain, Donald"],
+        ["Dou, Yao"],
+        ["Savelieva, Olga"],
+        ["Smart, Jack"],
+        ["Writer, Ellen"]];
+
+        return this.isEqual("aliasInGroupBy", data, expected);
+    }
+
+    aliasInGroupByHaving() {
+        let stmt = "SELECT CONCAT(last_name,', ',first_name) AS full_name FROM authors GROUP BY full_name having full_name = 'Smart, Jack'";
+
+        let data = new TestSql()
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["full_name"],
+        ["Smart, Jack"]];
+
+        return this.isEqual("aliasInGroupByHaving", data, expected);
+    }
+
+    aliasInGroupByHavingLike() {
+        let stmt = "SELECT CONCAT(last_name,', ',first_name) AS full_name FROM authors GROUP BY full_name having full_name like 'S%'";
+
+        let data = new TestSql()
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["full_name"],
+        ["Savelieva, Olga"],
+        ["Smart, Jack"]];
+
+        return this.isEqual("aliasInGroupByHavingLike", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5643,6 +5708,10 @@ function testerSql() {
     result = result && tester.JoinTableNotEqualCondition();
     result = result && tester.JoinTableNotEqualCalcCondition();
     result = result && tester.SelectTableSelfJoin();
+    result = result && tester.aliasInOrderBy();
+    result = result && tester.aliasInGroupBy();
+    result = result && tester.aliasInGroupByHaving();
+    result = result && tester.aliasInGroupByHavingLike();
     //  Not supported (yet)
     // result = result && tester.selectSumMinusSum();
 
