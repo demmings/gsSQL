@@ -2904,9 +2904,9 @@ class CalculatedField {
             let varData = vField.getData(masterRecordID);
 
             if (typeof varData === "string") {
-                varData = varData.replaceAll('\t', ' ')
-                    .replaceAll('\n', ' ')
-                    .replaceAll('\r', ' ');
+                varData = varData.replaceAll(/\t/g, ' ')
+                    .replaceAll(/\n/g, ' ')
+                    .replaceAll(/\r/g, ' ');
                 varData = `'${varData.replaceAll("'", String.raw`\'`)}'`;
             }
             else if (varData instanceof Date) {
