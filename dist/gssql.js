@@ -827,7 +827,7 @@ class TableExtract {
         let fromAst = ast.FROM;
         while (fromAst !== undefined) {
             if (fromAst.isDerived === undefined) {
-                tableSet.set(fromAst.table.toUpperCase(), typeof fromAst.as === 'undefined' ? '' : fromAst.as.toUpperCase());
+                tableSet.set(fromAst.table.toUpperCase(), fromAst.as === undefined ? '' : fromAst.as.toUpperCase());
             }
             else {
                 TableExtract.extractAstTables(fromAst.FROM, tableSet);
@@ -879,12 +879,13 @@ class TableExtract {
      * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesWhereIn(ast, tableSet) {
-        const subQueryTerms = ["IN", "NOT IN", "EXISTS", "NOT EXISTS"]
-        if (ast.WHERE !== undefined && (subQueryTerms.includes(ast.WHERE.operator))) {
+        const subQueryTerms = new Set(["IN", "NOT IN", "EXISTS", "NOT EXISTS"]);
+
+        if (ast.WHERE !== undefined && (subQueryTerms.has(ast.WHERE.operator))) {
             this.extractAstTables(ast.WHERE.right, tableSet);
         }
 
-        if (subQueryTerms.includes(ast.operator)) {
+        if (subQueryTerms.has(ast.operator)) {
             this.extractAstTables(ast.right, tableSet);
         }
     }
@@ -2903,6 +2904,9 @@ class CalculatedField {
             let varData = vField.getData(masterRecordID);
 
             if (typeof varData === "string") {
+                varData = varData.replaceAll('\t', ' ')
+                    .replaceAll('\n', ' ')
+                    .replaceAll('\r', ' ');
                 varData = `'${varData.replaceAll("'", String.raw`\'`)}'`;
             }
             else if (varData instanceof Date) {
@@ -4543,7 +4547,7 @@ class TableFields {
         const fieldInfo = new TableField();
         this.allFields.push(fieldInfo);
 
-        const columnName = selectedFieldParms.selField.as !== "" ? selectedFieldParms.selField.as : selectedFieldParms.selField.name;
+        const columnName = selectedFieldParms.selField.as === "" ? selectedFieldParms.selField.name : selectedFieldParms.selField.as;
 
         fieldInfo
             .setColumnTitle(selectedFieldParms.columnTitle)

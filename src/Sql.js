@@ -841,7 +841,7 @@ class TableExtract {
         let fromAst = ast.FROM;
         while (fromAst !== undefined) {
             if (fromAst.isDerived === undefined) {
-                tableSet.set(fromAst.table.toUpperCase(), typeof fromAst.as === 'undefined' ? '' : fromAst.as.toUpperCase());
+                tableSet.set(fromAst.table.toUpperCase(), fromAst.as === undefined ? '' : fromAst.as.toUpperCase());
             }
             else {
                 TableExtract.extractAstTables(fromAst.FROM, tableSet);
@@ -893,12 +893,13 @@ class TableExtract {
      * @param {Map<String,String>} tableSet - Function updates this map of table names and alias name.
      */
     static getTableNamesWhereIn(ast, tableSet) {
-        const subQueryTerms = ["IN", "NOT IN", "EXISTS", "NOT EXISTS"]
-        if (ast.WHERE !== undefined && (subQueryTerms.includes(ast.WHERE.operator))) {
+        const subQueryTerms = new Set(["IN", "NOT IN", "EXISTS", "NOT EXISTS"]);
+
+        if (ast.WHERE !== undefined && (subQueryTerms.has(ast.WHERE.operator))) {
             this.extractAstTables(ast.WHERE.right, tableSet);
         }
 
-        if (subQueryTerms.includes(ast.operator)) {
+        if (subQueryTerms.has(ast.operator)) {
             this.extractAstTables(ast.right, tableSet);
         }
     }

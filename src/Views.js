@@ -1136,6 +1136,9 @@ class CalculatedField {
             let varData = vField.getData(masterRecordID);
 
             if (typeof varData === "string") {
+                varData = varData.replaceAll('\t', ' ')
+                    .replaceAll('\n', ' ')
+                    .replaceAll('\r', ' ');
                 varData = `'${varData.replaceAll("'", String.raw`\'`)}'`;
             }
             else if (varData instanceof Date) {
@@ -2776,7 +2779,7 @@ class TableFields {
         const fieldInfo = new TableField();
         this.allFields.push(fieldInfo);
 
-        const columnName = selectedFieldParms.selField.as !== "" ? selectedFieldParms.selField.as : selectedFieldParms.selField.name;
+        const columnName = selectedFieldParms.selField.as === "" ? selectedFieldParms.selField.name : selectedFieldParms.selField.as;
 
         fieldInfo
             .setColumnTitle(selectedFieldParms.columnTitle)
