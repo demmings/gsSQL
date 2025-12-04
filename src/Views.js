@@ -1136,9 +1136,9 @@ class CalculatedField {
             let varData = vField.getData(masterRecordID);
 
             if (typeof varData === "string") {
-                varData = varData.replaceAll(/\t/g, ' ')
-                    .replaceAll(/\n/g, ' ')
-                    .replaceAll(/\r/g, ' ');
+                varData = varData.replace(/\t/g, ' ')
+                    .replace(/\n/g, ' ')
+                    .replace(/\r/g, ' ');
                 varData = `'${varData.replaceAll("'", String.raw`\'`)}'`;
             }
             else if (varData instanceof Date) {
@@ -1185,11 +1185,9 @@ class CalculatedField {
                 }
                 myVars += `${aliasName} = ${varData};`;
             }
-            else {
-                if (!variablesDeclared.has(aliasName)) {
-                    myVars += `let ${aliasName} = ${varData};`;
-                    variablesDeclared.set(aliasName, true);
-                }
+            else if (!variablesDeclared.has(aliasName)) {
+                myVars += `let ${aliasName} = ${varData};`;
+                variablesDeclared.set(aliasName, true);
             }
         }
 

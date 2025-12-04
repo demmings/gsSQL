@@ -91,7 +91,6 @@ class GasSql {
         //  We expect:  "tableName", tableData[], ...["tableName", tableData[]], includeColumnOutput, ...bindings
         let i = 0;
         while (i + 1 < parms.length && typeof parms[i] !== 'boolean') {
-            // Logger.log(`Add Table: ${parms[i]}. Items=${parms[i + 1].length}`);
             sqlCmd.addTableData(parms[i], parms[i + 1], 0, true);
             i += 2;
         }
@@ -2904,9 +2903,9 @@ class CalculatedField {
             let varData = vField.getData(masterRecordID);
 
             if (typeof varData === "string") {
-                varData = varData.replaceAll(/\t/g, ' ')
-                    .replaceAll(/\n/g, ' ')
-                    .replaceAll(/\r/g, ' ');
+                varData = varData.replace(/\t/g, ' ')
+                    .replace(/\n/g, ' ')
+                    .replace(/\r/g, ' ');
                 varData = `'${varData.replaceAll("'", String.raw`\'`)}'`;
             }
             else if (varData instanceof Date) {
@@ -2953,11 +2952,9 @@ class CalculatedField {
                 }
                 myVars += `${aliasName} = ${varData};`;
             }
-            else {
-                if (!variablesDeclared.has(aliasName)) {
-                    myVars += `let ${aliasName} = ${varData};`;
-                    variablesDeclared.set(aliasName, true);
-                }
+            else if (!variablesDeclared.has(aliasName)) {
+                myVars += `let ${aliasName} = ${varData};`;
+                variablesDeclared.set(aliasName, true);
             }
         }
 
