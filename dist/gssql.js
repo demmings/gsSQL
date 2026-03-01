@@ -1708,7 +1708,7 @@ class Schema {
             try {
                 fieldVariants = this.getColumnNameVariants(baseColumnName);
             }
-            catch (ex) {
+            catch {
                 throw new Error(`Invalid column title: ${baseColumnName}`);
             }
             const columnName = fieldVariants.columnName;
@@ -3326,7 +3326,7 @@ class SqlServerFunctions {
                     functionString = functionString.replace(args[0], replacement);
                     args = this.parseFunctionArgs(func, functionString);
                 }
-                catch (ex) {
+                catch {
                     throw new Error(`Internal Error. Function is missing. ${func}`);
                 }
             }
@@ -7272,7 +7272,7 @@ class TableData {       //  skipcq: JS-0128
         const lock = LockService.getScriptLock();
         try {
             lock.waitLock(100000); // wait 100 seconds for others' use of the code section and lock to stop and then proceed
-        } catch (e) {
+        } catch {
             throw new Error("Cache lock failed");
         }
 
@@ -7337,7 +7337,7 @@ class TableData {       //  skipcq: JS-0128
                 Logger.log(`Named Range Data Loaded: ${tableNamedRange}. Items=${output.length}`);
             }
         }
-        catch (ex) {
+        catch {
             throw new Error(`Error reading table data: ${tableNamedRange}`);
         }
 
@@ -7373,7 +7373,7 @@ class TableData {       //  skipcq: JS-0128
         const lock = LockService.getScriptLock();
         try {
             lock.waitLock(100000); // wait 100 seconds for others' use of the code section and lock to stop and then proceed
-        } catch (e) {
+        } catch {
             throw new Error("Cache lock failed");
         }
         cache.putAll(putObject, cacheSeconds);
@@ -7521,7 +7521,7 @@ class ScriptSettings {      //  skipcq: JS-0128
         try {
             this.scriptProperties.setProperty(propertyKey, jsonData);
         }
-        catch (ex) {
+        catch {
             throw new Error("Cache Limit Exceeded.  Long cache times have limited storage available.  Only cache small tables for long periods.");
         }
     }
@@ -7615,7 +7615,7 @@ class ScriptSettings {      //  skipcq: JS-0128
             try {
                 propertyValue = JSON.parse(allProperties[key]);
             }
-            catch (e) {
+            catch {
                 //  A property that is NOT cached by CACHEFINANCE
                 continue;
             }

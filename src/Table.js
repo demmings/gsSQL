@@ -482,7 +482,7 @@ class Schema {
             try {
                 fieldVariants = this.getColumnNameVariants(baseColumnName);
             }
-            catch (ex) {
+            catch {
                 throw new Error(`Invalid column title: ${baseColumnName}`);
             }
             const columnName = fieldVariants.columnName;

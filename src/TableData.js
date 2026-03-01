@@ -223,7 +223,7 @@ class TableData {       //  skipcq: JS-0128
         const lock = LockService.getScriptLock();
         try {
             lock.waitLock(100000); // wait 100 seconds for others' use of the code section and lock to stop and then proceed
-        } catch (e) {
+        } catch {
             throw new Error("Cache lock failed");
         }
 
@@ -288,7 +288,7 @@ class TableData {       //  skipcq: JS-0128
                 Logger.log(`Named Range Data Loaded: ${tableNamedRange}. Items=${output.length}`);
             }
         }
-        catch (ex) {
+        catch {
             throw new Error(`Error reading table data: ${tableNamedRange}`);
         }
 
@@ -324,7 +324,7 @@ class TableData {       //  skipcq: JS-0128
         const lock = LockService.getScriptLock();
         try {
             lock.waitLock(100000); // wait 100 seconds for others' use of the code section and lock to stop and then proceed
-        } catch (e) {
+        } catch {
             throw new Error("Cache lock failed");
         }
         cache.putAll(putObject, cacheSeconds);

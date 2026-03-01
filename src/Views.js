@@ -1559,7 +1559,7 @@ class SqlServerFunctions {
                     functionString = functionString.replace(args[0], replacement);
                     args = this.parseFunctionArgs(func, functionString);
                 }
-                catch (ex) {
+                catch {
                     throw new Error(`Internal Error. Function is missing. ${func}`);
                 }
             }
