@@ -17,6 +17,7 @@ class Select2Object {           // skipcq: JS-0128
     constructor() {
         this.tables = [];
         this.bindVariables = [];
+        this.SelectToClass = null;
     }
 
     /**
@@ -40,6 +41,18 @@ class Select2Object {           // skipcq: JS-0128
      */
     addBindVariable(bindVar) {
         this.bindVariables.push(bindVar);
+
+        return this;
+    }
+
+    /**
+     * When creating the object to be returned, rather than assign from an empty object '{}', a new instance
+     * of this class is created instead.
+     * @param {Object} className 
+     * @returns {Select2Object}
+     */
+    selectToClass(className) {
+        this.SelectToClass = className;
 
         return this;
     }
@@ -77,7 +90,7 @@ class Select2Object {           // skipcq: JS-0128
         //  First item in return array is an array of column names.
         const columnNames = Select2Object.cleanupColumnNames(tableDataArray[0]);
 
-        return Select2Object.createTableObjectArray(columnNames, tableDataArray);
+        return Select2Object.createTableObjectArray(columnNames, tableDataArray, this.SelectToClass);
     }
 
     /**
@@ -88,23 +101,26 @@ class Select2Object {           // skipcq: JS-0128
     static cleanupColumnNames(cols) {
         const newColumns = cols.map(v => v.toLowerCase());
         const noTableColumns = [];
+        const duplicateFieldMap = new Map();
 
-        const uniqueTables = new Set();
+        //  Is the field name listed more than once.
+        //  ONLY if a field is duplicated is the table name qualifier included.
         for (const col of newColumns) {
             const splitColumn = col.split(".");
-
-            if (splitColumn.length > 1) {
-                uniqueTables.add(splitColumn[0]);
-                noTableColumns.push(splitColumn[1]);
-            }
-            else {
-                noTableColumns.push(splitColumn[0]);
-            }
+            const fld = (splitColumn.length > 1) ? splitColumn[1] : splitColumn[0];
+            const counter = duplicateFieldMap.has(fld) ? duplicateFieldMap.get(fld) : 0;
+            duplicateFieldMap.set(fld, counter + 1);
         }
 
-        //  Leave the table name in the column since we have two or more tables.
-        if (uniqueTables.size > 1) {
-            return newColumns;
+        for (const col of newColumns) {
+            const splitColumn = col.split(".");
+            const fld = (splitColumn.length > 1) ? splitColumn[1] : splitColumn[0];
+            if (duplicateFieldMap.get(fld) > 1) {
+                noTableColumns.push(col);
+            }
+            else  {
+                noTableColumns.push(fld);
+            }
         }
 
         return noTableColumns;
@@ -200,16 +216,21 @@ class Select2Object {           // skipcq: JS-0128
      * 
      * @param {String[]} columnNames 
      * @param {any[]} tableDataArray 
+     * @param {Object} SelectToClass
      * @returns {Object[]}
      */
-    static createTableObjectArray(columnNames, tableDataArray) {
+    static createTableObjectArray(columnNames, tableDataArray, SelectToClass=null) {
         //  Create empty table record object.
         const emptyTableRecord = Select2Object.createEmptyRecordObject(columnNames);
 
         //  Create table array with record data stored in an object.
         const tableData = [];
         for (let i = 1; i < tableDataArray.length; i++) {
-            const newRecord = {};
+            let newRecord = {};
+            if (SelectToClass !== null) {
+                newRecord = new SelectToClass();
+            }
+
             Object.assign(newRecord, emptyTableRecord);
 
             for (const [index, col] of columnNames.entries()) {

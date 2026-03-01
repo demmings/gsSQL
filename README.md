@@ -296,6 +296,9 @@ gsSQL("select transaction_date, sum(gross), sum(amount) from mastertransactions 
 
 ![Bind Variables](img/example3.png)
 
+# International Users (i.e. non North America)
+  * Date and Time formats will be different, so running 'SQLselfTest()' in SqlTest.js (if installed) will fail on some tests.
+  * The parameter separator may be different in your country.  So the general format for the function **=gsSQL( SelectSqlStatement, [TableDefinitions], [ColumnOutputFlag], [BindVariableData])** where in Canada we use commas between the parameters, it may be different in your region.  For example in Italy, the default is sem-colon (;).  So if you receive a function parse error and the custom function has not even started, this may be the problem.
 ---
 
 # Usage Bonus (for all you GAS lovers)
@@ -348,6 +351,8 @@ let data = new Sql()
         * The column names will be in lower case.  
         * If more than one table is referenced, the column name will be:  "table.column", otherwise it will just be the column name.  
         * Spaces in the column name use the underscore, so something like "Transaction Date" would be referenced as "transaction_date".
+        * selectToClass(className) - use this method to create an array of instances to the specified class, rather than an array of JSON objects.
+          *  Normally the return is an array of JSON objects.  This method will create a new instance of the specified class and do an Object.assign() to it from the JSON object read for each record.
     * When defining each table (addTableData()), you set the name and the data source.  This source can be 
       * a double array of data (with column titles)
       * a sheet name

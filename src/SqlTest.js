@@ -864,15 +864,15 @@ class SqlTester {
             .addTableData("authors", this.authorsTable())
             .execute(stmt);
 
-        let expected = [{ "books.id": "2", "books.title": "Your Trip", "books.type": "translated", "authors.last_name": "Dou", "translators.last_name": "Weng" },
-        { "books.id": "5", "books.title": "Oranges", "books.type": "translated", "authors.last_name": "Savelieva", "translators.last_name": "Davies" },
-        { "books.id": "6", "books.title": "Your Happy Life", "books.type": "translated", "authors.last_name": "Dou", "translators.last_name": "Green" },
-        { "books.id": "7", "books.title": "Applied AI", "books.type": "translated", "authors.last_name": "Smart", "translators.last_name": "Edwards" }];
+        let expected = [{"id":"2","title":"Your Trip","type":"translated","authors.last_name":"Dou","translators.last_name":"Weng"},
+            {"id":"5","title":"Oranges","type":"translated","authors.last_name":"Savelieva","translators.last_name":"Davies"},
+            {"id":"6","title":"Your Happy Life","type":"translated","authors.last_name":"Dou","translators.last_name":"Green"},
+            {"id":"7","title":"Applied AI","type":"translated","authors.last_name":"Smart","translators.last_name":"Edwards"}];
 
         let test1 = this.isEqual("innerJoin2ToObject(a)", data, expected);
 
         data = data.filter(v => v["authors.last_name"] === "Smart");
-        expected = [{ "books.id": "7", "books.title": "Applied AI", "books.type": "translated", "authors.last_name": "Smart", "translators.last_name": "Edwards" }];
+        expected = [{"id":"7","title":"Applied AI","type":"translated","authors.last_name":"Smart","translators.last_name":"Edwards"}];
         let test2 = this.isEqual("innerJoin2ToObject(b)", data, expected);;
 
         return test1 && test2;
