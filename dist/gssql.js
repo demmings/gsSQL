@@ -7385,11 +7385,9 @@ class TableData {       //  skipcq: JS-0128
         // Convert wildcard pattern to a 
         // regular expression pattern
         const regexPattern = new RegExp(
-            "^" +
-            pattern
+            `^${pattern
                 .replace(/\?/g, ".")
-                .replace(/\*/g, ".*") +
-            "$"
+                .replace(/\*/g, ".*")}$`
         );
 
         // Test if the text matches the
