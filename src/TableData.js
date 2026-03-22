@@ -42,7 +42,7 @@ class TableData {       //  skipcq: JS-0128
 
         Logger.log(`loadTableData: ${namedRange}. Seconds=${cacheSeconds}`);
 
-        return  Table.removeEmptyRecordsAtEndOfTable(TableData.getValuesCached(namedRange, cacheSeconds));
+        return Table.removeEmptyRecordsAtEndOfTable(TableData.getValuesCached(namedRange, cacheSeconds));
     }
 
     /**
@@ -265,6 +265,11 @@ class TableData {       //  skipcq: JS-0128
                 if (tableNamedRange.startsWith("'") && tableNamedRange.endsWith("'")) {
                     tableNamedRange = tableNamedRange.substring(1, tableNamedRange.length - 1);
                 }
+
+                if (tableNamedRange.indexOf("*") !== -1) {
+                    return TableData.loadMultipleSheets(tableNamedRange);
+                }
+
                 let sheetHandle = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tableNamedRange);
 
                 //  Actual sheet may have spaces in name.  The SQL must reference that table with
@@ -293,6 +298,54 @@ class TableData {       //  skipcq: JS-0128
         }
 
         return output;
+    }
+
+    /**
+     * First sheet loaded includes first row, every other sheet loaded starts from row 2.
+     * All sheets in wildcard MUST be formatted the same.
+     * @param {String} rangeWildcard - Sheet name with wildcard character '*'
+     * @returns {any[][]}
+     */
+    static loadMultipleSheets(rangeWildcard) {
+        //  Get ALL sheet names.
+        const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets().map((sh) => sh.getName());
+        //  Get all sheet names that match wildcard
+        const matchingSheets = sheets.filter(x => TableData.wildcardMatchRegExp(x, rangeWildcard));
+        //  Get sheet handle for matching sheets.
+        const matchingSheetHandles = matchingSheets.map((sh) => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sh));
+        //  Filter out invalid handles
+        const validSheetHandles = matchingSheetHandles.filter(x => x !== null);
+
+        const output = [];
+        let firstSheet = true;
+        for (const sheetHandle of validSheetHandles) {
+            const lastColumn = sheetHandle.getLastColumn();
+            const lastRow = sheetHandle.getLastRow();
+            const firstRow = firstSheet ? 1 : 2;
+            const sheetData = sheetHandle.getSheetValues(firstRow, 1, lastRow, lastColumn);
+            const cleanData = Table.removeEmptyRecordsAtEndOfTable(sheetData);
+            output.push(...cleanData);
+
+            firstSheet = false;
+        }
+
+        return output;
+    }
+
+    static wildcardMatchRegExp(text, pattern) {
+        // Convert wildcard pattern to a 
+        // regular expression pattern
+        const regexPattern = new RegExp(
+            "^" +
+            pattern
+                .replace(/\?/g, ".")
+                .replace(/\*/g, ".*") +
+            "$"
+        );
+
+        // Test if the text matches the
+        // regular expression pattern
+        return regexPattern.test(text);
     }
 
     /**

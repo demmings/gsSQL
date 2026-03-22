@@ -17,7 +17,7 @@ class Select2Object {           // skipcq: JS-0128
     constructor() {
         this.tables = [];
         this.bindVariables = [];
-        this.SelectToClass = null;
+        this.selectClass = null;
     }
 
     /**
@@ -52,7 +52,7 @@ class Select2Object {           // skipcq: JS-0128
      * @returns {Select2Object}
      */
     selectToClass(className) {
-        this.SelectToClass = className;
+        this.selectClass = className;
 
         return this;
     }
@@ -90,7 +90,7 @@ class Select2Object {           // skipcq: JS-0128
         //  First item in return array is an array of column names.
         const columnNames = Select2Object.cleanupColumnNames(tableDataArray[0]);
 
-        return Select2Object.createTableObjectArray(columnNames, tableDataArray, this.SelectToClass);
+        return Select2Object.createTableObjectArray(columnNames, tableDataArray, this.selectClass);
     }
 
     /**
@@ -216,10 +216,10 @@ class Select2Object {           // skipcq: JS-0128
      * 
      * @param {String[]} columnNames 
      * @param {any[]} tableDataArray 
-     * @param {Object} SelectToClass
+     * @param {Object} SelectClass
      * @returns {Object[]}
      */
-    static createTableObjectArray(columnNames, tableDataArray, SelectToClass=null) {
+    static createTableObjectArray(columnNames, tableDataArray, SelectClass=null) {
         //  Create empty table record object.
         const emptyTableRecord = Select2Object.createEmptyRecordObject(columnNames);
 
@@ -227,8 +227,8 @@ class Select2Object {           // skipcq: JS-0128
         const tableData = [];
         for (let i = 1; i < tableDataArray.length; i++) {
             let newRecord = {};
-            if (SelectToClass !== null) {
-                newRecord = new SelectToClass();
+            if (SelectClass !== null) {
+                newRecord = new SelectClass();
             }
 
             Object.assign(newRecord, emptyTableRecord);
