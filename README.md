@@ -240,6 +240,11 @@ Multiple Left Joins - try doing this using **QUERY** using built in Sheets funct
    * If a table does not encompass an entire sheet or you need to specify a range for the data, a table definition is required.
    * The **Table Definition** syntax supports two different ways to define a table.  If used, you cannot mix the definition syntaxes.
      * **Original syntax.** 
+     * {{"tableName", "range", 0}; {"NameTableB", "rangeTableB", 0}}
+       * Each table is defined within curly brackets.  All tables are contained with a set of curly brackets.
+         * tableName - String. Must match table within SQL select.
+         * range - String. Specifies:  SHEET NAME, or RANGE NAME or A1 notation
+         * cache seconds - Number. deprecated.  Leave as zero.
        * Disadvantage of this syntax: 
          * This syntax will NOT cause the custom function to re-run if table data changes.
          * You will need to force a refresh if your table data has changed.
@@ -266,6 +271,12 @@ Multiple Left Joins - try doing this using **QUERY** using built in Sheets funct
     group by transaction_date pivot account",
      {{"mastertransactions", "Master Transactions!$A$1:$I", 60};{"budgetCategories","budgetIncomeCategories", 3600}}, true)```
       * **New syntax.**.  Recommended format.
+      * "tableName", range
+        * Data pairs to specify every table used.  The table definition ends with TRUE/FALSE (column output) or terminating bracket ')'.
+        * tableName - String.  Must match table in SQL select.
+        * range - named range (not quoted), A1 notation (not quoted) or "NamedRange" (quoted), "sheetName" (quoted) or "sheetName*" Name of sheet with wildcard character (*).  All matching sheets are loaded as one table.
+          * Loading several sheets as one table.  You can use a wildcard in the "RANGE" for the table.  In this case every sheet that starts with 'Master Transactions' will be loaded - for example you have a sheet for each calander year.  The requirement for this however is that each sheet MUST have the same column defintions.
+            * ```=gsSQL("select sum(amount), year(transaction_date) from transactions where expense_category = ?1 and amount < 0 group by year(transaction_date)", "transactions", "Master Transactions*", true, "Utilities - Electricity")```
         * Disadvantage of this syntax:
           * Extremely large tables will fail to load.  Google has a limit on the size of arrays passed into custom functions.
           * If you have a very large table with many columns and many of the columns are not needed within the **SELECT**, you can limit the total amount of data read by just selecting the columns you need when defining the table range, for example:
@@ -274,6 +285,8 @@ Multiple Left Joins - try doing this using **QUERY** using built in Sheets funct
           ```
         * Advantage of this syntax:
           * This syntax WILL automatically trigger the custom function to re-run if table data changes (which keeps results up to date).
+          * If the range is a string, it is not automatically re-run if data changes.
+          * Ranges in a string are loaded within the function, which bypasses the sheets custom function paramter limt on large data sets.
         * Unique Column titles are REQUIRED in the data.
           * The first row of data in the Sheets Range MUST contain titles that will be used as the field name. 
         * Each table requires two entries. This is repeated for each table referenced in the SQL.
