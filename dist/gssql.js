@@ -7386,8 +7386,8 @@ class TableData {       //  skipcq: JS-0128
         // regular expression pattern
         const regexPattern = new RegExp(
             `^${pattern
-                .replace(/\?/g, ".")
-                .replace(/\*/g, ".*")}$`
+                .replaceAll(/\?/g, ".")
+                .replaceAll(/\*/g, ".*")}$`
         );
 
         // Test if the text matches the
