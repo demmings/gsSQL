@@ -266,7 +266,7 @@ class TableData {       //  skipcq: JS-0128
                     tableNamedRange = tableNamedRange.substring(1, tableNamedRange.length - 1);
                 }
 
-                if (tableNamedRange.indexOf("*") !== -1) {
+                if (tableNamedRange.includes("*")) {
                     return TableData.loadMultipleSheets(tableNamedRange);
                 }
 

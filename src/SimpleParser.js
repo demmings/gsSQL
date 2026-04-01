@@ -203,7 +203,7 @@ class SqlParse {
                     let query = newStr.substring(i, endCount + 1);
 
                     // Hide words defined as separator but written inside brackets in the query
-                    query = query.replace(new RegExp(parts_name_escaped.join('|'), 'gi'), replaceFunction);
+                    query = query.replaceAll(new RegExp(parts_name_escaped.join('|'), 'gi'), replaceFunction);
 
                     newStr = newStr.substring(0, i) + query + newStr.substring(endCount + 1);
                 }

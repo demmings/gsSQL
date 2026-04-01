@@ -517,7 +517,7 @@ class Schema {
      * @returns {FieldVariants}
      */
     getColumnNameVariants(colName) {
-        const columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
+        const columnName = colName.trim().toUpperCase().replaceAll(/\s/g, "_");
         const columnNameVariants = [];
 
         if (!columnName.includes(".")) {

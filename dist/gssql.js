@@ -1743,7 +1743,7 @@ class Schema {
      * @returns {FieldVariants}
      */
     getColumnNameVariants(colName) {
-        const columnName = colName.trim().toUpperCase().replace(/\s/g, "_");
+        const columnName = colName.trim().toUpperCase().replaceAll(/\s/g, "_");
         const columnNameVariants = [];
 
         if (!columnName.includes(".")) {
@@ -5912,7 +5912,7 @@ class SqlParse {
                     let query = newStr.substring(i, endCount + 1);
 
                     // Hide words defined as separator but written inside brackets in the query
-                    query = query.replace(new RegExp(parts_name_escaped.join('|'), 'gi'), replaceFunction);
+                    query = query.replaceAll(new RegExp(parts_name_escaped.join('|'), 'gi'), replaceFunction);
 
                     newStr = newStr.substring(0, i) + query + newStr.substring(endCount + 1);
                 }
@@ -7315,7 +7315,7 @@ class TableData {       //  skipcq: JS-0128
                     tableNamedRange = tableNamedRange.substring(1, tableNamedRange.length - 1);
                 }
 
-                if (tableNamedRange.indexOf("*") !== -1) {
+                if (tableNamedRange.includes("*")) {
                     return TableData.loadMultipleSheets(tableNamedRange);
                 }
 
