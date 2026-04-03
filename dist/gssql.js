@@ -566,7 +566,7 @@ class Sql {
             if (args !== null) {
                 const temp = SqlParse.sql2ast(`select ${args[1]} from temp`);
                 if (temp.SELECT.length > 1) {
-                    throw ("Operand should contain 1 column(s)");
+                    throw new Error("Operand should contain 1 column(s)");
                 }
                 ast.SELECT = temp.SELECT;
             }
