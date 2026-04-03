@@ -572,11 +572,20 @@ class Sql {
 
         const firstField = astFields[0].name.toUpperCase();
         if (firstField.startsWith("DISTINCT")) {
+            //  Remove 'DISTINCT' and later add 'GROUP BY'
             astFields[0].name = firstField.replace("DISTINCT", "").trim();
 
-            if (ast['GROUP BY'] === undefined) {
-                ast["GROUP BY"] = astFields.map(astItem => ({ name: astItem.name, as: '' }));
+            //  When DISTINCT is in the syntax of a function like: DISTINCT()
+            const args = SelectTables.parseForFunctions(firstField, "DISTINCT");
+            if (args !== null) {
+                const temp = SqlParse.sql2ast(`select ${args[1]} from temp`);
+                if (temp.SELECT.length > 1) {
+                    throw ("Operand should contain 1 column(s)");
+                }
+                ast.SELECT = temp.SELECT;
             }
+
+            ast["GROUP BY"] = ast.SELECT;
         }
 
         return ast;

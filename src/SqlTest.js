@@ -864,15 +864,15 @@ class SqlTester {
             .addTableData("authors", this.authorsTable())
             .execute(stmt);
 
-        let expected = [{"id":"2","title":"Your Trip","type":"translated","authors.last_name":"Dou","translators.last_name":"Weng"},
-            {"id":"5","title":"Oranges","type":"translated","authors.last_name":"Savelieva","translators.last_name":"Davies"},
-            {"id":"6","title":"Your Happy Life","type":"translated","authors.last_name":"Dou","translators.last_name":"Green"},
-            {"id":"7","title":"Applied AI","type":"translated","authors.last_name":"Smart","translators.last_name":"Edwards"}];
+        let expected = [{ "id": "2", "title": "Your Trip", "type": "translated", "authors.last_name": "Dou", "translators.last_name": "Weng" },
+        { "id": "5", "title": "Oranges", "type": "translated", "authors.last_name": "Savelieva", "translators.last_name": "Davies" },
+        { "id": "6", "title": "Your Happy Life", "type": "translated", "authors.last_name": "Dou", "translators.last_name": "Green" },
+        { "id": "7", "title": "Applied AI", "type": "translated", "authors.last_name": "Smart", "translators.last_name": "Edwards" }];
 
         let test1 = this.isEqual("innerJoin2ToObject(a)", data, expected);
 
         data = data.filter(v => v["authors.last_name"] === "Smart");
-        expected = [{"id":"7","title":"Applied AI","type":"translated","authors.last_name":"Smart","translators.last_name":"Edwards"}];
+        expected = [{ "id": "7", "title": "Applied AI", "type": "translated", "authors.last_name": "Smart", "translators.last_name": "Edwards" }];
         let test2 = this.isEqual("innerJoin2ToObject(b)", data, expected);;
 
         return test1 && test2;
@@ -4509,6 +4509,74 @@ class SqlTester {
         return this.isEqual("aliasInGroupByHavingLike", data, expected);
     }
 
+    distinctWithAggregate() {
+        let stmt = "select distinct(year(date)) from bookreturns";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["YEAR(DATE)"],
+        [2022]];
+
+        return this.isEqual("distinctWithAggregate", data, expected);
+    }
+
+    distinctAsfunction() {
+        let stmt = "select distinct(date) from bookreturns";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["DATE"],
+        ["05/01/2022"],
+        ["05/02/2022"],
+        ["05/03/2022"],
+        ["05/04/2022"]];
+
+        return this.isEqual("distinctAsfunction", data, expected);
+    }
+
+    moreDistinct() {
+        let stmt = "select distinct customer_id, date from bookreturns order by customer_id";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["CUSTOMER_ID", "date"],
+        ["c1", "05/01/2022"],
+        ["c1", "05/02/2022"],
+        ["c1", "05/04/2022"],
+        ["c2", "05/01/2022"],
+        ["c2", "05/04/2022"],
+        ["c3", "05/02/2022"],
+        ["c4", "05/03/2022"]];
+
+        return this.isEqual("moreDistinct", data, expected);
+    }
+
+    moreDistinct2() {
+        let stmt = " select distinct customer_id, year(date) from bookreturns order by customer_id";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["CUSTOMER_ID", "year(date)"],
+        ["c1", 2022],
+        ["c2", 2022],
+        ["c3", 2022],
+        ["c4", 2022]];
+
+        return this.isEqual("moreDistinct2", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5463,6 +5531,23 @@ class SqlTester {
         return this.isFail("badFieldNames1", ex);
     }
 
+    distinctAsfunctionOneColumnOnly() {
+        let stmt = "select distinct(date, customer_id) from bookreturns";
+
+        let ex = "";
+        try {
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("distinctAsfunctionOneColumnOnly", ex);
+    }
+
     viewsToUpperCaseExceptQuoted() {
         const data = SelectTables.toUpperCaseExceptQuoted("stuff(email, 2, 3, 'Cjd') + stuff(email, 2, 3, 'Dd')");
 
@@ -5712,6 +5797,10 @@ function testerSql() {
     result = result && tester.aliasInGroupBy();
     result = result && tester.aliasInGroupByHaving();
     result = result && tester.aliasInGroupByHavingLike();
+    result = result && tester.distinctWithAggregate();
+    result = result && tester.distinctAsfunction();
+    result = result && tester.moreDistinct();
+    result = result && tester.moreDistinct2();
     //  Not supported (yet)
     // result = result && tester.selectSumMinusSum();
 
@@ -5749,6 +5838,7 @@ function testerSql() {
     result = result && tester.pivotGroupByMissing();
     result = result && tester.badUnion1();
     result = result && tester.badFieldNames1();
+    result = result && tester.distinctAsfunctionOneColumnOnly();
 
     //  Sql.js unit tests.
     result = result && tester.parseTableSettings1();

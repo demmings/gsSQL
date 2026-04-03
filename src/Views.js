@@ -458,8 +458,9 @@ class SelectTables {
     * @returns {any[][]} - compressed table data
     */
     groupByFields(astGroupBy, selectedData) {
-        if (selectedData.length === 0)
+        if (selectedData.length === 0) {
             return selectedData;
+        }
 
         //  Sort the least important first, and most important last.
         astGroupBy.reverse();
