@@ -66,13 +66,13 @@ class SqlParse {
         words = words.map(item => SqlParse.protect(item));
 
         //  Protect STRING constants in case the constant itself contains SQL keywords.
-        modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(modifiedQuery, false, SqlParse.protect);
+        modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(modifiedQuery, SqlParse.protect);
 
         const splitParts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
 
         //  Any constants that were protected, need to be converted back to original literal values.
         for (let i = 0; i < splitParts.length; i++) {
-            splitParts[i] = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(splitParts[i], false, SqlParse.unprotect);
+            splitParts[i] = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(splitParts[i], SqlParse.unprotect);
         }
 
         const parts = splitParts.map(part => SqlParse.hideInnerSql(part, words, SqlParse.unprotect));
@@ -230,7 +230,7 @@ class SqlParse {
     static getPositionsOfSqlParts(sqlQuery, sqlKeywords) {
         // Write the position(s) in query of these separators
         const sqlKeywordPostions = [];
-        const modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(sqlQuery, true, null);
+        const modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(sqlQuery, SqlParse.toBlank);
 
         for (const item of sqlKeywords) {
             let pos = 0;
@@ -310,6 +310,10 @@ class SqlParse {
         const length = str.length;
         for (let i = 1; i < length; i = i + 2) result += str[i];
         return result;
+    }
+
+    static toBlank(str) {
+        return ' '.repeat(str.length);
     }
 
     /**
@@ -1367,11 +1371,10 @@ class SelectKeywordAnalysis {
     /**
      * 
      * @param {String} srcString - Source string. Parse and convert any literal string constants in source.
-     * @param {Boolean} withSpace - TRUE - will change literal constant to spaces.  FALSE - uses proFunction to process literal constant.
      * @param {Function} proFuncion - this function is performed on string literal constant.
      * @returns {String} - converted source string.  If no literal constants found, original string is returned.
      */
-    static replaceQuotedConstantWithSpace(srcString, withSpace, proFuncion) {
+    static replaceQuotedConstantWithSpace(srcString, proFuncion) {
         let newString = "";
         let literalConstant = "";
         let inQuote = "";
@@ -1381,30 +1384,31 @@ class SelectKeywordAnalysis {
 
             if (inQuote !== "") {
                 //  Is this the end of string literal?
-                if ((inQuote === "'" && ch === "'") || (inQuote === '"' && ch === '"') || (inQuote === "[" && ch === "]")) {
+                if ((inQuote === ch) || (inQuote === "[" && ch === "]")) {
                     inQuote = "";
-                    newString += withSpace ? literalConstant : proFuncion(literalConstant);
+                    newString += proFuncion(literalConstant);
                     literalConstant = "";
                     newString += ch;
                 }
                 else {
-                    literalConstant += withSpace ? " " : ch;
+                    //  Inside string constant.
+                    literalConstant += ch;
                 }
             }
             else if ("\"'[".includes(ch)) {
                 //  The starting quote.
                 inQuote = ch;
                 newString += ch;
-
             }
             else {
+                //  Outside of any string constant.
                 newString += ch;
             }
         }
 
         //  If no termination quote, we need to just add literal constant as is.
         if (literalConstant !== "") {
-            newString += withSpace ? literalConstant : proFuncion(literalConstant);
+            newString += proFuncion(literalConstant);
         }
 
         return newString;
