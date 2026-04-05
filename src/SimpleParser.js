@@ -66,13 +66,13 @@ class SqlParse {
         words = words.map(item => SqlParse.protect(item));
 
         //  Protect STRING constants in case the constant itself contains SQL keywords.
-        modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(modifiedQuery, SqlParse.protect);
+        modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithStuff(modifiedQuery, SqlParse.protect);
 
         const splitParts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
 
         //  Any constants that were protected, need to be converted back to original literal values.
         for (let i = 0; i < splitParts.length; i++) {
-            splitParts[i] = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(splitParts[i], SqlParse.unprotect);
+            splitParts[i] = SelectKeywordAnalysis.replaceQuotedConstantWithStuff(splitParts[i], SqlParse.unprotect);
         }
 
         const parts = splitParts.map(part => SqlParse.hideInnerSql(part, words, SqlParse.unprotect));
@@ -230,7 +230,7 @@ class SqlParse {
     static getPositionsOfSqlParts(sqlQuery, sqlKeywords) {
         // Write the position(s) in query of these separators
         const sqlKeywordPostions = [];
-        const modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(sqlQuery, SqlParse.toBlank);
+        const modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithStuff(sqlQuery, SqlParse.toBlank);
 
         for (const item of sqlKeywords) {
             let pos = 0;
@@ -1247,7 +1247,6 @@ class SelectKeywordAnalysis {
      */
     static parseForCorrelatedSubQuery(selectField) {
         let subQueryAst = null;
-
         const regExp = /\(\s*(SELECT[\s\S]+)\)/i;
         const matches = regExp.exec(selectField);
 
@@ -1341,36 +1340,12 @@ class SelectKeywordAnalysis {
     /**
      * Search for last occurence of a string that is NOT inside a quoted string literal.
      * @param {String} srcString String to search
-     * @param {String} searchString String to find outside of a string constant.
+     * @param {String} searchString String to find outside of a string constant.  WARNING:  If this search is SPACE(S), function will fail.
      * @returns {Number} -1 indicates search string not found.  Otherwise it is start position of found string.
      */
     static lastIndexOfOutsideLiteral(srcString, searchString) {
-        let index = srcString.indexOf(searchString);
-        if (index === -1) {
-            return index;
-        }
-
-        index = -1;
-        let inQuote = "";
-        for (let i = 0; i < srcString.length; i++) {
-            const ch = srcString.charAt(i);
-
-            if (inQuote !== "") {
-                //  Is this the end of string literal?
-                if ((inQuote === "'" && ch === "'") || (inQuote === '"' && ch === '"') || (inQuote === "[" && ch === "]"))
-                    inQuote = "";
-            }
-            else if ("\"'[".includes(ch)) {
-                //  The starting quote.
-                inQuote = ch;
-            }
-            else if (srcString.substring(i).startsWith(searchString)) {
-                //  Matched search.
-                index = i;
-            }
-        }
-
-        return index;
+        const searchableString = SelectKeywordAnalysis.replaceQuotedConstantWithStuff(srcString, SqlParse.toBlank);
+        return searchableString.lastIndexOf(searchString);
     }
 
     /**
@@ -1379,14 +1354,12 @@ class SelectKeywordAnalysis {
      * @param {Function} proFuncion - this function is performed on string literal constant.
      * @returns {String} - converted source string.  If no literal constants found, original string is returned.
      */
-    static replaceQuotedConstantWithSpace(srcString, proFuncion) {
+    static replaceQuotedConstantWithStuff(srcString, proFuncion) {
         let newString = "";
         let literalConstant = "";
         let inQuote = "";
 
-        for (let i = 0; i < srcString.length; i++) {
-            const ch = srcString.charAt(i);
-
+        for (const ch of srcString) {
             if (inQuote !== "") {
                 //  Is this the end of string literal?
                 if ((inQuote === ch) || (inQuote === "[" && ch === "]")) {
@@ -1412,9 +1385,7 @@ class SelectKeywordAnalysis {
         }
 
         //  If no termination quote, we need to just add literal constant as is.
-        if (literalConstant !== "") {
-            newString += proFuncion(literalConstant);
-        }
+        newString += literalConstant === "" ? '' : proFuncion(literalConstant);
 
         return newString;
     }
