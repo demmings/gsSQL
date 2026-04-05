@@ -6031,6 +6031,11 @@ class SqlParse {
         return result;
     }
 
+    /**
+     * 
+     * @param {String} str 
+     * @returns {String}
+     */
     static toBlank(str) {
         return ' '.repeat(str.length);
     }
