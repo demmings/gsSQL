@@ -65,9 +65,17 @@ class SqlParse {
         let words = parts_name_escaped.slice(0);
         words = words.map(item => SqlParse.protect(item));
 
-        // Split parts and Unhide words previously hidden with protect()
-        const parts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'))
-            .map(part => SqlParse.hideInnerSql(part, words, SqlParse.unprotect));
+        //  Protect STRING constants in case the constant itself contains SQL keywords.
+        modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(modifiedQuery, false, SqlParse.protect);
+
+        const splitParts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
+
+        //  Any constants that were protected, need to be converted back to original literal values.
+        for (let i = 0; i < splitParts.length; i++) {
+            splitParts[i] = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(splitParts[i], false, SqlParse.unprotect);
+        }
+
+        const parts = splitParts.map(part => SqlParse.hideInnerSql(part, words, SqlParse.unprotect));
 
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
@@ -214,15 +222,17 @@ class SqlParse {
 
     /**
      * 
-     * @param {String} modifiedQuery 
-     * @param {String[]} parts_name 
+     * @param {String} sqlQuery 
+     * @param {String[]} sqlKeywords 
      * @returns {String[]}
      */
-    static getPositionsOfSqlParts(modifiedQuery, parts_name) {
-        // Write the position(s) in query of these separators
-        const parts_order = [];
 
-        for (const item of parts_name) {
+    static getPositionsOfSqlParts(sqlQuery, sqlKeywords) {
+        // Write the position(s) in query of these separators
+        const sqlKeywordPostions = [];
+        const modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithSpace(sqlQuery, true, null);
+
+        for (const item of sqlKeywords) {
             let pos = 0;
             let part = 0;
 
@@ -231,8 +241,8 @@ class SqlParse {
                 if (part !== -1) {
                     const realName = item.replace(/^((\w|\s)+?)\s?\(?$/i, SqlParse.realNameCallback);
 
-                    if (parts_order[part] === undefined || parts_order[part].length < realName.length) {
-                        parts_order[part] = realName;	// Position won't be exact because the use of protect()  (above) and unprotect() alter the query string ; but we just need the order :)
+                    if (sqlKeywordPostions[part] === undefined || sqlKeywordPostions[part].length < realName.length) {
+                        sqlKeywordPostions[part] = realName;
                     }
 
                     pos = part + realName.length;
@@ -241,7 +251,7 @@ class SqlParse {
             while (part !== -1);
         };
 
-        return parts_order;
+        return sqlKeywordPostions;
     }
 
     /**
@@ -1331,6 +1341,7 @@ class SelectKeywordAnalysis {
             return index;
         }
 
+        index = -1;
         let inQuote = "";
         for (let i = 0; i < srcString.length; i++) {
             const ch = srcString.charAt(i);
@@ -1351,5 +1362,51 @@ class SelectKeywordAnalysis {
         }
 
         return index;
+    }
+
+    /**
+     * 
+     * @param {String} srcString - Source string. Parse and convert any literal string constants in source.
+     * @param {Boolean} withSpace - TRUE - will change literal constant to spaces.  FALSE - uses proFunction to process literal constant.
+     * @param {Function} proFuncion - this function is performed on string literal constant.
+     * @returns {String} - converted source string.  If no literal constants found, original string is returned.
+     */
+    static replaceQuotedConstantWithSpace(srcString, withSpace, proFuncion) {
+        let newString = "";
+        let literalConstant = "";
+        let inQuote = "";
+
+        for (let i = 0; i < srcString.length; i++) {
+            const ch = srcString.charAt(i);
+
+            if (inQuote !== "") {
+                //  Is this the end of string literal?
+                if ((inQuote === "'" && ch === "'") || (inQuote === '"' && ch === '"') || (inQuote === "[" && ch === "]")) {
+                    inQuote = "";
+                    newString += withSpace ? literalConstant : proFuncion(literalConstant);
+                    literalConstant = "";
+                    newString += ch;
+                }
+                else {
+                    literalConstant += withSpace ? " " : ch;
+                }
+            }
+            else if ("\"'[".includes(ch)) {
+                //  The starting quote.
+                inQuote = ch;
+                newString += ch;
+
+            }
+            else {
+                newString += ch;
+            }
+        }
+
+        //  If no termination quote, we need to just add literal constant as is.
+        if (literalConstant !== "") {
+            newString += withSpace ? literalConstant : proFuncion(literalConstant);
+        }
+
+        return newString;
     }
 }

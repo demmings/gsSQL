@@ -4577,6 +4577,29 @@ class SqlTester {
         return this.isEqual("moreDistinct2", data, expected);
     }
 
+    keywordsInLiteralConstants() {
+        let stmt = "SelecT customer_id as 'Customer From Hell', date as 'select date', 'group by and order by' from bookreturns order by customer_id";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["Customer From Hell", "select date", "'group by and order by'"],
+        ["c1", "05/01/2022", "group by and order by"],
+        ["c1", "05/02/2022", "group by and order by"],
+        ["c1", "05/04/2022", "group by and order by"],
+        ["c2", "05/01/2022", "group by and order by"],
+        ["c2", "05/01/2022", "group by and order by"],
+        ["c2", "05/04/2022", "group by and order by"],
+        ["c3", "05/02/2022", "group by and order by"],
+        ["c4", "05/03/2022", "group by and order by"],
+        ["c4", "05/03/2022", "group by and order by"],
+        ["c4", "05/03/2022", "group by and order by"]];
+
+        return this.isEqual("keywordsInLiteralConstants", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5536,10 +5559,10 @@ class SqlTester {
 
         let ex = "";
         try {
-        let data = new TestSql()
-            .addTableData("bookreturns", this.bookReturnsTable())
-            .enableColumnTitle(true)
-            .execute(stmt);
+            let data = new TestSql()
+                .addTableData("bookreturns", this.bookReturnsTable())
+                .enableColumnTitle(true)
+                .execute(stmt);
         }
         catch (exceptionErr) {
             ex = exceptionErr;
@@ -5801,6 +5824,7 @@ function testerSql() {
     result = result && tester.distinctAsfunction();
     result = result && tester.moreDistinct();
     result = result && tester.moreDistinct2();
+    result = result && tester.keywordsInLiteralConstants();
     //  Not supported (yet)
     // result = result && tester.selectSumMinusSum();
 
