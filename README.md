@@ -428,8 +428,9 @@ let data = new Sql()
   1.  **Library**
        * Add the library to your project.
        * For detailed install notes see:  https://demmings.github.io/gssql/2024/02/15/gsSQL-Library.html
+        * https://script.google.com/macros/library/d/1ZfedAgGG2K5kPLC2NPfe0Kb1xAg-0gvmliR3V8pRNk6DZMTUQyCbMW1W/4
        * The Library Script ID:  
-         * **1ZfedAgGG2K5kPLC2NPfe0Kb1xAg-0gvmliR3V8pRNk6DZMTUQyCbMW1W**
+         * AKfycbwoaCaO7f9vdTlK4GFLQUkNFTnVxPdy0Hx-owl9lH5XL1Hvf-HpzANZRwj22HlsLdbmrA
        * After adding the library, you have access to gsSQL() function in your Google Apps Script javascript code like:  
 ```
 gsSqlLibrary.gsSQL("select * from authorts");
