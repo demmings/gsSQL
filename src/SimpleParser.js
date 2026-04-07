@@ -813,7 +813,14 @@ class CondParser {
         let right = null;
         if (this.currentToken.type === 'group' && (operator === 'EXISTS' || operator === 'NOT EXISTS')) {
             [left, right] = this.parseSelectExistsSubQuery();
-        } else {
+        }
+        else if (this.currentToken.type === 'word' && operator === 'NOT') {
+            // The NOT operator is used in the WHERE clause to return all records that DO NOT match the specified criteria. 
+            // It reverses the result of a condition from true to false and vice-versa.
+            const condition = this.parseConditionExpression();
+            return CondParser.createNotOperatorAstLogic(condition.left, condition.right, condition.operator);
+        } 
+        else {
             right = this.parseBaseExpression(operator);
         }
 
@@ -837,6 +844,33 @@ class CondParser {
             { left: leftNode.left, right: rightNode, operator: secondOp });
 
         return { logic, terms };
+    }
+
+    /**
+     * 
+     * @param {Object} left
+     * @param {Object} right
+     * @param {String} compOp
+     * @returns {Object}
+     */
+    static createNotOperatorAstLogic(left, right, compOp) {
+        const operator = CondParser.negateOperator(compOp);
+        return {operator, left, right};
+    }
+
+    /**
+     * 
+     * @param {String} operator 
+     * @returns {String}
+     */
+    static negateOperator(operator) { 
+        const operatorMap = { 
+            ["="] :  "<>", ["<>"] : "=", ["!="] : "=", [">"] : "<=", ["<"] : ">=", [">="] : "<", ["<="] : ">",
+            ["IS"] : "IS NOT", ["IS NOT"] : "IS", ["LIKE"] : "NOT LIKE", ["NOT LIKE"] : "LIKE",
+            ["IN"] : "NOT IN", ["NOT IN"] : "IN", ["EXISTS"] : "NOT EXISTS", ["NOT EXISTS"] : "EXISTS",
+            ["BETWEEN"] : "NOT BETWEEN", ["NOT BETWEEN"] : "BETWEEN"  
+        }
+        return operatorMap[operator] || operator;
     }
 
     /**

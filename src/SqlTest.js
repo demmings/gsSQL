@@ -4600,6 +4600,60 @@ class SqlTester {
         return this.isEqual("keywordsInLiteralConstants", data, expected);
     }
 
+    whereNOTequal() {
+        let stmt = "select * from books where not type = 'translated'";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected =
+            [["BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID"],
+            ["1", "Time to Grow Up!", "original", "11", "21", ""],
+            ["3", "Lovely Love", "original", "14", "24", ""],
+            ["4", "Dream Your Life", "original", "11", "24", ""],
+            ["8", "My Last Book", "original", "11", "28", ""]];
+
+        return this.isEqual("whereNOTequal", data, expected);
+    }
+
+    whereNOTnotLike() {
+        let stmt = "select * from books where not type not like 'trans%'";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected =
+            [["BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID"],
+            ["2", "Your Trip", "translated", "15", "22", "32"],
+            ["5", "Oranges", "translated", "12", "25", "31"],
+            ["6", "Your Happy Life", "translated", "15", "22", "33"],
+            ["7", "Applied AI", "translated", "13", "23", "34"],
+            ["9", "Book with Mysterious Author", "translated", "1", "23", "34"]];
+
+        return this.isEqual("whereNOTnotLike", data, expected);
+    }
+
+    whereNOTlessThanEqual() {
+        let stmt = "select * from booksales where not price <= 34.95";
+
+        let data = new TestSql()
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected =
+            [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+            ["I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+            ["I7203", "1", "", 1, 90, "05/02/2022"],
+            ["I7204", "2", "C4", 100, 65.49, "05/03/2022"]];
+
+        return this.isEqual("whereNOTlessThanEqual", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5825,6 +5879,9 @@ function testerSql() {
     result = result && tester.moreDistinct();
     result = result && tester.moreDistinct2();
     result = result && tester.keywordsInLiteralConstants();
+    result = result && tester.whereNOTequal();
+    result = result && tester.whereNOTnotLike();
+    result = result && tester.whereNOTlessThanEqual();
     //  Not supported (yet)
     // result = result && tester.selectSumMinusSum();
 
