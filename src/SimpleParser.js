@@ -865,10 +865,10 @@ class CondParser {
      */
     static negateOperator(operator) { 
         const operatorMap = { 
-            ["="] :  "<>", ["<>"] : "=", ["!="] : "=", [">"] : "<=", ["<"] : ">=", [">="] : "<", ["<="] : ">",
-            ["IS"] : "IS NOT", ["IS NOT"] : "IS", ["LIKE"] : "NOT LIKE", ["NOT LIKE"] : "LIKE",
-            ["IN"] : "NOT IN", ["NOT IN"] : "IN", ["EXISTS"] : "NOT EXISTS", ["NOT EXISTS"] : "EXISTS",
-            ["BETWEEN"] : "NOT BETWEEN", ["NOT BETWEEN"] : "BETWEEN"  
+            "=" :  "<>", "<>" : "=", "!=" : "=", ">" : "<=", "<" : ">=", ">=" : "<", "<=" : ">",
+            "IS" : "IS NOT", "IS NOT" : "IS", "LIKE" : "NOT LIKE", "NOT LIKE" : "LIKE",
+            "IN" : "NOT IN", "NOT IN" : "IN", "EXISTS" : "NOT EXISTS", "NOT EXISTS" : "EXISTS",
+            "BETWEEN" : "NOT BETWEEN", "NOT BETWEEN" : "BETWEEN"  
         }
         return operatorMap[operator] || operator;
     }
