@@ -3134,16 +3134,16 @@ class VirtualFields {
     static expandWildcardFields(masterTableInfo, astFields) {
         const expandedFields = [];
 
-        for (let i = 0; i < astFields.length; i++) {
-            if (astFields[i].name === "*" || astFields[i].name.endsWith(".*")) {
+        for (const astFld of astFields) {
+            if (astFld.name === "*" || astFld.name.endsWith(".*")) {
                 //  Replace wildcard will actual field names from master table.
-                const tableName = astFields[i].name === "*" ? "" : astFields[i].name.substring(0, astFields[i].name.length - 2);
+                const tableName = astFld.name === "*" ? "" : astFld.name.substring(0, astFld.name.length - 2);
                 const allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames(tableName);
                 const masterTableFields = allExpandedFields.map(virtualField => ({ name: virtualField }));
                 expandedFields.push(...masterTableFields);
             }
             else {
-                expandedFields.push(astFields[i]);
+                expandedFields.push(astFld);
             }
         }
         return expandedFields;
