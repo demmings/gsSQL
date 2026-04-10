@@ -412,21 +412,25 @@ class Schema {
      * @returns {String[]} - list of all field names with table prefix.
      */
     getAllExtendedNotationFieldNames(aliasName) {
-        /** @type {String[]} */
         const fieldNames = [];
+        aliasName = aliasName.trim().toUpperCase();
         const tableName = aliasName === '' ? this.tableName : aliasName;
+        const flds = Array.from(this.fields.entries()).filter(fld => fld[1] !== null);
 
-        // @ts-ignore
-        for (const [key, value] of this.fields.entries()) {
-            if (value !== null) {
-                const fieldParts = key.split(".");
-                if (fieldNames[value] === undefined ||
-                    (fieldParts.length === 2 && (fieldParts[0] === tableName || this.isDerivedTable)))
-                    fieldNames[value] = key;
+        for (const [key, value] of flds) {
+            const fieldParts = key.split(".");
+            if (fieldParts.length === 2 && fieldParts[0] !== aliasName && aliasName !== '') {
+                continue;
+            }
+
+            //  Normally we would expect a field with and without the table name prefix.  
+            //  If there are two fields with the same name, then we want to use the one with the table name prefix.
+            if (fieldNames[value] === undefined || key.startsWith(`${tableName}.`)) {
+                fieldNames[value] = key;
             }
         }
 
-        return fieldNames;
+        return fieldNames.filter(fld => fld !== undefined);
     }
 
     /**

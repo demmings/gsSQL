@@ -314,6 +314,16 @@ gsSQL("select transaction_date, sum(gross), sum(amount) from mastertransactions 
   * The parameter separator may be different in your country.  So the general format for the function **=gsSQL( SelectSqlStatement, [TableDefinitions], [ColumnOutputFlag], [BindVariableData])** where in Canada we use commas between the parameters, it may be different in your region.  For example in Italy, the default is sem-colon (;).  So if you receive a function parse error and the custom function has not even started, this may be the problem.
 ---
 
+# Loading Errors
+  * If you find that your custom function is constantly getting stuck **Loading**, try changing a GOOGLE DRIVE setting (which helped me alot).
+    * In Chrome, open up **Google Drive**
+    * Go to settings (the gear icon at the top right), and click 'Settings'
+    * Make sure that **Offline** is **NOT** checked.
+    * Exit all your chrome tabs and restart **Google Sheets**.  With any luck, the constant stuck in **Loading** will be reduced. 
+
+---
+
+
 # Usage Bonus (for all you GAS lovers)
 
 1.  The Google **QUERY** is only available as a sheet function and it is not available for use for your javascript functions.

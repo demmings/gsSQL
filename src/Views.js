@@ -1352,18 +1352,21 @@ class VirtualFields {
      * @returns {any[]} - original AST field list PLUS expanded list of fields if '*' was encountered.
      */
     static expandWildcardFields(masterTableInfo, astFields) {
-        for (let i = 0; i < astFields.length; i++) {
-            if (astFields[i].name === "*") {
-                //  Replace wildcard will actual field names from master table.
-                const allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames();
-                const masterTableFields = allExpandedFields.map(virtualField => ({ name: virtualField }));
+        const expandedFields = [];
 
-                astFields.splice(i, 1, ...masterTableFields);
-                break;
+        for (let i = 0; i < astFields.length; i++) {
+            if (astFields[i].name === "*" || astFields[i].name.endsWith(".*")) {
+                //  Replace wildcard will actual field names from master table.
+                const tableName = astFields[i].name === "*" ? "" : astFields[i].name.substring(0, astFields[i].name.length - 2);
+                const allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames(tableName);
+                const masterTableFields = allExpandedFields.map(virtualField => ({ name: virtualField }));
+                expandedFields.push(...masterTableFields);
+            }
+            else {
+                expandedFields.push(astFields[i]);
             }
         }
-
-        return astFields;
+        return expandedFields;
     }
 }
 

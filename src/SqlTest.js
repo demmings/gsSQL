@@ -4654,6 +4654,53 @@ class SqlTester {
         return this.isEqual("whereNOTlessThanEqual", data, expected);
     }
 
+    JoinTableSelectAllAndSelectSome() {
+        let stmt = "select booksales.*, bookreturns.rma from booksales join bookreturns on substr(booksales.customer_id, 2, 1) <> substr(bookreturns.customer_id, 2, 1) where rma = 'Rma001' order by invoice, rma";
+
+        let data = new TestSql()
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .addTableData("booksales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected =
+            [["BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE", "bookreturns.rma"],
+            ["I7201", "8", "C2", 3, 29.95, "05/01/2022", "Rma001"],
+            ["I7201", "7", "C2", 5, 18.99, "05/01/2022", "Rma001"],
+            ["I7202", "9", "C3", 1, 59.99, "05/02/2022", "Rma001"],
+            ["I7203", "1", "", 1, 90, "05/02/2022", "Rma001"],
+            ["I7204", "2", "C4", 100, 65.49, "05/03/2022", "Rma001"],
+            ["I7204", "3", "C4", 150, 24.95, "05/03/2022", "Rma001"],
+            ["I7204", "4", "C4", 50, 19.99, "05/03/2022", "Rma001"],
+            ["I7206", "7", "C2", 100, 17.99, "05/04/2022", "Rma001"]];
+
+        return this.isEqual("JoinTableSelectAllAndSelectSome", data, expected);
+    }
+
+    selectAllFromBothTables() {
+        let stmt = "select books.*, translators.* from books left join translators on books.translator_id = translators.id";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("translators", this.translatorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected =
+            [["BOOKS.ID", "BOOKS.TITLE", "BOOKS.TYPE", "BOOKS.AUTHOR_ID", "BOOKS.EDITOR_ID", "BOOKS.TRANSLATOR_ID", "TRANSLATORS.ID", "TRANSLATORS.FIRST_NAME", "TRANSLATORS.LAST_NAME"],
+            ["1", "Time to Grow Up!", "original", "11", "21", "", null, null, null],
+            ["2", "Your Trip", "translated", "15", "22", "32", "32", "Ling", "Weng"],
+            ["3", "Lovely Love", "original", "14", "24", "", null, null, null],
+            ["4", "Dream Your Life", "original", "11", "24", "", null, null, null],
+            ["5", "Oranges", "translated", "12", "25", "31", "31", "Ira", "Davies"],
+            ["6", "Your Happy Life", "translated", "15", "22", "33", "33", "Kristian", "Green"],
+            ["7", "Applied AI", "translated", "13", "23", "34", "34", "Roman", "Edwards"],
+            ["9", "Book with Mysterious Author", "translated", "1", "23", "34", "34", "Roman", "Edwards"],
+            ["8", "My Last Book", "original", "11", "28", "", null, null, null]];
+
+        return this.isEqual("selectAllFromBothTables", data, expected);
+    }
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5882,6 +5929,8 @@ function testerSql() {
     result = result && tester.whereNOTequal();
     result = result && tester.whereNOTnotLike();
     result = result && tester.whereNOTlessThanEqual();
+    result = result && tester.JoinTableSelectAllAndSelectSome();
+    result = result && tester.selectAllFromBothTables();
     //  Not supported (yet)
     // result = result && tester.selectSumMinusSum();
 

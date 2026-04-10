@@ -1647,21 +1647,25 @@ class Schema {
      * @returns {String[]} - list of all field names with table prefix.
      */
     getAllExtendedNotationFieldNames(aliasName) {
-        /** @type {String[]} */
         const fieldNames = [];
+        aliasName = aliasName.trim().toUpperCase();
         const tableName = aliasName === '' ? this.tableName : aliasName;
+        const flds = Array.from(this.fields.entries()).filter(fld => fld[1] !== null);
 
-        // @ts-ignore
-        for (const [key, value] of this.fields.entries()) {
-            if (value !== null) {
-                const fieldParts = key.split(".");
-                if (fieldNames[value] === undefined ||
-                    (fieldParts.length === 2 && (fieldParts[0] === tableName || this.isDerivedTable)))
-                    fieldNames[value] = key;
+        for (const [key, value] of flds) {
+            const fieldParts = key.split(".");
+            if (fieldParts.length === 2 && fieldParts[0] !== aliasName && aliasName !== '') {
+                continue;
+            }
+
+            //  Normally we would expect a field with and without the table name prefix.  
+            //  If there are two fields with the same name, then we want to use the one with the table name prefix.
+            if (fieldNames[value] === undefined || key.startsWith(`${tableName}.`)) {
+                fieldNames[value] = key;
             }
         }
 
-        return fieldNames;
+        return fieldNames.filter(fld => fld !== undefined);
     }
 
     /**
@@ -3128,18 +3132,21 @@ class VirtualFields {
      * @returns {any[]} - original AST field list PLUS expanded list of fields if '*' was encountered.
      */
     static expandWildcardFields(masterTableInfo, astFields) {
-        for (let i = 0; i < astFields.length; i++) {
-            if (astFields[i].name === "*") {
-                //  Replace wildcard will actual field names from master table.
-                const allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames();
-                const masterTableFields = allExpandedFields.map(virtualField => ({ name: virtualField }));
+        const expandedFields = [];
 
-                astFields.splice(i, 1, ...masterTableFields);
-                break;
+        for (let i = 0; i < astFields.length; i++) {
+            if (astFields[i].name === "*" || astFields[i].name.endsWith(".*")) {
+                //  Replace wildcard will actual field names from master table.
+                const tableName = astFields[i].name === "*" ? "" : astFields[i].name.substring(0, astFields[i].name.length - 2);
+                const allExpandedFields = masterTableInfo.getAllExtendedNotationFieldNames(tableName);
+                const masterTableFields = allExpandedFields.map(virtualField => ({ name: virtualField }));
+                expandedFields.push(...masterTableFields);
+            }
+            else {
+                expandedFields.push(astFields[i]);
             }
         }
-
-        return astFields;
+        return expandedFields;
     }
 }
 
