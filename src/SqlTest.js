@@ -4258,14 +4258,18 @@ class SqlTester {
     }
 
     selectSumMinusSum() {
+        // MySQL does allow sum(quantity) - sum(price), but this does NOT work in gsSQL and I want to support it.
         // let stmt = "select sum(quantity) - sum(price) from booksales";
+
         let stmt = "select sum(quantity - price) from booksales";
         let data = new TestSql()
             .addTableData("booksales", this.bookSalesTable())
             .enableColumnTitle(true)
             .execute(stmt);
 
-        let expected = [["sum(quantity) - sum(price)"], [24.73]];
+        let expected =
+            [["sum(quantity - price)"],
+            [24.730000000000004]];
 
         return this.isEqual("selectSumMinusSum", data, expected);
     }
@@ -4700,6 +4704,47 @@ class SqlTester {
 
         return this.isEqual("selectAllFromBothTables", data, expected);
     }
+
+    orderByColumnAlias() {
+        let stmt = "SELECT books.id, books.title as title, authors.first_name as first, authors.last_name as last FROM books INNER JOIN authors ON books.author_id = authors.id ORDER BY first";
+
+        let data = new TestSql()
+            .addTableData("books", this.bookTable())
+            .addTableData("authors", this.authorsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected =
+
+            [["books.id", "title", "first", "last"],
+            ["3", "Lovely Love", "Donald", "Brain"],
+            ["1", "Time to Grow Up!", "Ellen", "Writer"],
+            ["4", "Dream Your Life", "Ellen", "Writer"],
+            ["8", "My Last Book", "Ellen", "Writer"],
+            ["7", "Applied AI", "Jack", "Smart"],
+            ["5", "Oranges", "Olga", "Savelieva"],
+            ["2", "Your Trip", "Yao", "Dou"],
+            ["6", "Your Happy Life", "Yao", "Dou"]];
+
+        return this.isEqual("orderByColumnAlias", data, expected);
+    }
+
+    groupByAlias() {
+        let stmt = "select customer_id as CID, count(*) from booksales group by CID having count(*) > 1";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["CID", "count(*)"],
+        ["C1", 2],
+        ["C2", 3],
+        ["C4", 3]];
+
+        return this.isEqual("groupByAlias", data, expected);
+    }
+
 
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
@@ -5931,8 +5976,10 @@ function testerSql() {
     result = result && tester.whereNOTlessThanEqual();
     result = result && tester.JoinTableSelectAllAndSelectSome();
     result = result && tester.selectAllFromBothTables();
+    result = result && tester.orderByColumnAlias();
+    result = result && tester.groupByAlias();
     //  Not supported (yet)
-    // result = result && tester.selectSumMinusSum();
+    result = result && tester.selectSumMinusSum();
 
     Logger.log("============================================================================");
 

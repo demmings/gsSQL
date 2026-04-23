@@ -2761,6 +2761,11 @@ class TableFields {
             this.allFields.push(fieldInfo);
         }
 
+        // If there is an alias, add it to the field info.  We want to be able to find this field by alias name in GROUP BY and ORDER BY.
+        if (selectedFieldParms.selField.as !== undefined && selectedFieldParms.selField.as !== '') {
+            fieldInfo.addAlias(selectedFieldParms.selField.as.replaceAll(' ', '_'));
+        }
+
         fieldInfo
             .setAggregateFunction(selectedFieldParms.parsedField.aggregateFunctionName)
             .setColumnTitle(selectedFieldParms.columnTitle)

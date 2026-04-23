@@ -80,15 +80,7 @@ class SqlParse {
         // Analyze parts
         const result = SqlParse.analyzeParts(parts_order, parts);
 
-        if (result.FROM !== undefined && result.FROM.FROM !== undefined && result.FROM.FROM.as !== undefined) {
-            if (result.FROM.FROM.as === '') {
-                throw new Error("Every derived table must have its own alias");
-            }
-
-            //   Subquery FROM creates an ALIAS name, which is then used as FROM table name.
-            result.FROM.table = result.FROM.FROM.as;
-            result.FROM.isDerived = true;
-        }
+        SqlParse.assignDerivedTableNameForSubqueries(result);
 
         return result;
     }
@@ -362,6 +354,22 @@ class SqlParse {
         SqlUnionParse.reorganizeUnions(result);
 
         return result;
+    }
+
+    /**
+     * Modifies AST for subqueries in FROM clause.  Creates an ALIAS name, which is then used as FROM table name.   
+     * @param {Object} result 
+     */
+    static assignDerivedTableNameForSubqueries(result) {
+        if (result.FROM !== undefined && result.FROM.FROM !== undefined && result.FROM.FROM.as !== undefined) {
+            if (result.FROM.FROM.as === '') {
+                throw new Error("Every derived table must have its own alias");
+            }
+
+            //   Subquery FROM creates an ALIAS name, which is then used as FROM table name.
+            result.FROM.table = result.FROM.FROM.as;
+            result.FROM.isDerived = true;
+        }
     }
 
     /**

@@ -321,7 +321,7 @@ class Schema {
         /** @property {String} - Table name. */
         this.tableName = "";
 
-        /** @property {String} - Alias name of table. */
+        /** @property {String[]} - Alias name of table. */
         this.tableAlias = [];
 
         /** @property {any[][]} - Table data double array. */
