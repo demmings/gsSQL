@@ -2309,10 +2309,27 @@ class SelectTables {
         //  Fudge the HAVING to look like a SELECT.
         const astSelect = {};
         astSelect.FROM = { table: this.primaryTable, as: '' };
-        astSelect.SELECT = [{ name: "*" }];
+        astSelect.SELECT = this.havingSelectAst();
         astSelect.WHERE = astHaving;
 
         return inSQL.execute(astSelect);
+    }
+
+    /**
+     * 
+     * @returns {Object[]} - AST SELECT fields for HAVING clause.  
+     * This is needed to execute the HAVING as a SELECT on the grouped data.        
+     */
+    havingSelectAst() {
+        const astFields = [];
+
+        const selectFields = this.tableFields.getSelectFields();
+
+        for (const field of selectFields) {
+            astFields.push({ name: field.columnName, as: field.columnTitle });
+        }
+
+        return astFields;
     }
 
     /**

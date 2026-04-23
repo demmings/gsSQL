@@ -4746,6 +4746,21 @@ class SqlTester {
     }
 
 
+    havingByAlias() {
+        let stmt = "SELECT COUNT(customer_id) AS col2 FROM booksales GROUP BY customer_id HAVING col2 = 2";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected = [["col2"],
+        [2]];
+
+        return this.isEqual("havingByAlias", data, expected);
+    }
+
+
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
         let authors = this.authorsTable();
@@ -5978,6 +5993,7 @@ function testerSql() {
     result = result && tester.selectAllFromBothTables();
     result = result && tester.orderByColumnAlias();
     result = result && tester.groupByAlias();
+    result = result && tester.havingByAlias();
     //  Not supported (yet)
     result = result && tester.selectSumMinusSum();
 
