@@ -44,41 +44,28 @@ class SqlParse {
         const myKeyWords = SqlParse.generateUsedKeywordList(query);
         const [parts_name, parts_name_escaped] = SqlParse.generateSqlSeparatorWords(myKeyWords);
 
-        // Hide words defined as separator but written inside brackets in the query
-        const hiddenQuery = SqlParse.hideInnerSql(query, parts_name_escaped, SqlParse.protect);
-
-        //  Include brackets around separate selects used in things like UNION, INTERSECT...
-        let modifiedQuery = SqlUnionParse.sqlSetStatementSplitter(hiddenQuery);
-
-        //  The SET statement splitter creates a bracketed sub-query, which we need to hide.
-        if (modifiedQuery !== hiddenQuery) {
-            modifiedQuery = SqlParse.hideInnerSql(modifiedQuery, parts_name_escaped, SqlParse.protect);
-        }
+        //  Hide sub-queries and other inner SQL that may contain keywords used for splitting the query,
+        //  to avoid them to be split by mistake.
+        let modifiedQuery = SqlParse.hideSqlParts(query, parts_name_escaped);
 
         // Write the position(s) in query of these separators
         const parts_order = SqlParse.getPositionsOfSqlParts(modifiedQuery, parts_name);
 
         // Delete duplicates (caused, for example, by JOIN and INNER JOIN)
-        SqlParse.removeDuplicateEntries(parts_order);
+        const sqlOrderedKeywords = SqlParse.removeDuplicateEntries(parts_order);
 
         // Generate protected word list to reverse the use of protect()
         let words = parts_name_escaped.slice(0);
         words = words.map(item => SqlParse.protect(item));
 
         //  Protect STRING constants in case the constant itself contains SQL keywords.
-        modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithStuff(modifiedQuery, SqlParse.protect);
+        modifiedQuery = SelectKeywordAnalysis.hideQuotedConstants(modifiedQuery, SqlParse.protect);
 
-        const splitParts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
-
-        //  Any constants that were protected, need to be converted back to original literal values.
-        for (let i = 0; i < splitParts.length; i++) {
-            splitParts[i] = SelectKeywordAnalysis.replaceQuotedConstantWithStuff(splitParts[i], SqlParse.unprotect);
-        }
-
-        const parts = splitParts.map(part => SqlParse.hideInnerSql(part, words, SqlParse.unprotect));
+        //  Any constants/inner SQL that were protected, need to be converted back to original literal values.
+        const parts = SqlParse.unhideSqlParts(modifiedQuery, parts_name_escaped, words);
 
         // Analyze parts
-        const result = SqlParse.analyzeParts(parts_order, parts);
+        const result = SqlParse.analyzeParts(sqlOrderedKeywords, parts);
 
         SqlParse.assignDerivedTableNameForSubqueries(result);
 
@@ -142,7 +129,7 @@ class SqlParse {
     static generateUsedKeywordList(query) {
         const generatedList = new Set();
         // Define which words can act as separator
-        const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
+        const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT', 'USING'];
         const modifiedQuery = query.toUpperCase();
 
         for (const word of keywords) {
@@ -216,13 +203,12 @@ class SqlParse {
      * 
      * @param {String} sqlQuery 
      * @param {String[]} sqlKeywords 
-     * @returns {String[]}
+     * @returns {any[]}
      */
-
     static getPositionsOfSqlParts(sqlQuery, sqlKeywords) {
         // Write the position(s) in query of these separators
         const sqlKeywordPostions = [];
-        const modifiedQuery = SelectKeywordAnalysis.replaceQuotedConstantWithStuff(sqlQuery, SqlParse.toBlank);
+        const modifiedQuery = SelectKeywordAnalysis.hideQuotedConstants(sqlQuery, SqlParse.toBlank);
 
         for (const item of sqlKeywords) {
             let pos = 0;
@@ -265,7 +251,9 @@ class SqlParse {
 
         partsOrder.forEach((item, key) => {
             if (busyUntil > key) {
-                delete partsOrder[key];
+                //  This position is already used by a previous keyword (example: LEFT JOIN, RIGHT JOIN), 
+                // we keep the longest keyword and delete the shorter one.
+                partsOrder[key] = '';                
             }
             else {
                 busyUntil = key + item.length;
@@ -276,6 +264,8 @@ class SqlParse {
                 }
             }
         });
+
+        return partsOrder.filter(item => item !== undefined && item !== '');    
     }
 
     /**
@@ -354,6 +344,44 @@ class SqlParse {
         SqlUnionParse.reorganizeUnions(result);
 
         return result;
+    }
+
+    /**
+     * 
+     * @param {String} query 
+     * @param {String[]} parts_name_escaped 
+     * @returns {String}
+     */
+    static hideSqlParts(query, parts_name_escaped) {
+        // Hide words defined as separator but written inside brackets in the query
+        const hiddenQuery = SqlParse.hideInnerSql(query, parts_name_escaped, SqlParse.protect);
+
+        //  Include brackets around separate selects used in things like UNION, INTERSECT...
+        let modifiedQuery = SqlUnionParse.sqlSetStatementSplitter(hiddenQuery);
+
+        //  The SET THEORY type statement splitter creates a bracketed sub-query, which we need to hide.
+        if (modifiedQuery !== hiddenQuery) {
+            modifiedQuery = SqlParse.hideInnerSql(modifiedQuery, parts_name_escaped, SqlParse.protect);
+        }
+
+        return modifiedQuery;
+    }
+
+    /**
+     * Modifies split parts to unhide constants and inner SQL that were protected before splitting.  
+     * 
+     * @param {String} modifiedQuery 
+     * @param {String[]} parts_name_escaped - List of protected keywords used for splitting the query.
+     * @param {String[]} words - List of protected keywords to reverse the protection in the split parts.
+     */
+    static unhideSqlParts(modifiedQuery, parts_name_escaped, words) {
+        const splitParts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
+
+        for (let i = 0; i < splitParts.length; i++) {
+            splitParts[i] = SelectKeywordAnalysis.hideQuotedConstants(splitParts[i], SqlParse.unprotect);
+        }
+
+        return splitParts.map(part => SqlParse.hideInnerSql(part, words, SqlParse.unprotect));
     }
 
     /**
@@ -827,7 +855,7 @@ class CondParser {
             // It reverses the result of a condition from true to false and vice-versa.
             const condition = this.parseConditionExpression();
             return CondParser.createNotOperatorAstLogic(condition.left, condition.right, condition.operator);
-        } 
+        }
         else {
             right = this.parseBaseExpression(operator);
         }
@@ -863,7 +891,7 @@ class CondParser {
      */
     static createNotOperatorAstLogic(left, right, compOp) {
         const operator = CondParser.negateOperator(compOp);
-        return {operator, left, right};
+        return { operator, left, right };
     }
 
     /**
@@ -871,12 +899,12 @@ class CondParser {
      * @param {String} operator 
      * @returns {String}
      */
-    static negateOperator(operator) { 
-        const operatorMap = { 
-            "=" :  "<>", "<>" : "=", "!=" : "=", ">" : "<=", "<" : ">=", ">=" : "<", "<=" : ">",
-            "IS" : "IS NOT", "IS NOT" : "IS", "LIKE" : "NOT LIKE", "NOT LIKE" : "LIKE",
-            "IN" : "NOT IN", "NOT IN" : "IN", "EXISTS" : "NOT EXISTS", "NOT EXISTS" : "EXISTS",
-            "BETWEEN" : "NOT BETWEEN", "NOT BETWEEN" : "BETWEEN"  
+    static negateOperator(operator) {
+        const operatorMap = {
+            "=": "<>", "<>": "=", "!=": "=", ">": "<=", "<": ">=", ">=": "<", "<=": ">",
+            "IS": "IS NOT", "IS NOT": "IS", "LIKE": "NOT LIKE", "NOT LIKE": "LIKE",
+            "IN": "NOT IN", "NOT IN": "IN", "EXISTS": "NOT EXISTS", "NOT EXISTS": "EXISTS",
+            "BETWEEN": "NOT BETWEEN", "NOT BETWEEN": "BETWEEN"
         }
         return operatorMap[operator] || operator;
     }
@@ -1386,7 +1414,7 @@ class SelectKeywordAnalysis {
      * @returns {Number} -1 indicates search string not found.  Otherwise it is start position of found string.
      */
     static lastIndexOfOutsideLiteral(srcString, searchString) {
-        const searchableString = SelectKeywordAnalysis.replaceQuotedConstantWithStuff(srcString, SqlParse.toBlank);
+        const searchableString = SelectKeywordAnalysis.hideQuotedConstants(srcString, SqlParse.toBlank);
         return searchableString.lastIndexOf(searchString);
     }
 
@@ -1396,7 +1424,7 @@ class SelectKeywordAnalysis {
      * @param {Function} proFuncion - this function is performed on string literal constant.
      * @returns {String} - converted source string.  If no literal constants found, original string is returned.
      */
-    static replaceQuotedConstantWithStuff(srcString, proFuncion) {
+    static hideQuotedConstants(srcString, proFuncion) {
         let newString = "";
         let literalConstant = "";
         let inQuote = "";
