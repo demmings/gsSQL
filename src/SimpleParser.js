@@ -42,30 +42,29 @@ class SqlParse {
 
         // Define which words can act as separator
         const myKeyWords = SqlParse.generateUsedKeywordList(query);
-        const [parts_name, parts_name_escaped] = SqlParse.generateSqlSeparatorWords(myKeyWords);
+        const [querySqlKeywords, querySqlRegexKeywords] = SqlParse.generateSqlSeparatorWords(myKeyWords);
 
         //  Hide sub-queries and other inner SQL that may contain keywords used for splitting the query,
         //  to avoid them to be split by mistake.
-        let modifiedQuery = SqlParse.hideSqlParts(query, parts_name_escaped);
+        const modifiedQuery = SqlParse.hideSqlParts(query, querySqlRegexKeywords);
 
         // Write the position(s) in query of these separators
-        const parts_order = SqlParse.getPositionsOfSqlParts(modifiedQuery, parts_name);
+        const extractedKeywordsByPosition = SqlParse.getPositionsOfSqlParts(modifiedQuery, querySqlKeywords);
 
         // Delete duplicates (caused, for example, by JOIN and INNER JOIN)
-        const sqlOrderedKeywords = SqlParse.removeDuplicateEntries(parts_order);
+        const sqlOrderedKeywords = SqlParse.removeDuplicateEntries(extractedKeywordsByPosition);
 
         // Generate protected word list to reverse the use of protect()
-        let words = parts_name_escaped.slice(0);
-        words = words.map(item => SqlParse.protect(item));
+        const protectedRegexKeywords = querySqlRegexKeywords.map(item => SqlParse.protect(item));
 
         //  Protect STRING constants in case the constant itself contains SQL keywords.
-        modifiedQuery = SelectKeywordAnalysis.hideQuotedConstants(modifiedQuery, SqlParse.protect);
+        const queryWithProtectedConstants = SelectKeywordAnalysis.hideQuotedConstants(modifiedQuery, SqlParse.protect);
 
         //  Any constants/inner SQL that were protected, need to be converted back to original literal values.
-        const parts = SqlParse.unhideSqlParts(modifiedQuery, parts_name_escaped, words);
+        const keywordParameterValues = SqlParse.unhideSqlParts(queryWithProtectedConstants, querySqlRegexKeywords, protectedRegexKeywords);
 
         // Analyze parts
-        const result = SqlParse.analyzeParts(sqlOrderedKeywords, parts);
+        const result = SqlParse.analyzeParts(sqlOrderedKeywords, keywordParameterValues);
 
         SqlParse.assignDerivedTableNameForSubqueries(result);
 
@@ -162,7 +161,7 @@ class SqlParse {
      * 
      * @param {String} str 
      * @param {String[]} parts_name_escaped
-     * @param {Object} replaceFunction
+     * @param {Function} replaceFunction
      */
     static hideInnerSql(str, parts_name_escaped, replaceFunction) {
         if (!str.includes("(") && !str.includes(")")) {
@@ -253,7 +252,7 @@ class SqlParse {
             if (busyUntil > key) {
                 //  This position is already used by a previous keyword (example: LEFT JOIN, RIGHT JOIN), 
                 // we keep the longest keyword and delete the shorter one.
-                partsOrder[key] = '';                
+                partsOrder[key] = '';
             }
             else {
                 busyUntil = key + item.length;
@@ -265,7 +264,7 @@ class SqlParse {
             }
         });
 
-        return partsOrder.filter(item => item !== undefined && item !== '');    
+        return partsOrder.filter(item => item !== undefined && item !== '');
     }
 
     /**
@@ -314,7 +313,6 @@ class SqlParse {
         let j = 0;
         partsOrder.forEach(item => {
             const itemName = item.toUpperCase();
-            j++;
             const selectComponentAst = SelectKeywordAnalysis.analyze(item, parts[j]);
 
             if (result[itemName] === undefined) {
@@ -329,7 +327,7 @@ class SqlParse {
 
                 result[itemName].push(selectComponentAst);
             }
-
+            j++;
         });
 
         // Reorganize joins
@@ -376,12 +374,13 @@ class SqlParse {
      */
     static unhideSqlParts(modifiedQuery, parts_name_escaped, words) {
         const splitParts = modifiedQuery.split(new RegExp(parts_name_escaped.join('|'), 'i'));
+        const revealedParts = [];
 
-        for (let i = 0; i < splitParts.length; i++) {
-            splitParts[i] = SelectKeywordAnalysis.hideQuotedConstants(splitParts[i], SqlParse.unprotect);
+        for (let i = 1; i < splitParts.length; i++) {
+            revealedParts.push(SelectKeywordAnalysis.hideQuotedConstants(splitParts[i], SqlParse.unprotect));
         }
 
-        return splitParts.map(part => SqlParse.hideInnerSql(part, words, SqlParse.unprotect));
+        return revealedParts.map(part => SqlParse.hideInnerSql(part, words, SqlParse.unprotect));
     }
 
     /**
@@ -557,12 +556,7 @@ class CondLexer {
 
     // Read the next character (or return an empty string if cursor is at the end of the source)
     readNextChar() {
-        if (typeof this.source === 'string') {
-            this.currentChar = this.source[this.cursor++] ?? "";
-        }
-        else {
-            this.currentChar = "";
-        }
+        this.currentChar = typeof this.source === 'string' ? this.source[this.cursor++] ?? "" : "";
     }
 
     /**
