@@ -2745,7 +2745,7 @@ class FieldComparisons {
      * 
      * @param {any} leftValue 
      * @param {any} rightValue 
-     * @returns {[any,any]}
+     * @returns {any[]}
      */
     static parmsToUpperCase(leftValue, rightValue) {
         leftValue = typeof leftValue === 'string' ? leftValue.toUpperCase() : leftValue;
@@ -5876,7 +5876,7 @@ class SqlParse {
     static generateUsedKeywordList(query) {
         const generatedList = new Set();
         // Define which words can act as separator
-        const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT', 'USING'];
+        const keywords = ['SELECT', 'FROM', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'WHERE', 'LIMIT', 'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT', 'PIVOT'];
         const modifiedQuery = query.toUpperCase();
 
         for (const word of keywords) {
@@ -6083,13 +6083,43 @@ class SqlParse {
 
         if (result.JOIN !== undefined) {
             for (const [key, item] of result.JOIN.entries()) {
-                result.JOIN[key].cond = CondParser.parse(item.cond);
+                if (result.JOIN[key].isUsing) {
+                    const usingCondition = SqlParse.buildUsingCondition(item.cond, result.JOIN[key].table, result.FROM.table);
+                    result.JOIN[key].cond = CondParser.parse(usingCondition);
+                }
+                else {
+                    result.JOIN[key].cond = CondParser.parse(item.cond);
+                }
             }
         }
 
         SqlUnionParse.reorganizeUnions(result);
 
         return result;
+    }
+
+    /**
+     * join USING is just a shorthand for an ON condition comparing the fields listed in the USING clause.
+     * This builds the condition for the ON clause based on the USING clause and the table names.
+     * @param {String} usingClause 
+     * @param {String} tableA 
+     * @param {String} tableB 
+     * @returns {String}
+     */
+    static buildUsingCondition(usingClause, tableA, tableB) {
+        const temp = SelectTables.parseForFunctions("temp" + usingClause, "temp");
+        if (temp.length < 2 || temp[1].trim() === "") {
+            throw new Error("USING clause must contain at least one field");
+        }
+        const flds = temp[1].split(',').map(item => item.trim());
+
+        let usingCondition = "";
+        for (const fld of flds) {
+            usingCondition += usingCondition === "" ? "" : " AND ";
+            usingCondition += `${tableA}.${fld} = ${tableB}.${fld}`;
+        }
+
+        return usingCondition;
     }
 
     /**
@@ -6935,12 +6965,19 @@ class SelectKeywordAnalysis {
     static allJoins(str) {
         const subqueryAst = this.parseForCorrelatedSubQuery(str);
 
-        const strParts = str.toUpperCase().split(' ON ');
+        let isUsing = false;
+        let strParts = str.toUpperCase().split(' ON ');
+        if (strParts.length === 1) {
+            strParts = str.toUpperCase().split(' USING ');
+            isUsing = strParts.length > 1;
+        }
         const table = strParts[0].split(' AS ');
+
         const joinResult = {};
         joinResult.table = subqueryAst === null ? SelectKeywordAnalysis.trim(table[0]) : subqueryAst;
         joinResult.as = SelectKeywordAnalysis.trim(table[1]) ?? '';
         joinResult.cond = SelectKeywordAnalysis.trim(strParts[1]);
+        joinResult.isUsing = isUsing;
 
         return joinResult;
     }

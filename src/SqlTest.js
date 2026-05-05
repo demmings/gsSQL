@@ -4745,7 +4745,6 @@ class SqlTester {
         return this.isEqual("groupByAlias", data, expected);
     }
 
-
     havingByAlias() {
         let stmt = "SELECT COUNT(customer_id) AS col2 FROM booksales GROUP BY customer_id HAVING col2 = 2";
 
@@ -4760,6 +4759,64 @@ class SqlTester {
         return this.isEqual("havingByAlias", data, expected);
     }
 
+    joinUsing() {
+        let stmt = "select * from bookreturns join booksales using (book_id) order by bookreturns.customer_id, bookreturns.book_id, bookreturns.date";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected =
+            [["BOOKRETURNS.RMA", "BOOKRETURNS.BOOK_ID", "BOOKRETURNS.CUSTOMER_ID", "BOOKRETURNS.QUANTITY", "BOOKRETURNS.PRICE", "BOOKRETURNS.DATE", "BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+            ["rma005", "1", "c1", 1, 90, "05/02/2022", "I7203", "1", "", 1, 90, "05/02/2022"],
+            ["RMA900", "7", "c1", 1, 33.97, "05/04/2022", "I7201", "7", "C2", 5, 18.99, "05/01/2022"],
+            ["RMA900", "7", "c1", 1, 33.97, "05/04/2022", "I7205", "7", "C1", 1, 33.97, "05/04/2022"],
+            ["RMA900", "7", "c1", 1, 33.97, "05/04/2022", "I7206", "7", "C2", 100, 17.99, "05/04/2022"],
+            ["Rma001", "9", "c1", 10, 34.95, "05/01/2022", "I7200", "9", "C1", 10, 34.95, "05/01/2022"],
+            ["Rma001", "9", "c1", 10, 34.95, "05/01/2022", "I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+            ["rmA030", "7", "c2", 5, 18.99, "05/01/2022", "I7201", "7", "C2", 5, 18.99, "05/01/2022"],
+            ["rmA030", "7", "c2", 5, 18.99, "05/01/2022", "I7205", "7", "C1", 1, 33.97, "05/04/2022"],
+            ["rmA030", "7", "c2", 5, 18.99, "05/01/2022", "I7206", "7", "C2", 100, 17.99, "05/04/2022"],
+            ["rma1010", "7", "c2", 100, 17.99, "05/04/2022", "I7201", "7", "C2", 5, 18.99, "05/01/2022"],
+            ["rma1010", "7", "c2", 100, 17.99, "05/04/2022", "I7205", "7", "C1", 1, 33.97, "05/04/2022"],
+            ["rma1010", "7", "c2", 100, 17.99, "05/04/2022", "I7206", "7", "C2", 100, 17.99, "05/04/2022"],
+            ["rma020", "8", "c2", 3, 29.95, "05/01/2022", "I7201", "8", "C2", 3, 29.95, "05/01/2022"],
+            ["RMA040", "9", "c3", 1, 59.99, "05/02/2022", "I7200", "9", "C1", 10, 34.95, "05/01/2022"],
+            ["RMA040", "9", "c3", 1, 59.99, "05/02/2022", "I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+            ["RMA600", "2", "c4", 100, 65.49, "05/03/2022", "I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+            ["Rma701", "3", "c4", 150, 24.95, "05/03/2022", "I7204", "3", "C4", 150, 24.95, "05/03/2022"],
+            ["RmA800", "4", "c4", 50, 19.99, "05/03/2022", "I7204", "4", "C4", 50, 19.99, "05/03/2022"]];
+
+        return this.isEqual("joinUsing", data, expected);
+    }
+
+    joinUsing2() {
+        let stmt = "select * from bookreturns join booksales using (book_id, customer_id)";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .addTableData("bookreturns", this.bookReturnsTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected =
+            [["BOOKRETURNS.RMA", "BOOKRETURNS.BOOK_ID", "BOOKRETURNS.CUSTOMER_ID", "BOOKRETURNS.QUANTITY", "BOOKRETURNS.PRICE", "BOOKRETURNS.DATE", "BOOKSALES.INVOICE", "BOOKSALES.BOOK_ID", "BOOKSALES.CUSTOMER_ID", "BOOKSALES.QUANTITY", "BOOKSALES.PRICE", "BOOKSALES.DATE"],
+            ["Rma001", "9", "c1", 10, 34.95, "05/01/2022", "I7200", "9", "C1", 10, 34.95, "05/01/2022"],
+            ["rma020", "8", "c2", 3, 29.95, "05/01/2022", "I7201", "8", "C2", 3, 29.95, "05/01/2022"],
+            ["rmA030", "7", "c2", 5, 18.99, "05/01/2022", "I7201", "7", "C2", 5, 18.99, "05/01/2022"],
+            ["rmA030", "7", "c2", 5, 18.99, "05/01/2022", "I7206", "7", "C2", 100, 17.99, "05/04/2022"],
+            ["RMA040", "9", "c3", 1, 59.99, "05/02/2022", "I7202", "9", "C3", 1, 59.99, "05/02/2022"],
+            ["RMA600", "2", "c4", 100, 65.49, "05/03/2022", "I7204", "2", "C4", 100, 65.49, "05/03/2022"],
+            ["Rma701", "3", "c4", 150, 24.95, "05/03/2022", "I7204", "3", "C4", 150, 24.95, "05/03/2022"],
+            ["RmA800", "4", "c4", 50, 19.99, "05/03/2022", "I7204", "4", "C4", 50, 19.99, "05/03/2022"],
+            ["RMA900", "7", "c1", 1, 33.97, "05/04/2022", "I7205", "7", "C1", 1, 33.97, "05/04/2022"],
+            ["rma1010", "7", "c2", 100, 17.99, "05/04/2022", "I7201", "7", "C2", 5, 18.99, "05/01/2022"],
+            ["rma1010", "7", "c2", 100, 17.99, "05/04/2022", "I7206", "7", "C2", 100, 17.99, "05/04/2022"]];
+
+        return this.isEqual("joinUsing2", data, expected);
+    }
 
     //  S T A R T   O T H E R   T E S T S
     removeTrailingEmptyRecords() {
@@ -5715,6 +5772,24 @@ class SqlTester {
         return this.isFail("badFieldNames1", ex);
     }
 
+    missingUsingFields() {
+        let stmt = "select * from bookreturns join booksales using ()";
+
+        let ex = "";
+        try {
+            let data = new TestSql()
+                .addTableData("bookSales", this.bookSalesTable())
+                .addTableData("bookreturns", this.bookReturnsTable())
+                .enableColumnTitle(true)
+                .execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("missingUsingFields", ex);
+    }
+
     distinctAsfunctionOneColumnOnly() {
         let stmt = "select distinct(date, customer_id) from bookreturns";
 
@@ -5995,6 +6070,8 @@ function testerSql() {
     result = result && tester.groupByAlias();
     result = result && tester.havingByAlias();
     //  Not supported (yet)
+    result = result && tester.joinUsing();
+    result = result && tester.joinUsing2();
     result = result && tester.selectSumMinusSum();
 
     Logger.log("============================================================================");
@@ -6031,6 +6108,7 @@ function testerSql() {
     result = result && tester.pivotGroupByMissing();
     result = result && tester.badUnion1();
     result = result && tester.badFieldNames1();
+    result = result && tester.missingUsingFields();
     result = result && tester.distinctAsfunctionOneColumnOnly();
 
     //  Sql.js unit tests.

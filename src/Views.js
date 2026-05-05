@@ -965,7 +965,7 @@ class FieldComparisons {
      * 
      * @param {any} leftValue 
      * @param {any} rightValue 
-     * @returns {[any,any]}
+     * @returns {any[]}
      */
     static parmsToUpperCase(leftValue, rightValue) {
         leftValue = typeof leftValue === 'string' ? leftValue.toUpperCase() : leftValue;
