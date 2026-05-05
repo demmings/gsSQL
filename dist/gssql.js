@@ -6107,7 +6107,7 @@ class SqlParse {
      * @returns {String}
      */
     static buildUsingCondition(usingClause, tableA, tableB) {
-        const temp = SelectTables.parseForFunctions("temp" + usingClause, "temp");
+        const temp = SelectTables.parseForFunctions(`temp${usingClause}`, "temp");
         if (temp.length < 2 || temp[1].trim() === "") {
             throw new Error("USING clause must contain at least one field");
         }
