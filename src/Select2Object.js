@@ -118,7 +118,7 @@ class Select2Object {           // skipcq: JS-0128
             if (duplicateFieldMap.get(fld) > 1) {
                 noTableColumns.push(col);
             }
-            else  {
+            else {
                 noTableColumns.push(fld);
             }
         }
@@ -219,7 +219,7 @@ class Select2Object {           // skipcq: JS-0128
      * @param {Object} SelectClass
      * @returns {Object[]}
      */
-    static createTableObjectArray(columnNames, tableDataArray, SelectClass=null) {
+    static createTableObjectArray(columnNames, tableDataArray, SelectClass = null) {
         //  Create empty table record object.
         const emptyTableRecord = Select2Object.createEmptyRecordObject(columnNames);
 

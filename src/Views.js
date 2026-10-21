@@ -706,6 +706,10 @@ class SelectTables {
         else if (SelectTables.isStringConstant(fieldCondition))
             //  String constant
             constantData = SelectTables.extractStringConstant(fieldCondition);
+        else if (SelectTables.isTruthConstant(fieldCondition)) {
+            //  Truth constant
+            constantData = SelectTables.extractTruthConstant(fieldCondition);
+        }
         else if (fieldCondition.startsWith('?')) {
             //  Bind variable data.
             constantData = this.resolveBindData(fieldCondition);
@@ -840,6 +844,15 @@ class SelectTables {
     }
 
     /**
+     * 
+     * @param {*} value 
+     * @returns {Boolean} - Is this string a truth constant (TRUE/FALSE)
+     */
+    static isTruthConstant(value) {
+        return value.toUpperCase() === "TRUE" || value.toUpperCase() === "FALSE";
+    }
+
+    /**
      * Extract the string literal out of condition.  This removes surrounding quotes.
      * @param {String} value - String that encloses literal string data.
      * @returns {String} - String with quotes removed.
@@ -850,6 +863,22 @@ class SelectTables {
 
         if (value.startsWith("'") && value.endsWith("'"))
             return value.replaceAll("'", '');
+
+        return value;
+    }
+    
+    /**
+     * 
+     * @param {*} value 
+     * @returns {any} - If value is TRUE/FALSE, return boolean, otherwise return value.
+     */
+
+    static extractTruthConstant(value) {
+        if (value.toUpperCase() === "TRUE")
+            return true;
+
+        if (value.toUpperCase() === "FALSE")
+            return false;
 
         return value;
     }
