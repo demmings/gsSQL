@@ -1121,7 +1121,7 @@ class SelectKeywordAnalysis {
     static extractSelectField(item, isOrderBy) {
         let order = "";
         if (isOrderBy) {
-            const order_by = /^(.+?)(\s+ASC|DESC)?$/gi;
+            const order_by = /^(.+?)(?:\s+(ASC|DESC))?$/i;
             const orderData = order_by.exec(item);
             if (orderData !== null) {
                 order = orderData[2] === undefined ? "ASC" : SelectKeywordAnalysis.trim(orderData[2]);
