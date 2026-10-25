@@ -18,7 +18,7 @@ jobs:
 
     - name: npm install, make test-coverage
       run: |
-        npm install  --ignore-scripts
+        npm install ci --ignore-scripts
 
 
     - name: Coveralls GitHub Action
