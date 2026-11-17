@@ -1581,7 +1581,7 @@ class SqlServerFunctions {
     convertToJs(calculatedFormula, masterFields) {
         const sqlFunctions = ["ABS", "ADDDATE", "CASE", "CEILING", "CHARINDEX", "COALESCE", "CONCAT", "CONCAT_WS", "CONVERT", "CURDATE",
             "DAY", "DATEDIFF", "FLOOR", "IF", "INSTR", "LAST_DAY", "LEFT", "LEN", "LENGTH", "LOCATE", "LOG", "LOG10", "LOWER",
-            "LTRIM", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
+            "LTRIM", "MAKE_DATE", "MONTH", "NOW", "POWER", "RAND", "REPLICATE", "REVERSE", "RIGHT", "ROUND", "RTRIM",
             "SPACE", "STUFF", "SUBSTR", "SUBSTRING", "SQRT", "TRIM", "UPPER", "YEAR"];
         /** @property {String} - regex to find components of CASE statement. */
         this.matchCaseWhenThenStr = /WHEN(.*?)THEN(.*?)(?=WHEN|ELSE|$)|ELSE(.*?)(?=$)/;
@@ -1834,6 +1834,14 @@ class SqlServerFunctions {
     ltrim(parms) {
         this.referencedTableColumns.push(parms[0]);
         return `${parms[0]}.trimStart()`;
+    }
+
+    /**
+     * @param {String[]} parms 
+     * @returns {String}
+     */
+    make_date(parms) {                            //  skipcq: JS-0105
+        return SqlServerFunctions.make_date(parms);
     }
 
     /**
@@ -2157,6 +2165,21 @@ class SqlServerFunctions {
 
         return SqlServerFunctions.inlineFuncDateInReturn(funcString, "lastDay");
     }
+
+    /**
+     * 
+     * @param {any[]} parms 
+     * @returns 
+     */
+    static make_date(parms) {
+        if (parms.length !== 3) {
+            throw new Error("MAKE_DATE expecting three parameters");
+        }
+
+        const funcString = `makeDate = new Date(${parms[0]}, ${parms[1]} - 1, ${parms[2]})`;
+
+        return SqlServerFunctions.inlineFuncDateInReturn(funcString, "makeDate");
+    }  
 
     /**
      * 

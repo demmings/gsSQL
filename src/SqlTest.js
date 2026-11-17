@@ -4617,6 +4617,25 @@ class SqlTester {
         return this.isEqual("havingByAlias", data, expected);
     }
 
+    makeDate() {
+        let stmt = "SELECT MAKE_DATE(YEAR(date), month(date), 1) as FirstDayOfMonth, date  from booksales order by date desc limit 5";
+
+        let data = new TestSql()
+            .addTableData("bookSales", this.bookSalesTable())
+            .enableColumnTitle(true)
+            .execute(stmt);
+
+        let expected =
+            [["FirstDayOfMonth", "date"],
+            ["2022-05-01T04:00:00.000Z", "05/04/2022"],
+            ["2022-05-01T04:00:00.000Z", "05/04/2022"],
+            ["2022-05-01T04:00:00.000Z", "05/03/2022"],
+            ["2022-05-01T04:00:00.000Z", "05/03/2022"],
+            ["2022-05-01T04:00:00.000Z", "05/03/2022"]];
+
+        return this.isEqual("makeDate", data, expected);
+    }
+
     joinUsing() {
         let stmt = "select * from bookreturns join booksales using (book_id) order by bookreturns.customer_id, bookreturns.book_id, bookreturns.date";
 
@@ -5931,6 +5950,7 @@ function testerSql() {
     result = result && tester.joinUsing();
     result = result && tester.joinUsing2();
     result = result && tester.selectSumMinusSum();
+    result = result && tester.makeDate();
 
     Logger.log("============================================================================");
 
