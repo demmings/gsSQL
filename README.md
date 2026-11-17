@@ -525,6 +525,7 @@ gsSqlLibrary.gsSQL("select * from authorts");
   * "LOG10", 
   * "LOWER",
   * "LTRIM", 
+  * "MAKE_DATE",
   * "MONTH",
   * "NOW", 
   * "POWER", 

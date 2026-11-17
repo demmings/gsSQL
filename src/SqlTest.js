@@ -5684,6 +5684,23 @@ class SqlTester {
         return this.isFail("distinctAsfunctionOneColumnOnly", ex);
     }
 
+    badMakeDate() {
+        let stmt = "select MAKE_DATE(2022, 5) from bookreturns";
+
+        let ex = "";
+        try {
+            let data = new TestSql()
+                .addTableData("bookreturns", this.bookReturnsTable())
+                .enableColumnTitle(true)
+                .execute(stmt);
+        }
+        catch (exceptionErr) {
+            ex = exceptionErr;
+        }
+
+        return this.isFail("badMakeDate", ex);
+    }
+
     viewsToUpperCaseExceptQuoted() {
         const data = SelectTables.toUpperCaseExceptQuoted("stuff(email, 2, 3, 'Cjd') + stuff(email, 2, 3, 'Dd')");
 
@@ -5988,6 +6005,7 @@ function testerSql() {
     result = result && tester.badFieldNames1();
     result = result && tester.missingUsingFields();
     result = result && tester.distinctAsfunctionOneColumnOnly();
+    result = result && tester.badMakeDate();
 
     //  Sql.js unit tests.
     result = result && tester.parseTableSettings1();
